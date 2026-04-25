@@ -52,6 +52,7 @@ public partial class App : System.Windows.Application
             }
         };
         _manager.Start();
+        RepairStartupRegistration();
         ApplyDesktopIconMode();
 
         _trayIcon = CreateTrayIcon(store);
@@ -143,6 +144,23 @@ public partial class App : System.Windows.Application
         if (_manager?.Workspace.Settings.HideDesktopIconsWhenRunning == true)
         {
             HideDesktopIcons();
+        }
+    }
+
+    private void RepairStartupRegistration()
+    {
+        if (_manager?.Workspace.Settings.StartWithWindows != true || StartupAppService.IsEnabled())
+        {
+            return;
+        }
+
+        try
+        {
+            StartupAppService.SetEnabled(true);
+        }
+        catch
+        {
+            // Settings exposes any startup registration problems when the user changes the option.
         }
     }
 

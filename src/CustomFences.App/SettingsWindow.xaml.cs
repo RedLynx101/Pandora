@@ -259,6 +259,20 @@ public partial class SettingsWindow : Window
         OpenPath(path);
     }
 
+    private void StartWithWindows_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRefreshing)
+        {
+            return;
+        }
+
+        var startupStatus = ApplyStartupField();
+        _manager.Save();
+        StatusText.Text = string.IsNullOrWhiteSpace(startupStatus)
+            ? "Startup setting already matched Windows."
+            : startupStatus;
+    }
+
     private void RestoreDockSize_Click(object sender, RoutedEventArgs e)
     {
         if (ZonesList.SelectedItem is not ZoneDefinition zone)
@@ -419,7 +433,7 @@ public partial class SettingsWindow : Window
                 ? string.Empty
                 : enabled ? "Startup app enabled." : "Startup app disabled.";
         }
-        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or IOException or System.Runtime.InteropServices.COMException)
         {
             return $"Startup setting could not be updated: {ex.Message}";
         }

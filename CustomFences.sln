@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{65F47F2A-E5A9-44B4-BA64-036EB9F7578E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomFences.App", "src\CustomFences.App\CustomFences.App.csproj", "{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9042CBFC-FFEE-4434-9123-324184DC5EA8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomFences.Tests", "tests\CustomFences.Tests\CustomFences.Tests.csproj", "{EC2D16A6-4028-4B03-80A9-33DC96A87837}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA} = {65F47F2A-E5A9-44B4-BA64-036EB9F7578E}
+		{EC2D16A6-4028-4B03-80A9-33DC96A87837} = {9042CBFC-FFEE-4434-9123-324184DC5EA8}
+	EndGlobalSection
+EndGlobal

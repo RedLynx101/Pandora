@@ -2,7 +2,7 @@ namespace CustomFences.Core;
 
 public sealed class Workspace
 {
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3;
     public AppSettings Settings { get; set; } = new();
     public List<ZoneDefinition> Zones { get; set; } = [];
     public List<RuleDefinition> Rules { get; set; } = [];
@@ -19,12 +19,23 @@ public sealed class AppSettings
     public string Theme { get; set; } = "Graphite";
     public DropAction DefaultDropAction { get; set; } = DropAction.Copy;
     public bool EnableRuleAutomation { get; set; }
+    public AudioSettings Audio { get; set; } = new();
+}
+
+public sealed class AudioSettings
+{
+    public bool EnableSoundEffects { get; set; }
+    public double SoundEffectsVolume { get; set; } = 0.35;
+    public bool EnableMusicDock { get; set; }
+    public string MusicRootPath { get; set; } = "%USERPROFILE%\\Music\\OrbitDock";
+    public string SoundEffectsPath { get; set; } = "%APPDATA%\\OrbitDock\\Audio\\Sfx";
 }
 
 public sealed class ZoneDefinition
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "New Zone";
+    public ZoneKind Kind { get; set; } = ZoneKind.Standard;
     public bool IsVisible { get; set; } = true;
     public bool IsLocked { get; set; }
     public bool IsCollapsed { get; set; }
@@ -83,10 +94,23 @@ public sealed class RuleCondition
 public sealed class LayoutProfile
 {
     public string Name { get; set; } = "Main";
+    public string ActiveDisplayVariantKey { get; set; } = "default";
     public bool HideDesktopIconsWhenRunning { get; set; } = true;
+    public List<DisplayLayoutVariant> DisplayVariants { get; set; } = [];
     public List<DockLayoutState> DockStates { get; set; } = [];
     public List<DockItemOverride> ItemOverrides { get; set; } = [];
     public List<DesktopPinDefinition> DesktopPins { get; set; } = [];
+}
+
+public sealed class DisplayLayoutVariant
+{
+    public string Key { get; set; } = "default";
+    public string DisplaySignature { get; set; } = "default";
+    public bool IsDefault { get; set; } = true;
+    public DateTime LastSeenUtc { get; set; } = DateTime.UtcNow;
+    public List<DockLayoutState> DockStates { get; set; } = [];
+    public List<DesktopPinDefinition> DesktopPins { get; set; } = [];
+    public MusicDockState Music { get; set; } = new();
 }
 
 public sealed class DockLayoutState
@@ -95,6 +119,7 @@ public sealed class DockLayoutState
     public bool IsVisible { get; set; } = true;
     public bool IsLocked { get; set; }
     public bool IsCollapsed { get; set; }
+    public DockExpansionEdge ExpansionEdge { get; set; } = DockExpansionEdge.Top;
     public string? ActiveTabId { get; set; }
     public ZoneBounds Bounds { get; set; } = new();
 }
@@ -119,6 +144,29 @@ public sealed class DesktopPinDefinition
     public double IconSize { get; set; } = 52;
 }
 
+public sealed class MusicDockState
+{
+    public string SelectedPlaylist { get; set; } = MusicLibraryScanner.AllTracksPlaylistId;
+    public string? SelectedTrackPath { get; set; }
+    public bool Shuffle { get; set; }
+    public MusicRepeatMode Repeat { get; set; } = MusicRepeatMode.None;
+    public double Volume { get; set; } = 0.35;
+}
+
+public sealed class DisplayDescriptor
+{
+    public string DeviceName { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public double BoundsX { get; set; }
+    public double BoundsY { get; set; }
+    public double BoundsWidth { get; set; }
+    public double BoundsHeight { get; set; }
+    public double WorkAreaX { get; set; }
+    public double WorkAreaY { get; set; }
+    public double WorkAreaWidth { get; set; }
+    public double WorkAreaHeight { get; set; }
+}
+
 public sealed class RuleCandidate
 {
     public RuleCandidate(string path)
@@ -140,6 +188,25 @@ public enum DropAction
     Copy,
     Move,
     Shortcut
+}
+
+public enum ZoneKind
+{
+    Standard,
+    Music
+}
+
+public enum DockExpansionEdge
+{
+    Top,
+    Bottom
+}
+
+public enum MusicRepeatMode
+{
+    None,
+    One,
+    All
 }
 
 public enum ItemSort

@@ -68,9 +68,12 @@ Optional settings shortcut:
 - Drag a small test file into a zone and confirm it copies into the underlying folder.
 - Drag an item within a smart dock and confirm the order persists after restart.
 - Drag an item between smart docks and confirm it moves virtually while the real shortcut remains in place.
+- Click the search icon in a dock header, type a partial app name, and confirm results filter and `Esc` clears the search.
+- Set a dock to bottom expansion with `.\scripts\orbitdockctl.ps1 dock set-expansion build bottom`, reload, and confirm it expands upward.
 - Right-click an item, remove it from the dock, and confirm the real file still exists.
 - Pin an item to the desktop overlay, move the pin, restart, and confirm its position persists.
-- Run `.\scripts\orbitdockctl.ps1 layout list` and `.\scripts\orbitdockctl.ps1 workspace validate` while the app is running.
+- Run `.\scripts\orbitdockctl.ps1 layout list`, `layout variants`, and `workspace validate` while the app is running.
+- Enable the music dock with `.\scripts\orbitdockctl.ps1 audio music on`, add a test `.mp3` or `.wav` under `%USERPROFILE%\Music\OrbitDock`, and confirm playlist scanning.
 - Use the tray icon to open settings, reload, set docks behind windows, and exit.
 - Press `Ctrl+Alt+Space` to send docks back behind active windows.
 - Run `.\scripts\show-desktop-icons.ps1` if you ever need to restore the raw Windows desktop icon grid after a crash.

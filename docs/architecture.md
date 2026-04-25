@@ -6,6 +6,8 @@
   - Workspace models
   - JSON storage
   - Layout migration and profile manipulation
+  - Display-variant layout state
+  - Music library scanning
   - Path expansion/compression
   - Rule matching
 - `src/CustomFences.App`
@@ -25,11 +27,11 @@
 1. `App` enforces single-instance startup.
 2. `WorkspaceStore.ForCurrentUser()` loads or creates `%APPDATA%\OrbitDock\workspace.json` and imports the legacy CustomFences path once if needed.
 3. `WorkspaceMigrator` upgrades v1 data into schema v2 with a `Main` layout profile.
-4. `DesktopZoneManager` applies the active layout, creates a `ZoneWindow` for each visible dock, and creates `DesktopPinWindow` overlays for active desktop pins.
+4. `DesktopZoneManager` computes the current display signature, applies the matching layout variant, creates a `ZoneWindow` for each visible dock, and creates `DesktopPinWindow` overlays for active desktop pins.
 5. Each `ZoneWindow` owns a `ZoneViewModel` that enumerates the active folder or smart desktop tab, applies virtual item overrides, and watches underlying folders with `FileSystemWatcher`.
 6. If enabled, `DesktopHost.TryAttach` attempts to parent the zone to the Windows desktop shell surface.
 7. If shell attachment fails, zones remain normal borderless WPF windows that are sent behind normal app windows.
-8. Tray menu, workspace file watching, settings, `orbitdockctl`, and `Ctrl+Alt+Space` operate through `DesktopZoneManager`.
+8. Tray menu, workspace file watching, settings, optional audio, `orbitdockctl`, and `Ctrl+Alt+Space` operate through `DesktopZoneManager`.
 
 ## Persistence
 

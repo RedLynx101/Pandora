@@ -18,6 +18,8 @@ Run from the repository root:
 
 ```powershell
 .\scripts\orbitdockctl.ps1 layout list
+.\scripts\orbitdockctl.ps1 layout variants
+.\scripts\orbitdockctl.ps1 layout use-variant default
 .\scripts\orbitdockctl.ps1 layout save Research
 .\scripts\orbitdockctl.ps1 layout switch Main
 .\scripts\orbitdockctl.ps1 layout duplicate Main Travel
@@ -33,6 +35,7 @@ Dock identifiers are stable IDs such as `launchpad`, `build`, `create`, `play`, 
 .\scripts\orbitdockctl.ps1 dock hide play
 .\scripts\orbitdockctl.ps1 dock show build
 .\scripts\orbitdockctl.ps1 dock set-bounds build 980 455 420 360
+.\scripts\orbitdockctl.ps1 dock set-expansion build bottom
 ```
 
 ## Items
@@ -54,6 +57,14 @@ Desktop pins are OrbitDock overlay icons. They are useful when clean desktop mod
 .\scripts\orbitdockctl.ps1 desktop-pin add "$env:USERPROFILE\Desktop\Steam.lnk" --x 120 --y 220
 .\scripts\orbitdockctl.ps1 desktop-pin list
 .\scripts\orbitdockctl.ps1 desktop-pin remove "$env:USERPROFILE\Desktop\Steam.lnk"
+```
+
+## Audio
+
+```powershell
+.\scripts\orbitdockctl.ps1 audio sfx on
+.\scripts\orbitdockctl.ps1 audio music on
+.\scripts\orbitdockctl.ps1 audio set-music-folder "$env:USERPROFILE\Music\OrbitDock"
 ```
 
 ## Validation and Backups

@@ -13,6 +13,9 @@ var tests = new List<(string Name, Action Body)>
     ("Item order overrides persist", ItemOrderPersistence),
     ("Dock membership overrides persist", DockMembershipPersistence),
     ("Desktop pins persist in active layout", DesktopPinPersistence),
+    ("Display signatures and variants are stable", DisplayVariants),
+    ("Dock search matches name, extension, and path", DockSearch),
+    ("Music scanner handles playlists and unsupported files", MusicScanner),
     ("orbitdockctl validates a workspace", CliValidation)
 };
 
@@ -121,10 +124,10 @@ static void WorkspaceMigration()
         """);
 
     var workspace = new WorkspaceStore(tempPath).LoadOrCreate();
-    Assert(workspace.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Migrated workspace should be schema v2.");
+    Assert(workspace.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Migrated workspace should be schema v3.");
     Assert(workspace.ActiveLayoutName == "Main", "Migration should create Main layout.");
-    Assert(workspace.Layouts.Single().DockStates.Single().DockId == "legacy", "Migration should capture legacy dock state.");
-    Assert(Directory.EnumerateFiles(directory, "*.migrated-v2.bak").Any(), "Migration should back up old JSON.");
+    Assert(workspace.Layouts.Single().DisplayVariants.Single().DockStates.Single().DockId == "legacy", "Migration should capture legacy dock state.");
+    Assert(Directory.EnumerateFiles(directory, "*.migrated-v3.bak").Any(), "Migration should back up old JSON.");
 }
 
 static void LayoutSwitching()
@@ -186,9 +189,60 @@ static void DesktopPinPersistence()
     store.Save(workspace);
 
     var loaded = store.LoadOrCreate();
-    var pin = WorkspaceLayoutService.EnsureActiveLayout(loaded).DesktopPins.Single();
+    var pin = WorkspaceLayoutService.EnsureActiveDisplayVariant(loaded).DesktopPins.Single();
     Assert(WorkspaceLayoutService.PathsEqual(pin.Path, path), "Desktop pin path should persist.");
     Assert(Math.Abs(pin.X - 50) < 0.1 && Math.Abs(pin.Y - 60) < 0.1, "Desktop pin position should persist.");
+}
+
+static void DisplayVariants()
+{
+    var workspace = WorkspaceFactory.CreateDefault();
+    var display = new DisplayDescriptor
+    {
+        DeviceName = @"\\.\DISPLAY1",
+        IsPrimary = true,
+        BoundsX = 0,
+        BoundsY = 0,
+        BoundsWidth = 800,
+        BoundsHeight = 600,
+        WorkAreaX = 0,
+        WorkAreaY = 0,
+        WorkAreaWidth = 800,
+        WorkAreaHeight = 560
+    };
+    var signature = WorkspaceLayoutService.ComputeDisplaySignature([display]);
+    Assert(signature == WorkspaceLayoutService.ComputeDisplaySignature([display]), "Display signature should be stable.");
+    var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
+    workspace.Zones[0].Bounds.X = 10_000;
+    workspace.Zones[0].Bounds.Y = 10_000;
+    WorkspaceLayoutService.CaptureZoneState(workspace, workspace.Zones[0], null);
+    var variant = WorkspaceLayoutService.UseDisplayVariant(workspace, key, signature, [display]);
+    var state = variant.DockStates.First(state => state.DockId == workspace.Zones[0].Id);
+    Assert(state.Bounds.X < 800 && state.Bounds.Y < 600, "Unknown display variant should clamp dock bounds.");
+    Assert(WorkspaceLayoutService.EnsureActiveLayout(workspace).DisplayVariants.Count >= 2, "Using a monitor signature should create a reusable display variant.");
+}
+
+static void DockSearch()
+{
+    Assert(DockSearchMatcher.Matches("Visual Studio Code", "lnk", @"C:\Users\Noah\Desktop\Code.lnk", "studio"), "Search should match display name.");
+    Assert(DockSearchMatcher.Matches("Report", "pdf", @"C:\Temp\Report.pdf", "PDF"), "Search should match extension.");
+    Assert(DockSearchMatcher.Matches("Tool", "exe", @"C:\Dev\OrbitDock\tool.exe", "orbitdock"), "Search should match path.");
+    Assert(!DockSearchMatcher.Matches("Tool", "exe", @"C:\Dev\tool.exe", "music"), "Search should reject unrelated text.");
+}
+
+static void MusicScanner()
+{
+    var root = Path.Combine(Path.GetTempPath(), "CustomFences.Tests", Guid.NewGuid().ToString("N"), "Music");
+    Directory.CreateDirectory(root);
+    Directory.CreateDirectory(Path.Combine(root, "Focus", "Deep"));
+    File.WriteAllText(Path.Combine(root, "root.mp3"), string.Empty);
+    File.WriteAllText(Path.Combine(root, "Focus", "Deep", "space.wav"), string.Empty);
+    File.WriteAllText(Path.Combine(root, "Focus", "notes.txt"), string.Empty);
+
+    var library = MusicLibraryScanner.Scan(root);
+    Assert(library.Playlists.Any(playlist => playlist.Id == MusicLibraryScanner.AllTracksPlaylistId), "Scanner should include All Tracks.");
+    Assert(library.Playlists.Any(playlist => playlist.Id == "Focus/Deep"), "Scanner should include nested playlist folder.");
+    Assert(library.Playlists.Single(playlist => playlist.Id == MusicLibraryScanner.AllTracksPlaylistId).Tracks.Count == 2, "Scanner should skip unsupported files.");
 }
 
 static void CliValidation()
@@ -196,6 +250,15 @@ static void CliValidation()
     var tempPath = Path.Combine(Path.GetTempPath(), "CustomFences.Tests", Guid.NewGuid().ToString("N"), "workspace.json");
     new WorkspaceStore(tempPath).Save(WorkspaceFactory.CreateDefault());
     var repoRoot = FindRepoRoot();
+    RunCli(repoRoot, tempPath, ["workspace", "validate"], "OK");
+    RunCli(repoRoot, tempPath, ["dock", "set-expansion", "build", "bottom"], "bottom");
+    RunCli(repoRoot, tempPath, ["layout", "variants"], "default");
+    RunCli(repoRoot, tempPath, ["audio", "sfx", "off"], "disabled");
+    RunCli(repoRoot, tempPath, ["audio", "music", "off"], "disabled");
+}
+
+static void RunCli(string repoRoot, string workspacePath, string[] command, string expectedOutput)
+{
     var startInfo = new ProcessStartInfo("dotnet")
     {
         WorkingDirectory = repoRoot,
@@ -208,16 +271,18 @@ static void CliValidation()
     startInfo.ArgumentList.Add(Path.Combine(repoRoot, "src", "OrbitDock.Cli", "OrbitDock.Cli.csproj"));
     startInfo.ArgumentList.Add("--");
     startInfo.ArgumentList.Add("--workspace");
-    startInfo.ArgumentList.Add(tempPath);
-    startInfo.ArgumentList.Add("workspace");
-    startInfo.ArgumentList.Add("validate");
+    startInfo.ArgumentList.Add(workspacePath);
+    foreach (var arg in command)
+    {
+        startInfo.ArgumentList.Add(arg);
+    }
 
     using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start orbitdockctl test.");
     var output = process.StandardOutput.ReadToEnd();
     var error = process.StandardError.ReadToEnd();
     process.WaitForExit(30_000);
-    Assert(process.ExitCode == 0, $"CLI validate failed: {output} {error}");
-    Assert(output.Contains("OK", StringComparison.OrdinalIgnoreCase), "CLI validate should report OK.");
+    Assert(process.ExitCode == 0, $"CLI command failed: {string.Join(' ', command)} {output} {error}");
+    Assert(output.Contains(expectedOutput, StringComparison.OrdinalIgnoreCase), $"CLI output should contain {expectedOutput}.");
 }
 
 static string FindRepoRoot()

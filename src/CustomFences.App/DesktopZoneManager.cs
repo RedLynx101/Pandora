@@ -30,16 +30,20 @@ public sealed class DesktopZoneManager : IDisposable
             _reloadTimer.Stop();
             Reload();
         };
+        Audio = new OrbitAudioService();
+        Audio.MusicEnded += (_, _) => OnMusicEnded();
     }
 
     public event Action<bool>? CleanDesktopModeChanged;
+    public event Action? MusicEnded;
 
     public Workspace Workspace { get; private set; }
     public string WorkspacePath => _store.WorkspacePath;
+    public OrbitAudioService Audio { get; }
 
     public void Start()
     {
-        WorkspaceLayoutService.ApplyActiveLayoutToZones(Workspace);
+        ApplyCurrentDisplayVariant();
         OpenZoneWindows();
         OpenDesktopPins();
         StartWorkspaceWatcher();
@@ -58,7 +62,7 @@ public sealed class DesktopZoneManager : IDisposable
         try
         {
             Workspace = _store.LoadOrCreate();
-            WorkspaceLayoutService.ApplyActiveLayoutToZones(Workspace);
+            ApplyCurrentDisplayVariant();
             OpenZoneWindows();
             OpenDesktopPins();
             _settingsWindow?.RefreshFromWorkspace();
@@ -88,23 +92,23 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void RemoveDesktopPin(DesktopPinDefinition pin)
     {
-        var layout = WorkspaceLayoutService.EnsureActiveLayout(Workspace);
-        layout.DesktopPins.Remove(pin);
+        var variant = WorkspaceLayoutService.EnsureActiveDisplayVariant(Workspace);
+        variant.DesktopPins.Remove(pin);
         Save();
         ReloadDesktopPins();
     }
 
     public void RemoveDesktopPin(string pinId)
     {
-        var layout = WorkspaceLayoutService.EnsureActiveLayout(Workspace);
-        var pin = layout.DesktopPins.FirstOrDefault(candidate =>
+        var variant = WorkspaceLayoutService.EnsureActiveDisplayVariant(Workspace);
+        var pin = variant.DesktopPins.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, pinId, StringComparison.OrdinalIgnoreCase));
         if (pin is null)
         {
             return;
         }
 
-        layout.DesktopPins.Remove(pin);
+        variant.DesktopPins.Remove(pin);
         Save();
         ReloadDesktopPins();
     }
@@ -147,6 +151,26 @@ public sealed class DesktopZoneManager : IDisposable
         {
             window.SetPeek(_isPeekVisible);
         }
+        ApplyDockLayering();
+    }
+
+    public void ApplyDockLayering()
+    {
+        foreach (var window in _windows.Where(window => !window.IsCollapsed))
+        {
+            DockWindowLayer.SendBehindNormalWindows(window);
+        }
+
+        foreach (var window in _windows.Where(window => window.IsCollapsed))
+        {
+            DockWindowLayer.SendBehindNormalWindows(window);
+        }
+    }
+
+    public void SaveAudioSettings()
+    {
+        Save();
+        _settingsWindow?.RefreshFromWorkspace();
     }
 
     public void Dispose()
@@ -156,6 +180,7 @@ public sealed class DesktopZoneManager : IDisposable
         CloseZoneWindows();
         CloseDesktopPins();
         _settingsWindow?.Close();
+        Audio.Dispose();
     }
 
     private void OpenZoneWindows()
@@ -186,8 +211,8 @@ public sealed class DesktopZoneManager : IDisposable
 
     private void OpenDesktopPins()
     {
-        var layout = WorkspaceLayoutService.EnsureActiveLayout(Workspace);
-        foreach (var pin in layout.DesktopPins)
+        var variant = WorkspaceLayoutService.EnsureActiveDisplayVariant(Workspace);
+        foreach (var pin in variant.DesktopPins)
         {
             var window = new DesktopPinWindow(pin, this);
             _pinWindows.Add(window);
@@ -243,5 +268,24 @@ public sealed class DesktopZoneManager : IDisposable
             _reloadTimer.Stop();
             _reloadTimer.Start();
         });
+    }
+
+    private void ApplyCurrentDisplayVariant()
+    {
+        var displays = DisplaySnapshotProvider.GetDisplays();
+        var signature = WorkspaceLayoutService.ComputeDisplaySignature(displays);
+        var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
+        WorkspaceLayoutService.UseDisplayVariant(Workspace, key, signature, displays);
+        WorkspaceLayoutService.CaptureAllZoneStates(Workspace);
+        _store.Save(Workspace);
+        if (File.Exists(_store.WorkspacePath))
+        {
+            _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
+        }
+    }
+
+    private void OnMusicEnded()
+    {
+        _dispatcher.BeginInvoke(() => MusicEnded?.Invoke());
     }
 }

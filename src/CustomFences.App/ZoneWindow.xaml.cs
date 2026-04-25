@@ -33,21 +33,26 @@ public partial class ZoneWindow : Window
         _manager = manager;
         DataContext = viewModel;
         _expandedHeight = Math.Max(viewModel.Zone.Bounds.Height, 180);
+        _manager.MusicEnded += Manager_MusicEnded;
     }
+
+    public bool IsCollapsed => _viewModel.Zone.IsCollapsed;
 
     public void SetPeek(bool visible)
     {
         Topmost = false;
         Show();
-        DockWindowLayer.SendBehindNormalWindows(this);
+        _manager.ApplyDockLayering();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         ApplyPlacement();
         RenderTabs();
+        RenderMusicControls();
+        ApplyExpansionEdgeLayout();
         ApplyCollapsedState();
-        Dispatcher.BeginInvoke(() => DockWindowLayer.SendBehindNormalWindows(this));
+        Dispatcher.BeginInvoke(() => _manager.ApplyDockLayering());
     }
 
     private void Window_SourceInitialized(object sender, EventArgs e)
@@ -57,12 +62,12 @@ public partial class ZoneWindow : Window
             DesktopHost.TryAttach(this);
         }
 
-        DockWindowLayer.SendBehindNormalWindows(this);
+        _manager.ApplyDockLayering();
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
-        DockWindowLayer.SendBehindNormalWindows(this);
+        _manager.ApplyDockLayering();
     }
 
     private void Window_PlacementChanged(object sender, EventArgs e)
@@ -73,7 +78,9 @@ public partial class ZoneWindow : Window
         }
 
         _viewModel.Zone.Bounds.X = Left;
-        _viewModel.Zone.Bounds.Y = Top;
+        _viewModel.Zone.Bounds.Y = _viewModel.Zone.IsCollapsed && _viewModel.ExpansionEdge == DockExpansionEdge.Bottom
+            ? Top + Height - _expandedHeight
+            : Top;
         _viewModel.Zone.Bounds.Width = Width;
         if (!_viewModel.Zone.IsCollapsed)
         {
@@ -86,6 +93,15 @@ public partial class ZoneWindow : Window
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.OriginalSource is DependencyObject source &&
+            (FindAncestor<ButtonBase>(source) is not null ||
+             FindAncestor<TextBox>(source) is not null ||
+             FindAncestor<ComboBox>(source) is not null ||
+             FindAncestor<Slider>(source) is not null))
+        {
+            return;
+        }
+
         if (e.ClickCount == 2)
         {
             ToggleCollapsed();
@@ -106,17 +122,19 @@ public partial class ZoneWindow : Window
             // DragMove throws if Windows cancels the drag. The next drag can still succeed.
         }
 
-        DockWindowLayer.SendBehindNormalWindows(this);
+        _manager.ApplyDockLayering();
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.Refresh();
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "refresh");
     }
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
         OpenPath(_viewModel.SelectedFolderPath);
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "item-open");
     }
 
     private void Collapse_Click(object sender, RoutedEventArgs e)
@@ -165,7 +183,7 @@ public partial class ZoneWindow : Window
                 }
 
                 e.Effects = DragDropEffects.Move;
-                DockWindowLayer.SendBehindNormalWindows(this);
+                _manager.ApplyDockLayering();
             }
 
             e.Handled = true;
@@ -200,8 +218,53 @@ public partial class ZoneWindow : Window
         {
             OpenPath(item.Path);
             ItemsList.SelectedItem = null;
-            DockWindowLayer.SendBehindNormalWindows(this);
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "item-open");
+            _manager.ApplyDockLayering();
         }
+    }
+
+    private void Search_Click(object sender, RoutedEventArgs e)
+    {
+        var willOpen = SearchBox.Visibility != Visibility.Visible;
+        SearchBox.Visibility = willOpen ? Visibility.Visible : Visibility.Collapsed;
+        DockTitlePanel.Visibility = willOpen ? Visibility.Collapsed : Visibility.Visible;
+        if (willOpen)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "search-open");
+        }
+        else
+        {
+            SearchBox.Text = string.Empty;
+            _viewModel.ClearSearch();
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "search-close");
+        }
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _viewModel.SearchQuery = SearchBox.Text;
+        if (!string.IsNullOrWhiteSpace(SearchBox.Text))
+        {
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "search-typing");
+        }
+    }
+
+    private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        SearchBox.Text = string.Empty;
+        SearchBox.Visibility = Visibility.Collapsed;
+        DockTitlePanel.Visibility = Visibility.Visible;
+        _viewModel.ClearSearch();
+        ItemsList.SelectedItem = null;
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "search-close");
+        e.Handled = true;
     }
 
     private void ItemsList_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -284,7 +347,8 @@ public partial class ZoneWindow : Window
         {
             OpenPath(item.Path);
             ItemsList.SelectedItem = null;
-            DockWindowLayer.SendBehindNormalWindows(this);
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "item-open");
+            _manager.ApplyDockLayering();
         }
     }
 
@@ -329,6 +393,58 @@ public partial class ZoneWindow : Window
         ItemsList.SelectedItem = null;
     }
 
+    private void MusicPrevious_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PlayPreviousTrack();
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-previous");
+    }
+
+    private void MusicPlayPause_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.ToggleMusicPlayback();
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-play");
+    }
+
+    private void MusicNext_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.PlayNextTrack();
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-next");
+    }
+
+    private void MusicMute_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.MusicVolume = _viewModel.MusicVolume > 0 ? 0 : 0.35;
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-mute");
+    }
+
+    private void MusicTracksList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        _viewModel.PlaySelectedTrack();
+    }
+
+    private void OpenMusicFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PathExpander.Expand(_manager.Workspace.Settings.Audio.MusicRootPath);
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch
+        {
+            // Explorer can still try to open the parent if creation fails.
+        }
+
+        OpenPath(path);
+    }
+
+    private void RepeatComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RepeatComboBox.SelectedItem is MusicRepeatMode mode)
+        {
+            _viewModel.MusicRepeat = mode;
+        }
+    }
+
     private void DeleteRealFile_Click(object sender, RoutedEventArgs e)
     {
         if (ItemsList.SelectedItem is not FileItemViewModel item)
@@ -371,6 +487,7 @@ public partial class ZoneWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _manager.MusicEnded -= Manager_MusicEnded;
         _viewModel.Dispose();
         base.OnClosed(e);
     }
@@ -432,6 +549,8 @@ public partial class ZoneWindow : Window
         _viewModel.Zone.IsCollapsed = !_viewModel.Zone.IsCollapsed;
         ApplyCollapsedState();
         _manager.Save();
+        _manager.Audio.PlaySoundEffect(_manager.Workspace, _viewModel.Zone.IsCollapsed ? "dock-close" : "dock-bloom");
+        _manager.ApplyDockLayering();
     }
 
     private void ApplyCollapsedState()
@@ -441,17 +560,33 @@ public partial class ZoneWindow : Window
         {
             if (_viewModel.Zone.IsCollapsed)
             {
+                var bottom = Top + Height;
                 _expandedHeight = Math.Max(_expandedHeight, _viewModel.Zone.Bounds.Height);
                 Height = CollapsedHeight;
-                ItemsList.Visibility = Visibility.Collapsed;
+                if (_viewModel.ExpansionEdge == DockExpansionEdge.Bottom)
+                {
+                    Top = bottom - Height;
+                }
+
+                ContentHost.Visibility = Visibility.Collapsed;
+                StatusBorder.Visibility = Visibility.Collapsed;
                 CollapseButton.Content = "\uE70E";
             }
             else
             {
+                var bottom = Top + Height;
                 Height = Math.Max(_expandedHeight, 180);
-                ItemsList.Visibility = Visibility.Visible;
+                if (_viewModel.ExpansionEdge == DockExpansionEdge.Bottom)
+                {
+                    Top = bottom - Height;
+                }
+
+                ContentHost.Visibility = Visibility.Visible;
+                StatusBorder.Visibility = Visibility.Visible;
                 CollapseButton.Content = "\uE96E";
             }
+
+            ApplyContentMode();
         }
         finally
         {
@@ -484,6 +619,62 @@ public partial class ZoneWindow : Window
         }
 
         return Math.Min(Math.Max(value, min), max);
+    }
+
+    private void ApplyExpansionEdgeLayout()
+    {
+        if (_viewModel.ExpansionEdge == DockExpansionEdge.Bottom)
+        {
+            TopChromeRow.Height = new GridLength(26);
+            BottomChromeRow.Height = new GridLength(_viewModel.HeaderHeight);
+            Grid.SetRow(StatusBorder, 0);
+            Grid.SetRow(ContentHost, 1);
+            Grid.SetRow(HeaderBorder, 2);
+            HeaderBorder.CornerRadius = new CornerRadius(0, 0, 17, 17);
+            StatusBorder.CornerRadius = new CornerRadius(17, 17, 0, 0);
+            return;
+        }
+
+        TopChromeRow.Height = new GridLength(_viewModel.HeaderHeight);
+        BottomChromeRow.Height = new GridLength(26);
+        Grid.SetRow(HeaderBorder, 0);
+        Grid.SetRow(ContentHost, 1);
+        Grid.SetRow(StatusBorder, 2);
+        HeaderBorder.CornerRadius = new CornerRadius(17, 17, 0, 0);
+        StatusBorder.CornerRadius = new CornerRadius(0, 0, 17, 17);
+    }
+
+    private void ApplyContentMode()
+    {
+        if (_viewModel.Zone.IsCollapsed)
+        {
+            return;
+        }
+
+        ItemsList.Visibility = _viewModel.IsMusicDock ? Visibility.Collapsed : Visibility.Visible;
+        MusicPanel.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RenderMusicControls()
+    {
+        MusicHeaderControls.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
+        OpenFolderButtonVisibility();
+        RepeatComboBox.ItemsSource = Enum.GetValues(typeof(MusicRepeatMode));
+        RepeatComboBox.SelectedItem = _viewModel.MusicRepeat;
+    }
+
+    private void OpenFolderButtonVisibility()
+    {
+        // Music docks expose their folder from the expanded music panel.
+        HeaderButtons.Children.OfType<Button>()
+            .Where(button => Equals(button.ToolTip, "Open in Explorer"))
+            .ToList()
+            .ForEach(button => button.Visibility = _viewModel.IsMusicDock ? Visibility.Collapsed : Visibility.Visible);
+    }
+
+    private void Manager_MusicEnded()
+    {
+        _viewModel.HandleMusicEnded();
     }
 
     private int GetDropIndex(System.Windows.DragEventArgs e)

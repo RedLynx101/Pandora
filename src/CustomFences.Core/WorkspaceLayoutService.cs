@@ -1,8 +1,12 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace CustomFences.Core;
 
 public static class WorkspaceLayoutService
 {
     public const string DefaultLayoutName = "Main";
+    public const string DefaultDisplayVariantKey = "default";
 
     public static LayoutProfile EnsureActiveLayout(Workspace workspace)
     {
@@ -25,8 +29,30 @@ public static class WorkspaceLayoutService
             workspace.ActiveLayoutName = layout.Name;
         }
 
-        EnsureDockStates(layout, workspace.Zones);
+        EnsureDisplayVariants(layout, workspace.Zones);
         return layout;
+    }
+
+    public static DisplayLayoutVariant EnsureActiveDisplayVariant(Workspace workspace)
+    {
+        var layout = EnsureActiveLayout(workspace);
+        EnsureDisplayVariants(layout, workspace.Zones);
+        var key = string.IsNullOrWhiteSpace(layout.ActiveDisplayVariantKey)
+            ? DefaultDisplayVariantKey
+            : layout.ActiveDisplayVariantKey;
+        var variant = layout.DisplayVariants.FirstOrDefault(candidate =>
+            string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase));
+
+        if (variant is not null)
+        {
+            EnsureDockStates(variant.DockStates, workspace.Zones);
+            return variant;
+        }
+
+        variant = layout.DisplayVariants.First(candidate => candidate.IsDefault);
+        layout.ActiveDisplayVariantKey = variant.Key;
+        EnsureDockStates(variant.DockStates, workspace.Zones);
+        return variant;
     }
 
     public static LayoutProfile CreateProfileFromZones(string name, Workspace workspace)
@@ -34,25 +60,35 @@ public static class WorkspaceLayoutService
         var profile = new LayoutProfile
         {
             Name = string.IsNullOrWhiteSpace(name) ? DefaultLayoutName : name.Trim(),
+            ActiveDisplayVariantKey = DefaultDisplayVariantKey,
             HideDesktopIconsWhenRunning = workspace.Settings.HideDesktopIconsWhenRunning
+        };
+
+        var variant = new DisplayLayoutVariant
+        {
+            Key = DefaultDisplayVariantKey,
+            DisplaySignature = DefaultDisplayVariantKey,
+            IsDefault = true
         };
 
         foreach (var zone in workspace.Zones)
         {
-            profile.DockStates.Add(CreateDockState(zone));
+            variant.DockStates.Add(CreateDockState(zone));
         }
 
+        profile.DisplayVariants.Add(variant);
         return profile;
     }
 
     public static void ApplyActiveLayoutToZones(Workspace workspace)
     {
         var layout = EnsureActiveLayout(workspace);
+        var variant = EnsureActiveDisplayVariant(workspace);
         workspace.Settings.HideDesktopIconsWhenRunning = layout.HideDesktopIconsWhenRunning;
 
         foreach (var zone in workspace.Zones)
         {
-            var state = EnsureDockState(layout, zone);
+            var state = EnsureDockState(variant.DockStates, zone);
             zone.IsVisible = state.IsVisible;
             zone.IsLocked = state.IsLocked;
             zone.IsCollapsed = state.IsCollapsed;
@@ -60,48 +96,120 @@ public static class WorkspaceLayoutService
         }
     }
 
+    public static DisplayLayoutVariant UseDisplayVariant(
+        Workspace workspace,
+        string key,
+        string displaySignature,
+        IReadOnlyList<DisplayDescriptor> displays)
+    {
+        var layout = EnsureActiveLayout(workspace);
+        EnsureDisplayVariants(layout, workspace.Zones);
+        var normalizedKey = string.IsNullOrWhiteSpace(key) ? DefaultDisplayVariantKey : key.Trim();
+        var variant = layout.DisplayVariants.FirstOrDefault(candidate =>
+            string.Equals(candidate.Key, normalizedKey, StringComparison.OrdinalIgnoreCase));
+
+        if (variant is null)
+        {
+            var source = layout.DisplayVariants.First(candidate => candidate.IsDefault);
+            variant = CloneDisplayVariant(source, normalizedKey, displaySignature, isDefault: false);
+            ClampVariantToDisplays(variant, displays);
+            layout.DisplayVariants.Add(variant);
+        }
+
+        variant.DisplaySignature = string.IsNullOrWhiteSpace(displaySignature) ? normalizedKey : displaySignature;
+        variant.LastSeenUtc = DateTime.UtcNow;
+        layout.ActiveDisplayVariantKey = variant.Key;
+        EnsureDockStates(variant.DockStates, workspace.Zones);
+        ApplyActiveLayoutToZones(workspace);
+        return variant;
+    }
+
+    public static DisplayLayoutVariant UseDefaultDisplayVariant(Workspace workspace)
+    {
+        var layout = EnsureActiveLayout(workspace);
+        var variant = layout.DisplayVariants.First(candidate => candidate.IsDefault);
+        layout.ActiveDisplayVariantKey = variant.Key;
+        ApplyActiveLayoutToZones(workspace);
+        return variant;
+    }
+
+    public static string ComputeDisplaySignature(IEnumerable<DisplayDescriptor> displays)
+    {
+        var parts = displays
+            .OrderByDescending(display => display.IsPrimary)
+            .ThenBy(display => display.DeviceName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(display => display.BoundsX)
+            .Select(display =>
+                $"{display.DeviceName}|primary={display.IsPrimary}|b={display.BoundsX:0},{display.BoundsY:0},{display.BoundsWidth:0},{display.BoundsHeight:0}|w={display.WorkAreaX:0},{display.WorkAreaY:0},{display.WorkAreaWidth:0},{display.WorkAreaHeight:0}");
+
+        var signature = string.Join(";", parts);
+        return string.IsNullOrWhiteSpace(signature) ? DefaultDisplayVariantKey : signature;
+    }
+
+    public static string ComputeDisplayVariantKey(string displaySignature)
+    {
+        if (string.IsNullOrWhiteSpace(displaySignature) ||
+            string.Equals(displaySignature, DefaultDisplayVariantKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return DefaultDisplayVariantKey;
+        }
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(displaySignature));
+        return "display-" + Convert.ToHexString(bytes, 0, 8).ToLowerInvariant();
+    }
+
     public static void CaptureAllZoneStates(Workspace workspace)
     {
         var layout = EnsureActiveLayout(workspace);
+        var variant = EnsureActiveDisplayVariant(workspace);
         layout.HideDesktopIconsWhenRunning = workspace.Settings.HideDesktopIconsWhenRunning;
 
         foreach (var zone in workspace.Zones)
         {
-            CaptureZoneState(layout, zone, null);
+            CaptureZoneState(variant, zone, null);
         }
     }
 
     public static void CaptureZoneState(Workspace workspace, ZoneDefinition zone, string? activeTabId)
     {
-        var layout = EnsureActiveLayout(workspace);
-        CaptureZoneState(layout, zone, activeTabId);
+        var variant = EnsureActiveDisplayVariant(workspace);
+        CaptureZoneState(variant, zone, activeTabId);
     }
 
     public static void CaptureActiveTab(Workspace workspace, ZoneDefinition zone, string? activeTabId)
     {
-        var layout = EnsureActiveLayout(workspace);
-        var state = EnsureDockState(layout, zone);
+        var variant = EnsureActiveDisplayVariant(workspace);
+        var state = EnsureDockState(variant.DockStates, zone);
         state.ActiveTabId = activeTabId;
     }
 
     public static string? GetActiveTabId(Workspace workspace, ZoneDefinition zone)
     {
-        var layout = EnsureActiveLayout(workspace);
-        return EnsureDockState(layout, zone).ActiveTabId;
+        var variant = EnsureActiveDisplayVariant(workspace);
+        return EnsureDockState(variant.DockStates, zone).ActiveTabId;
+    }
+
+    public static DockExpansionEdge GetExpansionEdge(Workspace workspace, ZoneDefinition zone)
+    {
+        var variant = EnsureActiveDisplayVariant(workspace);
+        return EnsureDockState(variant.DockStates, zone).ExpansionEdge;
+    }
+
+    public static void SetExpansionEdge(Workspace workspace, string dockId, DockExpansionEdge edge)
+    {
+        var zone = FindZone(workspace, dockId);
+        var state = EnsureDockState(EnsureActiveDisplayVariant(workspace).DockStates, zone);
+        state.ExpansionEdge = edge;
     }
 
     public static void SaveCurrentLayoutAs(Workspace workspace, string name)
     {
         var layoutName = NormalizeLayoutName(name);
         var source = CloneLayout(EnsureActiveLayout(workspace), layoutName);
-        source.DockStates.Clear();
-        foreach (var zone in workspace.Zones)
-        {
-            source.DockStates.Add(CreateDockState(zone));
-        }
-
+        source.ActiveDisplayVariantKey = EnsureActiveDisplayVariant(workspace).Key;
         ReplaceOrAddLayout(workspace, source);
         workspace.ActiveLayoutName = layoutName;
+        CaptureAllZoneStates(workspace);
         ApplyActiveLayoutToZones(workspace);
     }
 
@@ -143,7 +251,7 @@ public static class WorkspaceLayoutService
     public static void SetDockVisibility(Workspace workspace, string dockId, bool isVisible)
     {
         var zone = FindZone(workspace, dockId);
-        var state = EnsureDockState(EnsureActiveLayout(workspace), zone);
+        var state = EnsureDockState(EnsureActiveDisplayVariant(workspace).DockStates, zone);
         state.IsVisible = isVisible;
         zone.IsVisible = isVisible;
     }
@@ -160,6 +268,42 @@ public static class WorkspaceLayoutService
         };
 
         CaptureZoneState(workspace, zone, null);
+    }
+
+    public static ZoneDefinition EnsureMusicDock(Workspace workspace)
+    {
+        var zone = workspace.Zones.FirstOrDefault(candidate =>
+            candidate.Kind == ZoneKind.Music ||
+            string.Equals(candidate.Id, "music", StringComparison.OrdinalIgnoreCase));
+        if (zone is null)
+        {
+            zone = new ZoneDefinition
+            {
+                Id = "music",
+                Name = "Orbit Radio",
+                Kind = ZoneKind.Music,
+                IsVisible = false,
+                Bounds = new ZoneBounds { X = 980, Y = 640, Width = 420, Height = 300 },
+                Appearance = new ZoneAppearance
+                {
+                    AccentColor = "#7DDCFF",
+                    BackgroundColor = "#070D16",
+                    Opacity = 0.80,
+                    CornerRadius = 24,
+                    IconSize = 44
+                },
+                Tabs = []
+            };
+            workspace.Zones.Add(zone);
+        }
+
+        var layout = EnsureActiveLayout(workspace);
+        foreach (var variant in layout.DisplayVariants)
+        {
+            EnsureDockState(variant.DockStates, zone);
+        }
+
+        return zone;
     }
 
     public static void AddOrShowItem(Workspace workspace, string path, string dockId, string? tabId, int? order = null, string? displayName = null)
@@ -267,9 +411,9 @@ public static class WorkspaceLayoutService
 
     public static DesktopPinDefinition AddDesktopPin(Workspace workspace, string path, double x, double y, double iconSize = 52, string? displayName = null)
     {
-        var layout = EnsureActiveLayout(workspace);
+        var variant = EnsureActiveDisplayVariant(workspace);
         var normalized = NormalizePath(path);
-        var existing = layout.DesktopPins.FirstOrDefault(pin => PathsEqual(pin.Path, normalized));
+        var existing = variant.DesktopPins.FirstOrDefault(pin => PathsEqual(pin.Path, normalized));
         if (existing is null)
         {
             existing = new DesktopPinDefinition
@@ -277,7 +421,7 @@ public static class WorkspaceLayoutService
                 Id = Guid.NewGuid().ToString("N"),
                 Path = normalized
             };
-            layout.DesktopPins.Add(existing);
+            variant.DesktopPins.Add(existing);
         }
 
         existing.X = x;
@@ -289,14 +433,14 @@ public static class WorkspaceLayoutService
 
     public static void RemoveDesktopPin(Workspace workspace, string pathOrId)
     {
-        var layout = EnsureActiveLayout(workspace);
+        var variant = EnsureActiveDisplayVariant(workspace);
         var normalized = NormalizePath(pathOrId);
-        var pin = layout.DesktopPins.FirstOrDefault(candidate =>
+        var pin = variant.DesktopPins.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, pathOrId, StringComparison.OrdinalIgnoreCase) ||
             PathsEqual(candidate.Path, normalized));
         if (pin is not null)
         {
-            layout.DesktopPins.Remove(pin);
+            variant.DesktopPins.Remove(pin);
         }
     }
 
@@ -321,16 +465,29 @@ public static class WorkspaceLayoutService
             {
                 errors.Add($"Duplicate layout name: {layout.Name}");
             }
+
+            if (layout.DisplayVariants.Count == 0)
+            {
+                errors.Add($"Layout '{layout.Name}' has no display variants.");
+            }
         }
 
         var zoneIds = workspace.Zones.Select(zone => zone.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var layout in workspace.Layouts)
         {
-            foreach (var state in layout.DockStates)
+            foreach (var variant in layout.DisplayVariants)
             {
-                if (!zoneIds.Contains(state.DockId))
+                if (string.IsNullOrWhiteSpace(variant.Key))
                 {
-                    errors.Add($"Layout '{layout.Name}' references missing dock '{state.DockId}'.");
+                    errors.Add($"Layout '{layout.Name}' has an empty display variant key.");
+                }
+
+                foreach (var state in variant.DockStates)
+                {
+                    if (!zoneIds.Contains(state.DockId))
+                    {
+                        errors.Add($"Layout '{layout.Name}' variant '{variant.Key}' references missing dock '{state.DockId}'.");
+                    }
                 }
             }
 
@@ -374,9 +531,37 @@ public static class WorkspaceLayoutService
         return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void CaptureZoneState(LayoutProfile layout, ZoneDefinition zone, string? activeTabId)
+    private static void EnsureDisplayVariants(LayoutProfile layout, IEnumerable<ZoneDefinition> zones)
     {
-        var state = EnsureDockState(layout, zone);
+        if (layout.DisplayVariants.Count == 0)
+        {
+            layout.DisplayVariants.Add(new DisplayLayoutVariant
+            {
+                Key = DefaultDisplayVariantKey,
+                DisplaySignature = DefaultDisplayVariantKey,
+                IsDefault = true,
+                DockStates = layout.DockStates.Select(CloneDockState).ToList(),
+                DesktopPins = layout.DesktopPins.Select(CloneDesktopPinPreservingId).ToList()
+            });
+        }
+
+        if (!layout.DisplayVariants.Any(variant => variant.IsDefault))
+        {
+            layout.DisplayVariants[0].IsDefault = true;
+            layout.DisplayVariants[0].Key = string.IsNullOrWhiteSpace(layout.DisplayVariants[0].Key)
+                ? DefaultDisplayVariantKey
+                : layout.DisplayVariants[0].Key;
+        }
+
+        foreach (var variant in layout.DisplayVariants)
+        {
+            EnsureDockStates(variant.DockStates, zones);
+        }
+    }
+
+    private static void CaptureZoneState(DisplayLayoutVariant variant, ZoneDefinition zone, string? activeTabId)
+    {
+        var state = EnsureDockState(variant.DockStates, zone);
         state.IsVisible = zone.IsVisible;
         state.IsLocked = zone.IsLocked;
         state.IsCollapsed = zone.IsCollapsed;
@@ -387,9 +572,9 @@ public static class WorkspaceLayoutService
         }
     }
 
-    private static DockLayoutState EnsureDockState(LayoutProfile layout, ZoneDefinition zone)
+    private static DockLayoutState EnsureDockState(List<DockLayoutState> dockStates, ZoneDefinition zone)
     {
-        var state = layout.DockStates.FirstOrDefault(candidate =>
+        var state = dockStates.FirstOrDefault(candidate =>
             string.Equals(candidate.DockId, zone.Id, StringComparison.OrdinalIgnoreCase));
         if (state is not null)
         {
@@ -397,15 +582,15 @@ public static class WorkspaceLayoutService
         }
 
         state = CreateDockState(zone);
-        layout.DockStates.Add(state);
+        dockStates.Add(state);
         return state;
     }
 
-    private static void EnsureDockStates(LayoutProfile layout, IEnumerable<ZoneDefinition> zones)
+    private static void EnsureDockStates(List<DockLayoutState> dockStates, IEnumerable<ZoneDefinition> zones)
     {
         foreach (var zone in zones)
         {
-            EnsureDockState(layout, zone);
+            EnsureDockState(dockStates, zone);
         }
     }
 
@@ -417,6 +602,7 @@ public static class WorkspaceLayoutService
             IsVisible = zone.IsVisible,
             IsLocked = zone.IsLocked,
             IsCollapsed = zone.IsCollapsed,
+            ExpansionEdge = DockExpansionEdge.Top,
             ActiveTabId = zone.Tabs.FirstOrDefault()?.Id,
             Bounds = CloneBounds(zone.Bounds)
         };
@@ -483,8 +669,9 @@ public static class WorkspaceLayoutService
         return new LayoutProfile
         {
             Name = NormalizeLayoutName(name),
+            ActiveDisplayVariantKey = source.ActiveDisplayVariantKey,
             HideDesktopIconsWhenRunning = source.HideDesktopIconsWhenRunning,
-            DockStates = source.DockStates.Select(CloneDockState).ToList(),
+            DisplayVariants = source.DisplayVariants.Select(variant => CloneDisplayVariant(variant, variant.Key, variant.DisplaySignature, variant.IsDefault)).ToList(),
             ItemOverrides = source.ItemOverrides.Select(item => new DockItemOverride
             {
                 Path = item.Path,
@@ -493,7 +680,19 @@ public static class WorkspaceLayoutService
                 Order = item.Order,
                 IsHidden = item.IsHidden,
                 DisplayName = item.DisplayName
-            }).ToList(),
+            }).ToList()
+        };
+    }
+
+    private static DisplayLayoutVariant CloneDisplayVariant(DisplayLayoutVariant source, string key, string signature, bool isDefault)
+    {
+        return new DisplayLayoutVariant
+        {
+            Key = key,
+            DisplaySignature = signature,
+            IsDefault = isDefault,
+            LastSeenUtc = DateTime.UtcNow,
+            DockStates = source.DockStates.Select(CloneDockState).ToList(),
             DesktopPins = source.DesktopPins.Select(pin => new DesktopPinDefinition
             {
                 Id = Guid.NewGuid().ToString("N"),
@@ -502,7 +701,15 @@ public static class WorkspaceLayoutService
                 X = pin.X,
                 Y = pin.Y,
                 IconSize = pin.IconSize
-            }).ToList()
+            }).ToList(),
+            Music = new MusicDockState
+            {
+                SelectedPlaylist = source.Music.SelectedPlaylist,
+                SelectedTrackPath = source.Music.SelectedTrackPath,
+                Shuffle = source.Music.Shuffle,
+                Repeat = source.Music.Repeat,
+                Volume = source.Music.Volume
+            }
         };
     }
 
@@ -514,8 +721,22 @@ public static class WorkspaceLayoutService
             IsVisible = source.IsVisible,
             IsLocked = source.IsLocked,
             IsCollapsed = source.IsCollapsed,
+            ExpansionEdge = source.ExpansionEdge,
             ActiveTabId = source.ActiveTabId,
             Bounds = CloneBounds(source.Bounds)
+        };
+    }
+
+    private static DesktopPinDefinition CloneDesktopPinPreservingId(DesktopPinDefinition source)
+    {
+        return new DesktopPinDefinition
+        {
+            Id = source.Id,
+            Path = source.Path,
+            DisplayName = source.DisplayName,
+            X = source.X,
+            Y = source.Y,
+            IconSize = source.IconSize
         };
     }
 
@@ -534,5 +755,32 @@ public static class WorkspaceLayoutService
     {
         var trimmed = string.IsNullOrWhiteSpace(name) ? DefaultLayoutName : name.Trim();
         return trimmed.Length == 0 ? DefaultLayoutName : trimmed;
+    }
+
+    private static void ClampVariantToDisplays(DisplayLayoutVariant variant, IReadOnlyList<DisplayDescriptor> displays)
+    {
+        if (displays.Count == 0)
+        {
+            return;
+        }
+
+        var minX = displays.Min(display => display.WorkAreaX);
+        var minY = displays.Min(display => display.WorkAreaY);
+        var maxX = displays.Max(display => display.WorkAreaX + display.WorkAreaWidth);
+        var maxY = displays.Max(display => display.WorkAreaY + display.WorkAreaHeight);
+
+        foreach (var state in variant.DockStates)
+        {
+            state.Bounds.Width = Math.Min(Math.Max(state.Bounds.Width, 120), Math.Max(120, maxX - minX));
+            state.Bounds.Height = Math.Min(Math.Max(state.Bounds.Height, 54), Math.Max(54, maxY - minY));
+            state.Bounds.X = Math.Clamp(state.Bounds.X, minX, Math.Max(minX, maxX - state.Bounds.Width));
+            state.Bounds.Y = Math.Clamp(state.Bounds.Y, minY, Math.Max(minY, maxY - state.Bounds.Height));
+        }
+
+        foreach (var pin in variant.DesktopPins)
+        {
+            pin.X = Math.Clamp(pin.X, minX, Math.Max(minX, maxX - pin.IconSize));
+            pin.Y = Math.Clamp(pin.Y, minY, Math.Max(minY, maxY - pin.IconSize));
+        }
     }
 }

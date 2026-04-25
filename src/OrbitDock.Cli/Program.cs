@@ -22,6 +22,7 @@ try
         "dock" => HandleDock(store, rest),
         "item" => HandleItem(store, rest),
         "desktop-pin" => HandleDesktopPin(store, rest),
+        "audio" => HandleAudio(store, rest),
         "workspace" => HandleWorkspace(store, rest),
         _ => Unknown($"Unknown command group: {group}")
     };
@@ -66,6 +67,33 @@ static int HandleLayout(WorkspaceStore store, List<string> args)
             store.Save(workspace);
             Console.WriteLine("Deleted layout.");
             return 0;
+        case "variants":
+        {
+            var layout = WorkspaceLayoutService.EnsureActiveLayout(workspace);
+            foreach (var variant in layout.DisplayVariants.OrderBy(variant => variant.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var marker = string.Equals(layout.ActiveDisplayVariantKey, variant.Key, StringComparison.OrdinalIgnoreCase) ? "*" : " ";
+                Console.WriteLine($"{marker} {variant.Key}\tdefault={variant.IsDefault}\tlastSeenUtc={variant.LastSeenUtc:o}\t{variant.DisplaySignature}");
+            }
+
+            return 0;
+        }
+        case "use-variant":
+        {
+            var key = RequireArg(args, 1, "display variant key");
+            if (string.Equals(key, WorkspaceLayoutService.DefaultDisplayVariantKey, StringComparison.OrdinalIgnoreCase))
+            {
+                WorkspaceLayoutService.UseDefaultDisplayVariant(workspace);
+            }
+            else
+            {
+                WorkspaceLayoutService.UseDisplayVariant(workspace, key, key, []);
+            }
+
+            store.Save(workspace);
+            Console.WriteLine($"Using display variant '{WorkspaceLayoutService.EnsureActiveLayout(workspace).ActiveDisplayVariantKey}'.");
+            return 0;
+        }
         default:
             return Unknown($"Unknown layout command: {verb}");
     }
@@ -105,8 +133,52 @@ static int HandleDock(WorkspaceStore store, List<string> args)
             store.Save(workspace);
             Console.WriteLine("Dock bounds saved.");
             return 0;
+        case "set-expansion":
+        {
+            var dock = RequireArg(args, 1, "dock");
+            var edgeText = RequireArg(args, 2, "edge");
+            if (!Enum.TryParse<DockExpansionEdge>(edgeText, ignoreCase: true, out var edge))
+            {
+                throw new InvalidOperationException("Expansion edge must be top or bottom.");
+            }
+
+            WorkspaceLayoutService.SetExpansionEdge(workspace, dock, edge);
+            store.Save(workspace);
+            Console.WriteLine($"Dock expansion set to {edge.ToString().ToLowerInvariant()}.");
+            return 0;
+        }
         default:
             return Unknown($"Unknown dock command: {verb}");
+    }
+}
+
+static int HandleAudio(WorkspaceStore store, List<string> args)
+{
+    var verb = RequireArg(args, 0, "audio command").ToLowerInvariant();
+    var workspace = store.LoadOrCreate();
+    switch (verb)
+    {
+        case "sfx":
+            workspace.Settings.Audio.EnableSoundEffects = ParseOnOff(RequireArg(args, 1, "on|off"));
+            store.Save(workspace);
+            Console.WriteLine($"Sound effects {(workspace.Settings.Audio.EnableSoundEffects ? "enabled" : "disabled")}.");
+            return 0;
+        case "music":
+        {
+            workspace.Settings.Audio.EnableMusicDock = ParseOnOff(RequireArg(args, 1, "on|off"));
+            var musicDock = WorkspaceLayoutService.EnsureMusicDock(workspace);
+            WorkspaceLayoutService.SetDockVisibility(workspace, musicDock.Id, workspace.Settings.Audio.EnableMusicDock);
+            store.Save(workspace);
+            Console.WriteLine($"Music dock {(workspace.Settings.Audio.EnableMusicDock ? "enabled" : "disabled")}.");
+            return 0;
+        }
+        case "set-music-folder":
+            workspace.Settings.Audio.MusicRootPath = PathExpander.CompressUserPath(RequireArg(args, 1, "path"));
+            store.Save(workspace);
+            Console.WriteLine($"Music folder set to {workspace.Settings.Audio.MusicRootPath}.");
+            return 0;
+        default:
+            return Unknown($"Unknown audio command: {verb}");
     }
 }
 
@@ -193,7 +265,7 @@ static int HandleDesktopPin(WorkspaceStore store, List<string> args)
             Console.WriteLine("Desktop pin removed.");
             return 0;
         case "list":
-            foreach (var pin in WorkspaceLayoutService.EnsureActiveLayout(workspace).DesktopPins)
+            foreach (var pin in WorkspaceLayoutService.EnsureActiveDisplayVariant(workspace).DesktopPins)
             {
                 Console.WriteLine($"{pin.Id}\t{pin.Path}\tx={pin.X:0}\ty={pin.Y:0}\tsize={pin.IconSize:0}");
             }
@@ -286,6 +358,25 @@ static double ReadOptionDouble(List<string> args, string name)
         : throw new InvalidOperationException($"Invalid {name}: {value}");
 }
 
+static bool ParseOnOff(string value)
+{
+    if (string.Equals(value, "on", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (string.Equals(value, "off", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "0", StringComparison.OrdinalIgnoreCase))
+    {
+        return false;
+    }
+
+    throw new InvalidOperationException("Expected on or off.");
+}
+
 static int Unknown(string message)
 {
     Console.Error.WriteLine(message);
@@ -296,8 +387,10 @@ static int Unknown(string message)
 static void PrintUsage()
 {
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] layout list|save <name>|switch <name>|duplicate <from> <to>|delete <name>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] dock list|show <dock>|hide <dock>|set-bounds <dock> <x> <y> <w> <h>");
+    Console.Error.WriteLine("orbitdockctl [--workspace <path>] layout variants|use-variant <display-signature|default>");
+    Console.Error.WriteLine("orbitdockctl [--workspace <path>] dock list|show <dock>|hide <dock>|set-bounds <dock> <x> <y> <w> <h>|set-expansion <dock> top|bottom");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] item pin <path> --dock <dock>|unpin <path> --dock <dock>|move <path> --from <dock> --to <dock>|order <dock> <path...>");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] desktop-pin add <path> --x <x> --y <y>|remove <path-or-id>|list");
+    Console.Error.WriteLine("orbitdockctl [--workspace <path>] audio sfx on|off|music on|off|set-music-folder <path>");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] workspace validate|backup");
 }

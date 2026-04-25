@@ -12,14 +12,21 @@ Starter workspace shape:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "settings": {
     "attachWindowsToDesktop": false,
     "startWithWindows": false,
     "peekHotkey": "Ctrl+Alt+Space",
     "theme": "Graphite",
     "defaultDropAction": "copy",
-    "enableRuleAutomation": false
+    "enableRuleAutomation": false,
+    "audio": {
+      "enableSoundEffects": false,
+      "soundEffectsVolume": 0.35,
+      "enableMusicDock": false,
+      "musicRootPath": "%USERPROFILE%\\Music\\OrbitDock",
+      "soundEffectsPath": "%APPDATA%\\OrbitDock\\Audio\\Sfx"
+    }
   },
   "zones": [],
   "activeLayoutName": "Main",
@@ -27,9 +34,17 @@ Starter workspace shape:
     {
       "name": "Main",
       "hideDesktopIconsWhenRunning": true,
-      "dockStates": [],
       "itemOverrides": [],
-      "desktopPins": []
+      "displayVariants": [
+        {
+          "key": "default",
+          "displaySignature": "default",
+          "isDefault": true,
+          "dockStates": [],
+          "desktopPins": [],
+          "music": {}
+        }
+      ]
     }
   ]
 }
@@ -48,14 +63,15 @@ Starter workspace shape:
 
 ## Layout Profiles
 
-`layouts` contains named profiles. The active profile stores the parts users expect to change often:
+`layouts` contains named profiles. Each named profile can have multiple display variants for different monitor combinations:
 
-- `dockStates`: dock bounds, visible/collapsed/locked state, and active tab.
+- `displayVariants`: screen-specific dock bounds, visible/collapsed/locked state, active tab, expansion edge, desktop pin positions, and music dock state.
 - `itemOverrides`: virtual dock membership, per-dock hidden state, and saved item order.
-- `desktopPins`: OrbitDock-managed icons shown on the desktop overlay while the raw Windows desktop icon grid is hidden.
 - `hideDesktopIconsWhenRunning`: clean desktop setting for that layout.
 
 Use settings or `orbitdockctl layout switch <name>` to change profiles.
+
+OrbitDock automatically creates a display variant when it sees a new monitor combination. Unknown monitor combinations clone the profile's default variant and clamp docks into the visible work area.
 
 ## Paths
 
@@ -80,3 +96,7 @@ Until shortcut support exists, keep the default as `copy`.
 ## Rule Templates
 
 Rule automation is not active until `enableRuleAutomation` is true and an executor is implemented. Current rules are useful as saved intent and as test data for matching behavior.
+
+## Audio
+
+Audio is opt-in. `enableSoundEffects` turns on local UI sounds from `soundEffectsPath`; `enableMusicDock` shows the local music dock backed by `musicRootPath`.

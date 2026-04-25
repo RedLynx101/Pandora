@@ -13,9 +13,12 @@ This project is an independent implementation. It is not affiliated with Stardoc
 - Generated OrbitDock app/tray branding under `src\CustomFences.App\Assets\Brand`.
 - Per-user JSON workspace at `%APPDATA%\OrbitDock\workspace.json`, with one-time import from `%APPDATA%\CustomFences\workspace.json`.
 - Named layout profiles with saved dock positions, active tabs, collapsed/visible state, item ordering, dock membership, and desktop pins.
+- Screen-combination-aware layout variants so a named layout can remember different positions for different monitor setups.
 - Starter docks for launchers, dev tools, creative apps, games, and desktop inbox files.
 - Folder portals that refresh when the underlying folder changes.
+- Per-dock search that expands from the header and filters by name, extension, and path.
 - Drag-and-drop organization. Smart docks use virtual membership and ordering; explicit folder docks still copy by default.
+- Optional sound effects and an optional local music dock for `%USERPROFILE%\Music\OrbitDock`.
 - Context menu actions for remove-from-dock, pin-to-desktop, reveal, and confirmed real deletion.
 - Roll-up/collapse per zone.
 - Multi-tab zone support in the workspace model and zone UI.
@@ -87,9 +90,12 @@ Use the CLI for agent-safe changes:
 
 ```powershell
 .\scripts\orbitdockctl.ps1 layout list
+.\scripts\orbitdockctl.ps1 layout variants
 .\scripts\orbitdockctl.ps1 dock set-bounds build 980 455 420 360
+.\scripts\orbitdockctl.ps1 dock set-expansion build bottom
 .\scripts\orbitdockctl.ps1 item pin "$env:USERPROFILE\Desktop\Visual Studio Code.lnk" --dock build
 .\scripts\orbitdockctl.ps1 desktop-pin add "$env:USERPROFILE\Desktop\Steam.lnk" --x 120 --y 220
+.\scripts\orbitdockctl.ps1 audio music on
 .\scripts\orbitdockctl.ps1 workspace validate
 ```
 
@@ -113,6 +119,7 @@ See [docs/safety.md](docs/safety.md) for the full posture.
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
 - [Agent control](docs/agent-control.md)
+- [Audio](docs/audio.md)
 - [Safety](docs/safety.md)
 - [Desktop testing](docs/testing.md)
 - [Roadmap](docs/roadmap.md)

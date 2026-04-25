@@ -72,6 +72,7 @@ public static class WorkspaceFactory
         };
 
         workspace.Zones.Add(CreateFolderZone("desktop-inbox", "Desktop Inbox", desktop, "#5CC8A7", 980, 835, 805, 170));
+        workspace.Zones.Add(CreateMusicZone());
 
         workspace.Rules =
         [
@@ -159,6 +160,27 @@ public static class WorkspaceFactory
                 Source = ZoneTabSource.SmartDesktop,
                 DesktopGroup = tab.Group
             }).ToList()
+        };
+    }
+
+    private static ZoneDefinition CreateMusicZone()
+    {
+        return new ZoneDefinition
+        {
+            Id = "music",
+            Name = "Orbit Radio",
+            Kind = ZoneKind.Music,
+            IsVisible = false,
+            Bounds = new ZoneBounds { X = 980, Y = 640, Width = 420, Height = 300 },
+            Appearance = new ZoneAppearance
+            {
+                AccentColor = "#7DDCFF",
+                BackgroundColor = "#070D16",
+                Opacity = 0.80,
+                CornerRadius = 24,
+                IconSize = 44
+            },
+            Tabs = []
         };
     }
 }

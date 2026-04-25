@@ -12,6 +12,7 @@ OrbitDock should earn trust before it touches a user's desktop layout.
 - Rule automation is disabled.
 - Clean desktop mode hides the raw Windows icon grid while the app is running and restores it on normal exit.
 - Desktop pins are OrbitDock overlay items stored in the active layout; they do not alter raw Windows desktop icon positions.
+- Audio is local-only and opt-in; missing sound files or unsupported music files are ignored.
 - `scripts/show-desktop-icons.ps1` is provided as a manual restore fallback.
 - Shell attachment is best effort and can be disabled.
 - Missing or offline portal folders show status text instead of blocking startup.
@@ -24,6 +25,7 @@ OrbitDock should earn trust before it touches a user's desktop layout.
 - Prefer virtual item overrides for desktop organization.
 - Use unique destination names to avoid overwriting existing files.
 - Treat network folders, removable drives, and cloud-sync folders as unreliable.
+- Treat music and sound-effect folders as read-only playback sources.
 - Show recoverable errors in the zone status line instead of crashing.
 
 ## Windows Shell Rules

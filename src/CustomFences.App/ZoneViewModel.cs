@@ -19,8 +19,16 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly DesktopZoneManager _manager;
     private readonly List<FileSystemWatcher> _watchers = [];
+    private readonly List<FileItemViewModel> _allItems = [];
+    private readonly Random _random = new();
     private ZoneTabDefinition? _selectedTab;
     private string _statusMessage = string.Empty;
+    private string _baseStatusMessage = string.Empty;
+    private string _searchQuery = string.Empty;
+    private MusicPlaylistViewModel? _selectedMusicPlaylist;
+    private MusicTrackViewModel? _selectedMusicTrack;
+    private string _nowPlayingText = "No track selected";
+    private bool _isMusicPlaying;
 
     public ZoneViewModel(ZoneDefinition zone, DesktopZoneManager manager)
     {
@@ -36,6 +44,8 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     public ZoneDefinition Zone { get; }
     public ObservableCollection<FileItemViewModel> Items { get; } = [];
+    public ObservableCollection<MusicPlaylistViewModel> MusicPlaylists { get; } = [];
+    public ObservableCollection<MusicTrackViewModel> MusicTracks { get; } = [];
 
     public IReadOnlyList<ZoneTabDefinition> Tabs => Zone.Tabs;
     public string Name => Zone.Name;
@@ -69,9 +79,125 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         : SelectedTab.Source == ZoneTabSource.SmartDesktop
             ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)
             : PathExpander.Expand(SelectedTab.Path);
+    public bool IsMusicDock => Zone.Kind == ZoneKind.Music;
     public bool IsSmartDock => SelectedTab?.Source == ZoneTabSource.SmartDesktop;
     public string DockId => Zone.Id;
     public string? SelectedTabId => SelectedTab?.Id;
+    public DockExpansionEdge ExpansionEdge => WorkspaceLayoutService.GetExpansionEdge(_manager.Workspace, Zone);
+    public double MusicVolume
+    {
+        get => WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Volume;
+        set
+        {
+            var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+            state.Volume = Math.Clamp(value, 0, 1);
+            _manager.Audio.SetMusicVolume(state.Volume);
+            _manager.Save();
+            OnPropertyChanged();
+        }
+    }
+    public bool IsMusicShuffle
+    {
+        get => WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Shuffle;
+        set
+        {
+            WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Shuffle = value;
+            _manager.Save();
+            OnPropertyChanged();
+        }
+    }
+    public MusicRepeatMode MusicRepeat
+    {
+        get => WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Repeat;
+        set
+        {
+            WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Repeat = value;
+            _manager.Save();
+            OnPropertyChanged();
+        }
+    }
+
+    public MusicPlaylistViewModel? SelectedMusicPlaylist
+    {
+        get => _selectedMusicPlaylist;
+        set
+        {
+            if (_selectedMusicPlaylist == value)
+            {
+                return;
+            }
+
+            _selectedMusicPlaylist = value;
+            OnPropertyChanged();
+            ApplySelectedPlaylist(save: true);
+        }
+    }
+
+    public MusicTrackViewModel? SelectedMusicTrack
+    {
+        get => _selectedMusicTrack;
+        set
+        {
+            if (_selectedMusicTrack == value)
+            {
+                return;
+            }
+
+            _selectedMusicTrack = value;
+            OnPropertyChanged();
+            SaveSelectedTrack();
+        }
+    }
+
+    public string NowPlayingText
+    {
+        get => _nowPlayingText;
+        private set
+        {
+            if (_nowPlayingText == value)
+            {
+                return;
+            }
+
+            _nowPlayingText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsMusicPlaying
+    {
+        get => _isMusicPlaying;
+        private set
+        {
+            if (_isMusicPlaying == value)
+            {
+                return;
+            }
+
+            _isMusicPlaying = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PlayPauseGlyph));
+        }
+    }
+
+    public string PlayPauseGlyph => IsMusicPlaying ? "\uE769" : "\uE768";
+
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            var next = value ?? string.Empty;
+            if (_searchQuery == next)
+            {
+                return;
+            }
+
+            _searchQuery = next;
+            OnPropertyChanged();
+            ApplySearchFilter();
+        }
+    }
 
     public string StatusMessage
     {
@@ -100,6 +226,13 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     {
         StopWatchers();
         Items.Clear();
+        _allItems.Clear();
+
+        if (IsMusicDock)
+        {
+            RefreshMusic();
+            return;
+        }
 
         if (SelectedTab is null)
         {
@@ -136,10 +269,11 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             var items = Sort(entries, Zone.Sort).Select(info => new FileItemViewModel(info));
             foreach (var item in ApplyItemOverrides(items).Take(MaximumItemsPerDock))
             {
-                Items.Add(item);
+                _allItems.Add(item);
             }
 
-            StatusMessage = Items.Count == 0 ? "Folder is empty." : $"{Items.Count} items";
+            _baseStatusMessage = _allItems.Count == 0 ? "Folder is empty." : $"{_allItems.Count} items";
+            ApplySearchFilter();
             StartWatchers([path]);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -347,7 +481,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 .Select(info => new FileItemViewModel(info));
             foreach (var item in ApplyItemOverrides(items).Take(MaximumItemsPerDock))
             {
-                Items.Add(item);
+                _allItems.Add(item);
             }
 
             var label = SelectedTab.DesktopGroup switch
@@ -363,13 +497,197 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 _ => "items"
             };
 
-            StatusMessage = Items.Count == 0 ? $"No {label} found on the desktop." : $"{Items.Count} {label}";
+            _baseStatusMessage = _allItems.Count == 0 ? $"No {label} found on the desktop." : $"{_allItems.Count} {label}";
+            ApplySearchFilter();
             StartWatchers(DesktopItemCatalog.GetDesktopDirectories());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             StatusMessage = $"Cannot scan desktop: {ex.Message}";
         }
+    }
+
+    public void ClearSearch()
+    {
+        SearchQuery = string.Empty;
+    }
+
+    public void PlaySelectedTrack()
+    {
+        if (SelectedMusicTrack is null)
+        {
+            SelectedMusicTrack = MusicTracks.FirstOrDefault();
+        }
+
+        if (SelectedMusicTrack is null)
+        {
+            StatusMessage = "No music track selected.";
+            return;
+        }
+
+        var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+        state.SelectedTrackPath = SelectedMusicTrack.Path;
+        _manager.Save();
+        _manager.Audio.PlayMusic(SelectedMusicTrack.Path, state.Volume);
+        IsMusicPlaying = true;
+        NowPlayingText = SelectedMusicTrack.Title;
+        StatusMessage = $"Playing {SelectedMusicTrack.Title}";
+    }
+
+    public void ToggleMusicPlayback()
+    {
+        if (IsMusicPlaying)
+        {
+            _manager.Audio.PauseMusic();
+            IsMusicPlaying = false;
+            StatusMessage = "Music paused.";
+            return;
+        }
+
+        if (_manager.Audio.IsMusicPaused)
+        {
+            _manager.Audio.ResumeMusic();
+            IsMusicPlaying = true;
+            StatusMessage = $"Playing {SelectedMusicTrack?.Title ?? "music"}";
+            return;
+        }
+
+        PlaySelectedTrack();
+    }
+
+    public void PlayNextTrack()
+    {
+        if (MusicTracks.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = SelectedMusicTrack is null ? -1 : MusicTracks.IndexOf(SelectedMusicTrack);
+        var nextIndex = IsMusicShuffle
+            ? _random.Next(MusicTracks.Count)
+            : (currentIndex + 1) % MusicTracks.Count;
+        SelectedMusicTrack = MusicTracks[nextIndex];
+        PlaySelectedTrack();
+    }
+
+    public void PlayPreviousTrack()
+    {
+        if (MusicTracks.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = SelectedMusicTrack is null ? 0 : MusicTracks.IndexOf(SelectedMusicTrack);
+        var previousIndex = currentIndex <= 0 ? MusicTracks.Count - 1 : currentIndex - 1;
+        SelectedMusicTrack = MusicTracks[previousIndex];
+        PlaySelectedTrack();
+    }
+
+    public void HandleMusicEnded()
+    {
+        if (!IsMusicDock)
+        {
+            return;
+        }
+
+        if (MusicRepeat == MusicRepeatMode.One)
+        {
+            PlaySelectedTrack();
+            return;
+        }
+
+        var selectedIndex = SelectedMusicTrack is null ? -1 : MusicTracks.IndexOf(SelectedMusicTrack);
+        if (MusicRepeat == MusicRepeatMode.All || selectedIndex < MusicTracks.Count - 1)
+        {
+            PlayNextTrack();
+            return;
+        }
+
+        IsMusicPlaying = false;
+        StatusMessage = "Music finished.";
+    }
+
+    private void RefreshMusic()
+    {
+        MusicPlaylists.Clear();
+        MusicTracks.Clear();
+        var library = MusicLibraryScanner.Scan(_manager.Workspace.Settings.Audio.MusicRootPath);
+        foreach (var playlist in library.Playlists)
+        {
+            MusicPlaylists.Add(new MusicPlaylistViewModel(playlist));
+        }
+
+        var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+        _selectedMusicPlaylist = MusicPlaylists.FirstOrDefault(playlist =>
+            string.Equals(playlist.Id, state.SelectedPlaylist, StringComparison.OrdinalIgnoreCase))
+            ?? MusicPlaylists.FirstOrDefault();
+        OnPropertyChanged(nameof(SelectedMusicPlaylist));
+        ApplySelectedPlaylist(save: false);
+
+        if (!string.IsNullOrWhiteSpace(state.SelectedTrackPath))
+        {
+            _selectedMusicTrack = MusicTracks.FirstOrDefault(track =>
+                WorkspaceLayoutService.PathsEqual(track.Path, state.SelectedTrackPath));
+            OnPropertyChanged(nameof(SelectedMusicTrack));
+        }
+
+        if (_selectedMusicTrack is null)
+        {
+            _selectedMusicTrack = MusicTracks.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedMusicTrack));
+        }
+
+        NowPlayingText = SelectedMusicTrack?.Title ?? "No track selected";
+        _baseStatusMessage = library.StatusMessage;
+        StatusMessage = library.StatusMessage;
+    }
+
+    private void ApplySelectedPlaylist(bool save)
+    {
+        MusicTracks.Clear();
+        if (SelectedMusicPlaylist is not null)
+        {
+            foreach (var track in SelectedMusicPlaylist.Tracks)
+            {
+                MusicTracks.Add(track);
+            }
+        }
+
+        SelectedMusicTrack = MusicTracks.FirstOrDefault();
+        if (save && SelectedMusicPlaylist is not null)
+        {
+            var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+            state.SelectedPlaylist = SelectedMusicPlaylist.Id;
+            state.SelectedTrackPath = SelectedMusicTrack?.Path;
+            _manager.Save();
+        }
+    }
+
+    private void SaveSelectedTrack()
+    {
+        var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+        state.SelectedTrackPath = SelectedMusicTrack?.Path;
+        _manager.Save();
+        NowPlayingText = SelectedMusicTrack?.Title ?? "No track selected";
+    }
+
+    private void ApplySearchFilter()
+    {
+        Items.Clear();
+        var query = SearchQuery.Trim();
+        var filtered = string.IsNullOrWhiteSpace(query)
+            ? _allItems
+            : _allItems.Where(item =>
+                DockSearchMatcher.Matches(item.DisplayName, item.Extension, item.Path, query)).ToList();
+
+        foreach (var item in filtered)
+        {
+            Items.Add(item);
+        }
+
+        StatusMessage = string.IsNullOrWhiteSpace(query)
+            ? _baseStatusMessage
+            : $"{Items.Count} of {_allItems.Count} items";
     }
 
     private IEnumerable<FileItemViewModel> ApplyItemOverrides(IEnumerable<FileItemViewModel> baseItems)

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -39,6 +40,11 @@ public partial class SettingsWindow : Window
 
             AttachDesktopCheckBox.IsChecked = _manager.Workspace.Settings.AttachWindowsToDesktop;
             CleanDesktopCheckBox.IsChecked = _manager.Workspace.Settings.HideDesktopIconsWhenRunning;
+            SoundEffectsCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableSoundEffects;
+            MusicDockCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableMusicDock;
+            SoundEffectsVolumeTextBox.Text = _manager.Workspace.Settings.Audio.SoundEffectsVolume.ToString("0.00");
+            MusicFolderTextBox.Text = _manager.Workspace.Settings.Audio.MusicRootPath;
+            ExpansionEdgeComboBox.ItemsSource = Enum.GetValues(typeof(DockExpansionEdge));
             PopulateFields(ZonesList.SelectedItem as ZoneDefinition);
         }
         finally
@@ -131,6 +137,7 @@ public partial class SettingsWindow : Window
         ApplyFields(zone);
         _manager.Workspace.Settings.AttachWindowsToDesktop = AttachDesktopCheckBox.IsChecked == true;
         _manager.Workspace.Settings.HideDesktopIconsWhenRunning = CleanDesktopCheckBox.IsChecked == true;
+        ApplyAudioFields();
         _manager.Save();
         _manager.Reload();
         StatusText.Text = "Saved and reloaded.";
@@ -174,6 +181,7 @@ public partial class SettingsWindow : Window
         {
             Id = Guid.NewGuid().ToString("N"),
             Name = source.Name + " Copy",
+            Kind = source.Kind,
             IsVisible = source.IsVisible,
             IsLocked = source.IsLocked,
             IsCollapsed = false,
@@ -230,6 +238,23 @@ public partial class SettingsWindow : Window
         OpenPath(_manager.WorkspacePath);
     }
 
+    private void OpenMusicFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PathExpander.Expand(string.IsNullOrWhiteSpace(MusicFolderTextBox.Text)
+            ? _manager.Workspace.Settings.Audio.MusicRootPath
+            : MusicFolderTextBox.Text.Trim());
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch
+        {
+            // Explorer will surface any remaining path issue.
+        }
+
+        OpenPath(path);
+    }
+
     private void Reload_Click(object sender, RoutedEventArgs e)
     {
         _manager.Reload();
@@ -269,6 +294,7 @@ public partial class SettingsWindow : Window
         BackgroundTextBox.IsEnabled = enabled;
         OpacityTextBox.IsEnabled = enabled;
         IconSizeTextBox.IsEnabled = enabled;
+        ExpansionEdgeComboBox.IsEnabled = enabled;
         VisibleCheckBox.IsEnabled = enabled;
         LockedCheckBox.IsEnabled = enabled;
         CollapsedCheckBox.IsEnabled = enabled;
@@ -281,6 +307,7 @@ public partial class SettingsWindow : Window
             BackgroundTextBox.Text = string.Empty;
             OpacityTextBox.Text = string.Empty;
             IconSizeTextBox.Text = string.Empty;
+            ExpansionEdgeComboBox.SelectedItem = DockExpansionEdge.Top;
             VisibleCheckBox.IsChecked = false;
             LockedCheckBox.IsChecked = false;
             CollapsedCheckBox.IsChecked = false;
@@ -302,6 +329,7 @@ public partial class SettingsWindow : Window
         BackgroundTextBox.Text = zone.Appearance.BackgroundColor;
         OpacityTextBox.Text = zone.Appearance.Opacity.ToString("0.00");
         IconSizeTextBox.Text = zone.Appearance.IconSize.ToString("0");
+        ExpansionEdgeComboBox.SelectedItem = WorkspaceLayoutService.GetExpansionEdge(_manager.Workspace, zone);
         VisibleCheckBox.IsChecked = zone.IsVisible;
         LockedCheckBox.IsChecked = zone.IsLocked;
         CollapsedCheckBox.IsChecked = zone.IsCollapsed;
@@ -317,6 +345,10 @@ public partial class SettingsWindow : Window
         zone.Appearance.BackgroundColor = NormalizeColor(BackgroundTextBox.Text, "#121821");
         zone.Appearance.Opacity = TryReadDouble(OpacityTextBox.Text, 0.88, 0.10, 1.0);
         zone.Appearance.IconSize = TryReadDouble(IconSizeTextBox.Text, 42, 24, 96);
+        if (ExpansionEdgeComboBox.SelectedItem is DockExpansionEdge edge)
+        {
+            WorkspaceLayoutService.SetExpansionEdge(_manager.Workspace, zone.Id, edge);
+        }
 
         var primaryTab = zone.Tabs.FirstOrDefault();
         if (primaryTab is null)
@@ -332,6 +364,20 @@ public partial class SettingsWindow : Window
                 ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
                 : PathExpander.CompressUserPath(PathTextBox.Text.Trim());
         }
+    }
+
+    private void ApplyAudioFields()
+    {
+        var audio = _manager.Workspace.Settings.Audio;
+        audio.EnableSoundEffects = SoundEffectsCheckBox.IsChecked == true;
+        audio.SoundEffectsVolume = TryReadDouble(SoundEffectsVolumeTextBox.Text, 0.35, 0, 1);
+        audio.EnableMusicDock = MusicDockCheckBox.IsChecked == true;
+        audio.MusicRootPath = string.IsNullOrWhiteSpace(MusicFolderTextBox.Text)
+            ? "%USERPROFILE%\\Music\\OrbitDock"
+            : PathExpander.CompressUserPath(MusicFolderTextBox.Text.Trim());
+
+        var musicDock = WorkspaceLayoutService.EnsureMusicDock(_manager.Workspace);
+        WorkspaceLayoutService.SetDockVisibility(_manager.Workspace, musicDock.Id, audio.EnableMusicDock);
     }
 
     private static string NormalizeColor(string value, string fallback)

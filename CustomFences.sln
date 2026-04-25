@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9042CBFC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomFences.Tests", "tests\CustomFences.Tests\CustomFences.Tests.csproj", "{EC2D16A6-4028-4B03-80A9-33DC96A87837}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrbitDock.Cli", "src\OrbitDock.Cli\OrbitDock.Cli.csproj", "{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +30,14 @@ Global
 		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EC2D16A6-4028-4B03-80A9-33DC96A87837}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA} = {65F47F2A-E5A9-44B4-BA64-036EB9F7578E}
 		{EC2D16A6-4028-4B03-80A9-33DC96A87837} = {9042CBFC-FFEE-4434-9123-324184DC5EA8}
+		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46} = {65F47F2A-E5A9-44B4-BA64-036EB9F7578E}
 	EndGlobalSection
 EndGlobal

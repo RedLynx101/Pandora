@@ -8,6 +8,8 @@ public static class WorkspaceFactory
 
         var workspace = new Workspace
         {
+            SchemaVersion = WorkspaceMigrator.CurrentSchemaVersion,
+            ActiveLayoutName = WorkspaceLayoutService.DefaultLayoutName,
             Settings = new AppSettings
             {
                 AttachWindowsToDesktop = false,
@@ -95,6 +97,7 @@ public static class WorkspaceFactory
             }
         ];
 
+        workspace.Layouts.Add(WorkspaceLayoutService.CreateProfileFromZones(WorkspaceLayoutService.DefaultLayoutName, workspace));
         return workspace;
     }
 

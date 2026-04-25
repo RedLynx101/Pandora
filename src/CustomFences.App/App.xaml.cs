@@ -40,6 +40,17 @@ public partial class App : System.Windows.Application
 
         var store = WorkspaceStore.ForCurrentUser();
         _manager = new DesktopZoneManager(store);
+        _manager.CleanDesktopModeChanged += enabled =>
+        {
+            if (enabled)
+            {
+                HideDesktopIcons();
+            }
+            else
+            {
+                RestoreDesktopIcons();
+            }
+        };
         _manager.Start();
         ApplyDesktopIconMode();
 

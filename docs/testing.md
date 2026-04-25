@@ -14,6 +14,8 @@ The app is published to:
 artifacts\CustomFences-win-x64\CustomFences.App.exe
 ```
 
+The CLI is published into the same folder as `OrbitDock.Cli.exe`.
+
 ## Launch
 
 ```powershell
@@ -40,7 +42,7 @@ Restart a running copy:
 
 ## Reset Test Workspace
 
-This stops the app, backs up `%APPDATA%\CustomFences\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
+This stops the app, backs up `%APPDATA%\OrbitDock\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
 
 ```powershell
 .\scripts\reset-workspace.ps1
@@ -64,6 +66,11 @@ Optional settings shortcut:
 - Resize the zones from the window edge.
 - Double-click a zone header to roll it up and down.
 - Drag a small test file into a zone and confirm it copies into the underlying folder.
+- Drag an item within a smart dock and confirm the order persists after restart.
+- Drag an item between smart docks and confirm it moves virtually while the real shortcut remains in place.
+- Right-click an item, remove it from the dock, and confirm the real file still exists.
+- Pin an item to the desktop overlay, move the pin, restart, and confirm its position persists.
+- Run `.\scripts\orbitdockctl.ps1 layout list` and `.\scripts\orbitdockctl.ps1 workspace validate` while the app is running.
 - Use the tray icon to open settings, reload, set docks behind windows, and exit.
 - Press `Ctrl+Alt+Space` to send docks back behind active windows.
 - Run `.\scripts\show-desktop-icons.ps1` if you ever need to restore the raw Windows desktop icon grid after a crash.

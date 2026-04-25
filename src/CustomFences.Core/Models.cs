@@ -2,10 +2,12 @@ namespace CustomFences.Core;
 
 public sealed class Workspace
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public AppSettings Settings { get; set; } = new();
     public List<ZoneDefinition> Zones { get; set; } = [];
     public List<RuleDefinition> Rules { get; set; } = [];
+    public string ActiveLayoutName { get; set; } = "Main";
+    public List<LayoutProfile> Layouts { get; set; } = [];
 }
 
 public sealed class AppSettings
@@ -76,6 +78,45 @@ public sealed class RuleCondition
     public RuleField Field { get; set; } = RuleField.Extension;
     public RuleMatch Match { get; set; } = RuleMatch.Equals;
     public string Value { get; set; } = string.Empty;
+}
+
+public sealed class LayoutProfile
+{
+    public string Name { get; set; } = "Main";
+    public bool HideDesktopIconsWhenRunning { get; set; } = true;
+    public List<DockLayoutState> DockStates { get; set; } = [];
+    public List<DockItemOverride> ItemOverrides { get; set; } = [];
+    public List<DesktopPinDefinition> DesktopPins { get; set; } = [];
+}
+
+public sealed class DockLayoutState
+{
+    public string DockId { get; set; } = string.Empty;
+    public bool IsVisible { get; set; } = true;
+    public bool IsLocked { get; set; }
+    public bool IsCollapsed { get; set; }
+    public string? ActiveTabId { get; set; }
+    public ZoneBounds Bounds { get; set; } = new();
+}
+
+public sealed class DockItemOverride
+{
+    public string Path { get; set; } = string.Empty;
+    public string DockId { get; set; } = string.Empty;
+    public string? TabId { get; set; }
+    public int Order { get; set; }
+    public bool IsHidden { get; set; }
+    public string? DisplayName { get; set; }
+}
+
+public sealed class DesktopPinDefinition
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Path { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public double X { get; set; } = 120;
+    public double Y { get; set; } = 120;
+    public double IconSize { get; set; } = 52;
 }
 
 public sealed class RuleCandidate

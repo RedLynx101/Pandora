@@ -27,6 +27,11 @@ public partial class SettingsWindow : Window
         {
             ZonesList.ItemsSource = null;
             ZonesList.ItemsSource = _manager.Workspace.Zones;
+            LayoutsComboBox.ItemsSource = null;
+            LayoutsComboBox.ItemsSource = _manager.Workspace.Layouts;
+            LayoutsComboBox.SelectedItem = _manager.Workspace.Layouts.FirstOrDefault(layout =>
+                string.Equals(layout.Name, _manager.Workspace.ActiveLayoutName, StringComparison.OrdinalIgnoreCase));
+            LayoutNameTextBox.Text = _manager.Workspace.ActiveLayoutName;
             if (ZonesList.SelectedIndex < 0 && _manager.Workspace.Zones.Count > 0)
             {
                 ZonesList.SelectedIndex = 0;
@@ -39,6 +44,72 @@ public partial class SettingsWindow : Window
         finally
         {
             _isRefreshing = false;
+        }
+    }
+
+    private void LayoutsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshing)
+        {
+            return;
+        }
+
+        if (LayoutsComboBox.SelectedItem is LayoutProfile profile)
+        {
+            LayoutNameTextBox.Text = profile.Name;
+        }
+    }
+
+    private void SaveLayout_Click(object sender, RoutedEventArgs e)
+    {
+        var name = string.IsNullOrWhiteSpace(LayoutNameTextBox.Text)
+            ? _manager.Workspace.ActiveLayoutName
+            : LayoutNameTextBox.Text.Trim();
+        WorkspaceLayoutService.SaveCurrentLayoutAs(_manager.Workspace, name);
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = $"Saved layout '{name}'.";
+    }
+
+    private void SwitchLayout_Click(object sender, RoutedEventArgs e)
+    {
+        var name = LayoutsComboBox.SelectedItem is LayoutProfile profile
+            ? profile.Name
+            : LayoutNameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        try
+        {
+            WorkspaceLayoutService.SwitchLayout(_manager.Workspace, name);
+            _manager.Save();
+            _manager.Reload();
+            StatusText.Text = $"Switched to layout '{name}'.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusText.Text = ex.Message;
+        }
+    }
+
+    private void DuplicateLayout_Click(object sender, RoutedEventArgs e)
+    {
+        var target = string.IsNullOrWhiteSpace(LayoutNameTextBox.Text)
+            ? $"{_manager.Workspace.ActiveLayoutName} Copy"
+            : LayoutNameTextBox.Text.Trim();
+
+        try
+        {
+            WorkspaceLayoutService.DuplicateLayout(_manager.Workspace, _manager.Workspace.ActiveLayoutName, target);
+            _manager.Save();
+            RefreshFromWorkspace();
+            StatusText.Text = $"Duplicated layout '{target}'.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusText.Text = ex.Message;
         }
     }
 
@@ -128,6 +199,8 @@ public partial class SettingsWindow : Window
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Name = tab.Name,
+                Source = tab.Source,
+                DesktopGroup = tab.DesktopGroup,
                 Path = tab.Path,
                 AllowNavigation = tab.AllowNavigation
             }).ToList()

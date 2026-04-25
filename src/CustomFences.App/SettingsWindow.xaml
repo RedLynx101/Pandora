@@ -24,6 +24,13 @@
             <Setter Property="BorderBrush" Value="#2C3748" />
             <Setter Property="CaretBrush" Value="#F7FAFF" />
         </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Margin" Value="0,6,0,10" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Background" Value="#151B25" />
+            <Setter Property="Foreground" Value="#F7FAFF" />
+            <Setter Property="BorderBrush" Value="#2C3748" />
+        </Style>
         <Style TargetType="Button">
             <Setter Property="Padding" Value="12,7" />
             <Setter Property="Margin" Value="0,0,8,0" />
@@ -96,6 +103,16 @@
                             <TextBlock Text="Desktop launchpads"
                                        Foreground="#8EA1B8"
                                        Margin="0,6,0,18" />
+                            <TextBlock Text="Active layout" FontFamily="Segoe UI Semibold" FontSize="13" />
+                            <ComboBox x:Name="LayoutsComboBox"
+                                      DisplayMemberPath="Name"
+                                      SelectionChanged="LayoutsComboBox_SelectionChanged" />
+                            <TextBox x:Name="LayoutNameTextBox" Margin="0,0,0,10" />
+                            <WrapPanel Margin="0,0,0,18">
+                                <Button Content="Save Layout" Click="SaveLayout_Click" Margin="0,0,8,8" />
+                                <Button Content="Switch" Click="SwitchLayout_Click" Margin="0,0,8,8" />
+                                <Button Content="Duplicate" Click="DuplicateLayout_Click" Margin="0,0,8,8" />
+                            </WrapPanel>
                         </StackPanel>
 
                         <ListBox Grid.Row="1"

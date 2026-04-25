@@ -96,9 +96,18 @@
                      ItemsSource="{Binding Items}"
                      Background="Transparent"
                      BorderThickness="0"
+                     AllowDrop="True"
+                     SelectionMode="Single"
+                     Focusable="True"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     MouseDoubleClick="ItemsList_MouseDoubleClick">
+                     MouseDoubleClick="ItemsList_MouseDoubleClick"
+                     PreviewKeyDown="ItemsList_PreviewKeyDown"
+                     PreviewMouseLeftButtonDown="ItemsList_PreviewMouseLeftButtonDown"
+                     PreviewMouseMove="ItemsList_PreviewMouseMove"
+                     PreviewMouseRightButtonDown="ItemsList_PreviewMouseRightButtonDown"
+                     DragOver="ItemsList_DragOver"
+                     Drop="ItemsList_Drop">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel IsItemsHost="True" Margin="10,10,8,6" />
@@ -124,7 +133,7 @@
                                             <Setter TargetName="ItemChrome" Property="Background" Value="#24FFFFFF" />
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemChrome" Property="Background" Value="#35FFFFFF" />
+                                            <Setter TargetName="ItemChrome" Property="Background" Value="#22FFFFFF" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -159,7 +168,11 @@
                 <ListBox.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Open" Click="OpenItem_Click" />
+                        <MenuItem Header="Remove from Dock" Click="RemoveFromDock_Click" />
+                        <MenuItem Header="Pin to Desktop" Click="PinToDesktop_Click" />
                         <MenuItem Header="Reveal in Explorer" Click="RevealItem_Click" />
+                        <Separator />
+                        <MenuItem Header="Delete Real File..." Click="DeleteRealFile_Click" />
                         <Separator />
                         <MenuItem Header="Refresh" Click="Refresh_Click" />
                     </ContextMenu>

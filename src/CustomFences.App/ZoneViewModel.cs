@@ -14,15 +14,21 @@ namespace CustomFences.App;
 
 public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 {
+    private const int MaximumItemsPerDock = 240;
+
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+    private readonly DesktopZoneManager _manager;
     private readonly List<FileSystemWatcher> _watchers = [];
     private ZoneTabDefinition? _selectedTab;
     private string _statusMessage = string.Empty;
 
-    public ZoneViewModel(ZoneDefinition zone)
+    public ZoneViewModel(ZoneDefinition zone, DesktopZoneManager manager)
     {
+        _manager = manager;
         Zone = zone;
-        SelectedTab = zone.Tabs.FirstOrDefault();
+        var activeTabId = WorkspaceLayoutService.GetActiveTabId(manager.Workspace, zone);
+        SelectedTab = zone.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, activeTabId, StringComparison.OrdinalIgnoreCase))
+            ?? zone.Tabs.FirstOrDefault();
         Refresh();
     }
 
@@ -63,6 +69,9 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         : SelectedTab.Source == ZoneTabSource.SmartDesktop
             ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)
             : PathExpander.Expand(SelectedTab.Path);
+    public bool IsSmartDock => SelectedTab?.Source == ZoneTabSource.SmartDesktop;
+    public string DockId => Zone.Id;
+    public string? SelectedTabId => SelectedTab?.Id;
 
     public string StatusMessage
     {
@@ -82,6 +91,8 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public void SelectTab(ZoneTabDefinition tab)
     {
         SelectedTab = tab;
+        WorkspaceLayoutService.CaptureActiveTab(_manager.Workspace, Zone, tab.Id);
+        _manager.Save();
         Refresh();
     }
 
@@ -122,9 +133,10 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 .Where(info => info is not null)
                 .Cast<FileSystemInfo>();
 
-            foreach (var info in Sort(entries, Zone.Sort).Take(240))
+            var items = Sort(entries, Zone.Sort).Select(info => new FileItemViewModel(info));
+            foreach (var item in ApplyItemOverrides(items).Take(MaximumItemsPerDock))
             {
-                Items.Add(new FileItemViewModel(info));
+                Items.Add(item);
             }
 
             StatusMessage = Items.Count == 0 ? "Folder is empty." : $"{Items.Count} items";
@@ -140,6 +152,12 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     {
         if (paths.Count == 0 || string.IsNullOrWhiteSpace(SelectedFolderPath))
         {
+            return;
+        }
+
+        if (IsSmartDock)
+        {
+            AddVirtualItems(paths);
             return;
         }
 
@@ -197,6 +215,125 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public void AddVirtualItems(IReadOnlyCollection<string> paths)
+    {
+        if (SelectedTab is null || paths.Count == 0)
+        {
+            return;
+        }
+
+        var completed = 0;
+        foreach (var path in paths.Where(path => !string.IsNullOrWhiteSpace(path)))
+        {
+            WorkspaceLayoutService.AddOrShowItem(_manager.Workspace, path, Zone.Id, SelectedTab.Id);
+            completed++;
+        }
+
+        if (completed > 0)
+        {
+            _manager.Save();
+            Refresh();
+            StatusMessage = $"Added {completed} virtual item(s).";
+        }
+    }
+
+    public bool MoveItemHere(string path, string? sourceDockId, string? sourceTabId, int targetIndex)
+    {
+        if (SelectedTab is null || string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var sameDock = string.Equals(sourceDockId, Zone.Id, StringComparison.OrdinalIgnoreCase);
+        var sameTab = string.IsNullOrWhiteSpace(sourceTabId) ||
+                      string.Equals(sourceTabId, SelectedTab.Id, StringComparison.OrdinalIgnoreCase);
+        if (sameDock && sameTab)
+        {
+            ReorderItem(path, targetIndex);
+            return true;
+        }
+
+        if (IsSmartDock)
+        {
+            if (!string.IsNullOrWhiteSpace(sourceDockId))
+            {
+                WorkspaceLayoutService.MoveItem(_manager.Workspace, path, sourceDockId, sourceTabId, Zone.Id, SelectedTab.Id, targetIndex);
+            }
+            else
+            {
+                WorkspaceLayoutService.AddOrShowItem(_manager.Workspace, path, Zone.Id, SelectedTab.Id, targetIndex);
+            }
+
+            _manager.Save();
+            Refresh();
+            StatusMessage = "Moved item virtually.";
+            return true;
+        }
+
+        if (File.Exists(path) || Directory.Exists(path))
+        {
+            AddDroppedFiles([path], _manager.Workspace.Settings.DefaultDropAction);
+            return true;
+        }
+
+        StatusMessage = "Item no longer exists on disk.";
+        return false;
+    }
+
+    public void ReorderItem(string path, int targetIndex)
+    {
+        if (SelectedTab is null || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var ordered = Items.Select(item => item.Path).ToList();
+        var existingIndex = ordered.FindIndex(candidate => WorkspaceLayoutService.PathsEqual(candidate, path));
+        if (existingIndex >= 0)
+        {
+            ordered.RemoveAt(existingIndex);
+            if (existingIndex < targetIndex)
+            {
+                targetIndex--;
+            }
+        }
+
+        var insertionIndex = Math.Clamp(targetIndex < 0 ? ordered.Count : targetIndex, 0, ordered.Count);
+        ordered.Insert(insertionIndex, WorkspaceLayoutService.NormalizePath(path));
+        WorkspaceLayoutService.SetItemOrder(_manager.Workspace, Zone.Id, SelectedTab.Id, ordered);
+        _manager.Save();
+        Refresh();
+        StatusMessage = "Order saved.";
+    }
+
+    public void RemoveFromDock(string path)
+    {
+        if (SelectedTab is null || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        WorkspaceLayoutService.HideItemInDock(_manager.Workspace, path, Zone.Id, SelectedTab.Id);
+        _manager.Save();
+        Refresh();
+        StatusMessage = "Removed from this dock. The real file was not touched.";
+    }
+
+    public void PinToDesktop(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var x = Math.Max(SystemParameters.VirtualScreenLeft + 80, Zone.Bounds.X - 92);
+        var y = Math.Max(SystemParameters.VirtualScreenTop + 80, Zone.Bounds.Y);
+        WorkspaceLayoutService.AddDesktopPin(_manager.Workspace, path, x, y, Zone.Appearance.IconSize);
+        _manager.Save();
+        _manager.ReloadDesktopPins();
+        StatusMessage = "Pinned to desktop overlay.";
+    }
+
     public void Dispose()
     {
         StopWatchers();
@@ -206,9 +343,11 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            foreach (var info in DesktopItemCatalog.Enumerate(SelectedTab!.DesktopGroup).Take(240))
+            var items = DesktopItemCatalog.Enumerate(SelectedTab!.DesktopGroup)
+                .Select(info => new FileItemViewModel(info));
+            foreach (var item in ApplyItemOverrides(items).Take(MaximumItemsPerDock))
             {
-                Items.Add(new FileItemViewModel(info));
+                Items.Add(item);
             }
 
             var label = SelectedTab.DesktopGroup switch
@@ -231,6 +370,49 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         {
             StatusMessage = $"Cannot scan desktop: {ex.Message}";
         }
+    }
+
+    private IEnumerable<FileItemViewModel> ApplyItemOverrides(IEnumerable<FileItemViewModel> baseItems)
+    {
+        if (SelectedTab is null)
+        {
+            return baseItems;
+        }
+
+        var layout = WorkspaceLayoutService.EnsureActiveLayout(_manager.Workspace);
+        var overrides = WorkspaceLayoutService.GetOverrides(layout, Zone.Id, SelectedTab.Id);
+        var visible = new List<(FileItemViewModel Item, int? Order, int BaseIndex)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var index = 0;
+
+        foreach (var item in baseItems)
+        {
+            var normalized = WorkspaceLayoutService.NormalizePath(item.Path);
+            if (WorkspaceLayoutService.IsHidden(layout, Zone.Id, SelectedTab.Id, normalized))
+            {
+                continue;
+            }
+
+            seen.Add(normalized);
+            visible.Add((item, WorkspaceLayoutService.GetItemOrder(layout, Zone.Id, SelectedTab.Id, normalized), index++));
+        }
+
+        foreach (var itemOverride in overrides.Where(item => !item.IsHidden))
+        {
+            var normalized = WorkspaceLayoutService.NormalizePath(itemOverride.Path);
+            if (!seen.Add(normalized))
+            {
+                continue;
+            }
+
+            visible.Add((new FileItemViewModel(normalized, itemOverride.DisplayName), itemOverride.Order, index++));
+        }
+
+        return visible
+            .OrderBy(item => item.Order ?? int.MaxValue)
+            .ThenBy(item => item.Order.HasValue ? 0 : item.BaseIndex)
+            .ThenBy(item => item.Item.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Item);
     }
 
     private static FileSystemInfo? CreateFileSystemInfo(string path)

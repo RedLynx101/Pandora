@@ -1,13 +1,17 @@
 # Safety
 
-CustomFences should earn trust before it touches a user's desktop layout.
+OrbitDock should earn trust before it touches a user's desktop layout.
 
 ## Current Defaults
 
-- Drag-and-drop copies files instead of moving them.
+- Smart-dock drag-and-drop is virtual and does not move files.
+- Explicit folder dock drag-and-drop copies files instead of moving them.
 - Deleting a zone removes only zone metadata, not files.
+- Removing an item from a dock hides it from that dock only.
+- Real delete is a separate context-menu action with confirmation.
 - Rule automation is disabled.
 - Clean desktop mode hides the raw Windows icon grid while the app is running and restores it on normal exit.
+- Desktop pins are OrbitDock overlay items stored in the active layout; they do not alter raw Windows desktop icon positions.
 - `scripts/show-desktop-icons.ps1` is provided as a manual restore fallback.
 - Shell attachment is best effort and can be disabled.
 - Missing or offline portal folders show status text instead of blocking startup.
@@ -17,6 +21,7 @@ CustomFences should earn trust before it touches a user's desktop layout.
 
 - Never delete user files as part of zone management.
 - Prefer copy over move unless the user explicitly opts in.
+- Prefer virtual item overrides for desktop organization.
 - Use unique destination names to avoid overwriting existing files.
 - Treat network folders, removable drives, and cloud-sync folders as unreliable.
 - Show recoverable errors in the zone status line instead of crashing.

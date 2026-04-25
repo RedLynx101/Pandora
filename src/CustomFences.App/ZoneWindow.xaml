@@ -17,6 +17,7 @@
         Loaded="Window_Loaded"
         SourceInitialized="Window_SourceInitialized"
         Deactivated="Window_Deactivated"
+        StateChanged="Window_StateChanged"
         LocationChanged="Window_PlacementChanged"
         SizeChanged="Window_PlacementChanged"
         AllowDrop="True"

@@ -7,6 +7,13 @@ public static class WorkspaceLayoutService
 {
     public const string DefaultLayoutName = "Main";
     public const string DefaultDisplayVariantKey = "default";
+    public const double MinimumDockWidth = 120;
+    public const double MinimumDockHeight = 54;
+    public const double DefaultRestoredDockWidth = 390;
+    public const double DefaultRestoredDockHeight = 320;
+    public const double DockWorkAreaMargin = 12;
+    public const double DockMaxWorkAreaRatio = 0.72;
+    public const double DockSnapRestoreRatio = 0.92;
 
     public static LayoutProfile EnsureActiveLayout(Workspace workspace)
     {
@@ -112,7 +119,6 @@ public static class WorkspaceLayoutService
         {
             var source = layout.DisplayVariants.First(candidate => candidate.IsDefault);
             variant = CloneDisplayVariant(source, normalizedKey, displaySignature, isDefault: false);
-            ClampVariantToDisplays(variant, displays);
             layout.DisplayVariants.Add(variant);
         }
 
@@ -120,6 +126,7 @@ public static class WorkspaceLayoutService
         variant.LastSeenUtc = DateTime.UtcNow;
         layout.ActiveDisplayVariantKey = variant.Key;
         EnsureDockStates(variant.DockStates, workspace.Zones);
+        ClampVariantToDisplays(variant, displays);
         ApplyActiveLayoutToZones(workspace);
         return variant;
     }
@@ -263,11 +270,42 @@ public static class WorkspaceLayoutService
         {
             X = x,
             Y = y,
-            Width = Math.Max(120, width),
-            Height = Math.Max(54, height)
+            Width = Math.Max(MinimumDockWidth, width),
+            Height = Math.Max(MinimumDockHeight, height)
         };
 
         CaptureZoneState(workspace, zone, null);
+    }
+
+    public static bool RestoreDockBounds(Workspace workspace, string dockId, IReadOnlyList<DisplayDescriptor> displays)
+    {
+        var zone = FindZone(workspace, dockId);
+        var variant = EnsureActiveDisplayVariant(workspace);
+        var state = EnsureDockState(variant.DockStates, zone);
+        var display = FindBestDisplay(displays, state.Bounds);
+        var restored = CreateRestoredDockBounds(state.Bounds, display);
+
+        zone.Bounds = CloneBounds(restored);
+        zone.IsCollapsed = false;
+        state.Bounds = CloneBounds(restored);
+        state.IsCollapsed = false;
+        return true;
+    }
+
+    public static int RepairOversizedDockBounds(Workspace workspace, IReadOnlyList<DisplayDescriptor> displays)
+    {
+        var changed = 0;
+        var layout = EnsureActiveLayout(workspace);
+        foreach (var variant in layout.DisplayVariants)
+        {
+            if (ClampVariantToDisplays(variant, displays))
+            {
+                changed++;
+            }
+        }
+
+        ApplyActiveLayoutToZones(workspace);
+        return changed;
     }
 
     public static ZoneDefinition EnsureMusicDock(Workspace workspace)
@@ -757,30 +795,160 @@ public static class WorkspaceLayoutService
         return trimmed.Length == 0 ? DefaultLayoutName : trimmed;
     }
 
-    private static void ClampVariantToDisplays(DisplayLayoutVariant variant, IReadOnlyList<DisplayDescriptor> displays)
+    private static bool ClampVariantToDisplays(DisplayLayoutVariant variant, IReadOnlyList<DisplayDescriptor> displays)
     {
         if (displays.Count == 0)
         {
-            return;
+            return false;
         }
 
         var minX = displays.Min(display => display.WorkAreaX);
         var minY = displays.Min(display => display.WorkAreaY);
         var maxX = displays.Max(display => display.WorkAreaX + display.WorkAreaWidth);
         var maxY = displays.Max(display => display.WorkAreaY + display.WorkAreaHeight);
+        var changed = false;
 
         foreach (var state in variant.DockStates)
         {
-            state.Bounds.Width = Math.Min(Math.Max(state.Bounds.Width, 120), Math.Max(120, maxX - minX));
-            state.Bounds.Height = Math.Min(Math.Max(state.Bounds.Height, 54), Math.Max(54, maxY - minY));
-            state.Bounds.X = Math.Clamp(state.Bounds.X, minX, Math.Max(minX, maxX - state.Bounds.Width));
-            state.Bounds.Y = Math.Clamp(state.Bounds.Y, minY, Math.Max(minY, maxY - state.Bounds.Height));
+            var display = FindBestDisplay(displays, state.Bounds);
+            var normalized = NormalizeDockBoundsForDisplay(state.Bounds, display, restoreSnapSizedDock: true);
+            if (!BoundsEqual(state.Bounds, normalized))
+            {
+                state.Bounds = normalized;
+                changed = true;
+            }
         }
 
         foreach (var pin in variant.DesktopPins)
         {
-            pin.X = Math.Clamp(pin.X, minX, Math.Max(minX, maxX - pin.IconSize));
-            pin.Y = Math.Clamp(pin.Y, minY, Math.Max(minY, maxY - pin.IconSize));
+            var x = Math.Clamp(pin.X, minX, Math.Max(minX, maxX - pin.IconSize));
+            var y = Math.Clamp(pin.Y, minY, Math.Max(minY, maxY - pin.IconSize));
+            if (Math.Abs(pin.X - x) > 0.1 || Math.Abs(pin.Y - y) > 0.1)
+            {
+                pin.X = x;
+                pin.Y = y;
+                changed = true;
+            }
         }
+
+        return changed;
+    }
+
+    private static ZoneBounds NormalizeDockBoundsForDisplay(
+        ZoneBounds source,
+        DisplayDescriptor display,
+        bool restoreSnapSizedDock)
+    {
+        var maxWidth = GetMaximumDockWidth(display);
+        var maxHeight = GetMaximumDockHeight(display);
+        var snapSized = IsSnapSized(source, display);
+        var width = restoreSnapSizedDock && snapSized
+            ? Math.Min(DefaultRestoredDockWidth, maxWidth)
+            : Math.Clamp(source.Width, MinimumDockWidth, maxWidth);
+        var height = restoreSnapSizedDock && snapSized
+            ? Math.Min(DefaultRestoredDockHeight, maxHeight)
+            : Math.Clamp(source.Height, MinimumDockHeight, maxHeight);
+
+        return new ZoneBounds
+        {
+            X = Math.Clamp(
+                source.X,
+                display.WorkAreaX + DockWorkAreaMargin,
+                Math.Max(display.WorkAreaX + DockWorkAreaMargin, display.WorkAreaX + display.WorkAreaWidth - width - DockWorkAreaMargin)),
+            Y = Math.Clamp(
+                source.Y,
+                display.WorkAreaY + DockWorkAreaMargin,
+                Math.Max(display.WorkAreaY + DockWorkAreaMargin, display.WorkAreaY + display.WorkAreaHeight - height - DockWorkAreaMargin)),
+            Width = width,
+            Height = height
+        };
+    }
+
+    private static ZoneBounds CreateRestoredDockBounds(ZoneBounds source, DisplayDescriptor display)
+    {
+        var width = Math.Min(DefaultRestoredDockWidth, GetMaximumDockWidth(display));
+        var height = Math.Min(DefaultRestoredDockHeight, GetMaximumDockHeight(display));
+        return new ZoneBounds
+        {
+            X = Math.Clamp(
+                source.X,
+                display.WorkAreaX + DockWorkAreaMargin,
+                Math.Max(display.WorkAreaX + DockWorkAreaMargin, display.WorkAreaX + display.WorkAreaWidth - width - DockWorkAreaMargin)),
+            Y = Math.Clamp(
+                source.Y,
+                display.WorkAreaY + DockWorkAreaMargin,
+                Math.Max(display.WorkAreaY + DockWorkAreaMargin, display.WorkAreaY + display.WorkAreaHeight - height - DockWorkAreaMargin)),
+            Width = width,
+            Height = height
+        };
+    }
+
+    private static double GetMaximumDockWidth(DisplayDescriptor display)
+    {
+        return Math.Max(
+            MinimumDockWidth,
+            Math.Min(display.WorkAreaWidth - DockWorkAreaMargin * 2, display.WorkAreaWidth * DockMaxWorkAreaRatio));
+    }
+
+    private static double GetMaximumDockHeight(DisplayDescriptor display)
+    {
+        return Math.Max(
+            MinimumDockHeight,
+            Math.Min(display.WorkAreaHeight - DockWorkAreaMargin * 2, display.WorkAreaHeight * DockMaxWorkAreaRatio));
+    }
+
+    private static bool IsSnapSized(ZoneBounds bounds, DisplayDescriptor display)
+    {
+        return bounds.Width >= display.WorkAreaWidth * DockSnapRestoreRatio ||
+               bounds.Height >= display.WorkAreaHeight * DockSnapRestoreRatio;
+    }
+
+    private static DisplayDescriptor FindBestDisplay(IReadOnlyList<DisplayDescriptor> displays, ZoneBounds bounds)
+    {
+        if (displays.Count == 0)
+        {
+            return new DisplayDescriptor
+            {
+                WorkAreaX = 0,
+                WorkAreaY = 0,
+                WorkAreaWidth = 1920,
+                WorkAreaHeight = 1040,
+                BoundsWidth = 1920,
+                BoundsHeight = 1080
+            };
+        }
+
+        return displays
+            .OrderByDescending(display => IntersectionArea(bounds, display))
+            .ThenBy(display => DistanceFromDisplayCenter(bounds, display))
+            .First();
+    }
+
+    private static double IntersectionArea(ZoneBounds bounds, DisplayDescriptor display)
+    {
+        var left = Math.Max(bounds.X, display.WorkAreaX);
+        var right = Math.Min(bounds.X + bounds.Width, display.WorkAreaX + display.WorkAreaWidth);
+        var top = Math.Max(bounds.Y, display.WorkAreaY);
+        var bottom = Math.Min(bounds.Y + bounds.Height, display.WorkAreaY + display.WorkAreaHeight);
+        return Math.Max(0, right - left) * Math.Max(0, bottom - top);
+    }
+
+    private static double DistanceFromDisplayCenter(ZoneBounds bounds, DisplayDescriptor display)
+    {
+        var boundsCenterX = bounds.X + bounds.Width / 2;
+        var boundsCenterY = bounds.Y + bounds.Height / 2;
+        var displayCenterX = display.WorkAreaX + display.WorkAreaWidth / 2;
+        var displayCenterY = display.WorkAreaY + display.WorkAreaHeight / 2;
+        var dx = boundsCenterX - displayCenterX;
+        var dy = boundsCenterY - displayCenterY;
+        return dx * dx + dy * dy;
+    }
+
+    private static bool BoundsEqual(ZoneBounds left, ZoneBounds right)
+    {
+        return Math.Abs(left.X - right.X) < 0.1 &&
+               Math.Abs(left.Y - right.Y) < 0.1 &&
+               Math.Abs(left.Width - right.Width) < 0.1 &&
+               Math.Abs(left.Height - right.Height) < 0.1;
     }
 }

@@ -8,6 +8,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using CustomFences.Core;
+using Forms = System.Windows.Forms;
+using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace CustomFences.App;
 
@@ -19,6 +21,7 @@ public partial class ZoneWindow : Window
     public const string OrbitDockDesktopPinFormat = "OrbitDock.DesktopPin.Id";
 
     private const double CollapsedHeight = 54;
+    private const double MinimumExpandedHeight = 180;
     private readonly DesktopZoneManager _manager;
     private readonly ZoneViewModel _viewModel;
     private bool _isApplyingPlacement;
@@ -32,7 +35,7 @@ public partial class ZoneWindow : Window
         _viewModel = viewModel;
         _manager = manager;
         DataContext = viewModel;
-        _expandedHeight = Math.Max(viewModel.Zone.Bounds.Height, 180);
+        _expandedHeight = Math.Max(viewModel.Zone.Bounds.Height, MinimumExpandedHeight);
         _manager.MusicEnded += Manager_MusicEnded;
     }
 
@@ -77,18 +80,45 @@ public partial class ZoneWindow : Window
             return;
         }
 
-        _viewModel.Zone.Bounds.X = Left;
-        _viewModel.Zone.Bounds.Y = _viewModel.Zone.IsCollapsed && _viewModel.ExpansionEdge == DockExpansionEdge.Bottom
-            ? Top + Height - _expandedHeight
-            : Top;
-        _viewModel.Zone.Bounds.Width = Width;
-        if (!_viewModel.Zone.IsCollapsed)
+        if (WindowState != WindowState.Normal || IsSnapSizedDock(Left, Top, Width, Height))
         {
-            _viewModel.Zone.Bounds.Height = Height;
-            _expandedHeight = Height;
+            RestoreReasonableSize(save: true);
+            return;
         }
 
+        UpdateWindowMaximums(Left, Top, Width, Height);
+        var currentBounds = GetCurrentWindowBounds();
+        var normalizedBounds = NormalizeWindowBounds(currentBounds, restoreSnapSizedDock: false);
+        if (Math.Abs(currentBounds.Width - normalizedBounds.Width) > 0.1 ||
+            Math.Abs(currentBounds.Height - normalizedBounds.Height) > 0.1)
+        {
+            _isApplyingPlacement = true;
+            try
+            {
+                ApplyWindowBounds(normalizedBounds);
+                SaveCurrentWindowBoundsToModel();
+            }
+            finally
+            {
+                _isApplyingPlacement = false;
+            }
+
+            _manager.Save();
+            return;
+        }
+
+        SaveCurrentWindowBoundsToModel();
         _manager.Save();
+    }
+
+    private void Window_StateChanged(object sender, EventArgs e)
+    {
+        if (_isApplyingPlacement || !IsLoaded || WindowState == WindowState.Normal)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() => RestoreReasonableSize(save: true));
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -497,11 +527,9 @@ public partial class ZoneWindow : Window
         _isApplyingPlacement = true;
         try
         {
-            var bounds = _viewModel.Zone.Bounds;
-            Width = Math.Max(MinWidth, bounds.Width);
-            Height = Math.Max(MinHeight, bounds.Height);
-            Left = Clamp(bounds.X, SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - Width);
-            Top = Clamp(bounds.Y, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - MinHeight);
+            var bounds = NormalizeWindowBounds(_viewModel.Zone.Bounds, restoreSnapSizedDock: true);
+            ApplyWindowBounds(bounds);
+            SaveCurrentWindowBoundsToModel();
         }
         finally
         {
@@ -575,7 +603,9 @@ public partial class ZoneWindow : Window
             else
             {
                 var bottom = Top + Height;
-                Height = Math.Max(_expandedHeight, 180);
+                UpdateWindowMaximums(Left, Top, Width, Math.Max(_expandedHeight, MinimumExpandedHeight));
+                Height = Math.Min(Math.Max(_expandedHeight, MinimumExpandedHeight), MaxHeight);
+                _expandedHeight = Height;
                 if (_viewModel.ExpansionEdge == DockExpansionEdge.Bottom)
                 {
                     Top = bottom - Height;
@@ -587,11 +617,174 @@ public partial class ZoneWindow : Window
             }
 
             ApplyContentMode();
+            SaveCurrentWindowBoundsToModel();
         }
         finally
         {
             _isApplyingPlacement = false;
         }
+    }
+
+    private void RestoreReasonableSize(bool save)
+    {
+        _isApplyingPlacement = true;
+        try
+        {
+            if (WindowState != WindowState.Normal)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            _viewModel.Zone.IsCollapsed = false;
+            var restoredBounds = CreateRestoredWindowBounds(GetCurrentWindowBounds());
+            ApplyWindowBounds(restoredBounds);
+            ContentHost.Visibility = Visibility.Visible;
+            StatusBorder.Visibility = Visibility.Visible;
+            CollapseButton.Content = "\uE96E";
+            SaveCurrentWindowBoundsToModel();
+        }
+        finally
+        {
+            _isApplyingPlacement = false;
+        }
+
+        if (save)
+        {
+            _manager.Save();
+            _manager.ApplyDockLayering();
+        }
+    }
+
+    private ZoneBounds GetCurrentWindowBounds()
+    {
+        return new ZoneBounds
+        {
+            X = Left,
+            Y = _viewModel.Zone.IsCollapsed && _viewModel.ExpansionEdge == DockExpansionEdge.Bottom
+                ? Top + Height - _expandedHeight
+                : Top,
+            Width = Width,
+            Height = _viewModel.Zone.IsCollapsed ? Math.Max(_expandedHeight, MinimumExpandedHeight) : Height
+        };
+    }
+
+    private void SaveCurrentWindowBoundsToModel()
+    {
+        _viewModel.Zone.Bounds.X = Left;
+        _viewModel.Zone.Bounds.Y = _viewModel.Zone.IsCollapsed && _viewModel.ExpansionEdge == DockExpansionEdge.Bottom
+            ? Top + Height - _expandedHeight
+            : Top;
+        _viewModel.Zone.Bounds.Width = Width;
+        if (!_viewModel.Zone.IsCollapsed)
+        {
+            _viewModel.Zone.Bounds.Height = Height;
+            _expandedHeight = Height;
+        }
+    }
+
+    private void ApplyWindowBounds(ZoneBounds bounds)
+    {
+        UpdateWindowMaximums(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        Width = Math.Max(MinWidth, Math.Min(bounds.Width, MaxWidth));
+        Height = Math.Max(MinHeight, Math.Min(bounds.Height, MaxHeight));
+        Left = bounds.X;
+        Top = bounds.Y;
+        if (!_viewModel.Zone.IsCollapsed)
+        {
+            _expandedHeight = Height;
+        }
+    }
+
+    private ZoneBounds NormalizeWindowBounds(ZoneBounds source, bool restoreSnapSizedDock)
+    {
+        var area = GetWorkingArea(source.X, source.Y, source.Width, source.Height);
+        var maxWidth = GetMaximumDockWidth(area);
+        var maxHeight = GetMaximumDockHeight(area);
+        var snapSized = IsSnapSized(source.Width, source.Height, area);
+        var width = restoreSnapSizedDock && snapSized
+            ? Math.Min(WorkspaceLayoutService.DefaultRestoredDockWidth, maxWidth)
+            : Clamp(source.Width, MinWidth, maxWidth);
+        var height = restoreSnapSizedDock && snapSized
+            ? Math.Min(WorkspaceLayoutService.DefaultRestoredDockHeight, maxHeight)
+            : Clamp(source.Height, MinHeight, maxHeight);
+
+        return new ZoneBounds
+        {
+            X = Clamp(
+                source.X,
+                area.Left + WorkspaceLayoutService.DockWorkAreaMargin,
+                Math.Max(area.Left + WorkspaceLayoutService.DockWorkAreaMargin, area.Right - width - WorkspaceLayoutService.DockWorkAreaMargin)),
+            Y = Clamp(
+                source.Y,
+                area.Top + WorkspaceLayoutService.DockWorkAreaMargin,
+                Math.Max(area.Top + WorkspaceLayoutService.DockWorkAreaMargin, area.Bottom - height - WorkspaceLayoutService.DockWorkAreaMargin)),
+            Width = width,
+            Height = height
+        };
+    }
+
+    private ZoneBounds CreateRestoredWindowBounds(ZoneBounds source)
+    {
+        var area = GetWorkingArea(source.X, source.Y, source.Width, source.Height);
+        var width = Math.Min(WorkspaceLayoutService.DefaultRestoredDockWidth, GetMaximumDockWidth(area));
+        var height = Math.Min(WorkspaceLayoutService.DefaultRestoredDockHeight, GetMaximumDockHeight(area));
+        return new ZoneBounds
+        {
+            X = Clamp(
+                source.X,
+                area.Left + WorkspaceLayoutService.DockWorkAreaMargin,
+                Math.Max(area.Left + WorkspaceLayoutService.DockWorkAreaMargin, area.Right - width - WorkspaceLayoutService.DockWorkAreaMargin)),
+            Y = Clamp(
+                source.Y,
+                area.Top + WorkspaceLayoutService.DockWorkAreaMargin,
+                Math.Max(area.Top + WorkspaceLayoutService.DockWorkAreaMargin, area.Bottom - height - WorkspaceLayoutService.DockWorkAreaMargin)),
+            Width = width,
+            Height = height
+        };
+    }
+
+    private void UpdateWindowMaximums(double x, double y, double width, double height)
+    {
+        var area = GetWorkingArea(x, y, width, height);
+        MaxWidth = GetMaximumDockWidth(area);
+        MaxHeight = GetMaximumDockHeight(area);
+    }
+
+    private bool IsSnapSizedDock(double x, double y, double width, double height)
+    {
+        var area = GetWorkingArea(x, y, width, height);
+        return IsSnapSized(width, height, area);
+    }
+
+    private static bool IsSnapSized(double width, double height, Rect area)
+    {
+        return width >= area.Width * WorkspaceLayoutService.DockSnapRestoreRatio ||
+               height >= area.Height * WorkspaceLayoutService.DockSnapRestoreRatio;
+    }
+
+    private static double GetMaximumDockWidth(Rect area)
+    {
+        return Math.Max(
+            WorkspaceLayoutService.MinimumDockWidth,
+            Math.Min(area.Width - WorkspaceLayoutService.DockWorkAreaMargin * 2, area.Width * WorkspaceLayoutService.DockMaxWorkAreaRatio));
+    }
+
+    private static double GetMaximumDockHeight(Rect area)
+    {
+        return Math.Max(
+            MinimumExpandedHeight,
+            Math.Min(area.Height - WorkspaceLayoutService.DockWorkAreaMargin * 2, area.Height * WorkspaceLayoutService.DockMaxWorkAreaRatio));
+    }
+
+    private static Rect GetWorkingArea(double x, double y, double width, double height)
+    {
+        var rectangle = new DrawingRectangle(
+            (int)Math.Round(x),
+            (int)Math.Round(y),
+            Math.Max(1, (int)Math.Round(width)),
+            Math.Max(1, (int)Math.Round(height)));
+        var workingArea = Forms.Screen.FromRectangle(rectangle).WorkingArea;
+        return new Rect(workingArea.X, workingArea.Y, workingArea.Width, workingArea.Height);
     }
 
     private static void OpenPath(string path)

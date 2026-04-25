@@ -14,6 +14,7 @@ var tests = new List<(string Name, Action Body)>
     ("Dock membership overrides persist", DockMembershipPersistence),
     ("Desktop pins persist in active layout", DesktopPinPersistence),
     ("Display signatures and variants are stable", DisplayVariants),
+    ("Oversized dock bounds are repaired", OversizedDockBoundsRepair),
     ("Dock search matches name, extension, and path", DockSearch),
     ("Music scanner handles playlists and unsupported files", MusicScanner),
     ("orbitdockctl validates a workspace", CliValidation)
@@ -220,6 +221,36 @@ static void DisplayVariants()
     var state = variant.DockStates.First(state => state.DockId == workspace.Zones[0].Id);
     Assert(state.Bounds.X < 800 && state.Bounds.Y < 600, "Unknown display variant should clamp dock bounds.");
     Assert(WorkspaceLayoutService.EnsureActiveLayout(workspace).DisplayVariants.Count >= 2, "Using a monitor signature should create a reusable display variant.");
+}
+
+static void OversizedDockBoundsRepair()
+{
+    var workspace = WorkspaceFactory.CreateDefault();
+    var display = new DisplayDescriptor
+    {
+        DeviceName = @"\\.\DISPLAY1",
+        IsPrimary = true,
+        BoundsX = 0,
+        BoundsY = 0,
+        BoundsWidth = 1920,
+        BoundsHeight = 1080,
+        WorkAreaX = 0,
+        WorkAreaY = 0,
+        WorkAreaWidth = 1920,
+        WorkAreaHeight = 1020
+    };
+    var signature = WorkspaceLayoutService.ComputeDisplaySignature([display]);
+    var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
+    var zone = workspace.Zones[0];
+    zone.Bounds = new ZoneBounds { X = 0, Y = 0, Width = 1920, Height = 1020 };
+    WorkspaceLayoutService.CaptureZoneState(workspace, zone, null);
+
+    var variant = WorkspaceLayoutService.UseDisplayVariant(workspace, key, signature, [display]);
+    var state = variant.DockStates.First(state => state.DockId == zone.Id);
+
+    Assert(state.Bounds.Width <= WorkspaceLayoutService.DefaultRestoredDockWidth + 0.1, "Fullscreen-width dock should restore to a normal width.");
+    Assert(state.Bounds.Height <= WorkspaceLayoutService.DefaultRestoredDockHeight + 0.1, "Fullscreen-height dock should restore to a normal height.");
+    Assert(workspace.Zones[0].Bounds.Width <= WorkspaceLayoutService.DefaultRestoredDockWidth + 0.1, "Applied zone bounds should also be repaired.");
 }
 
 static void DockSearch()

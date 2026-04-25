@@ -17,6 +17,7 @@ This project is an independent implementation. It is not affiliated with Stardoc
 - Starter docks for launchers, dev tools, creative apps, games, and desktop inbox files.
 - Folder portals that refresh when the underlying folder changes.
 - Per-dock search that expands from the header and filters by name, extension, and path.
+- Dock bounds are guarded against Windows snap/full-screen states, with Settings actions to restore a selected dock or repair oversized dock sizes.
 - Drag-and-drop organization. Smart docks use virtual membership and ordering; explicit folder docks still copy by default.
 - Optional sound effects and an optional local music dock for `%USERPROFILE%\Music\OrbitDock`.
 - Context menu actions for remove-from-dock, pin-to-desktop, reveal, and confirmed real deletion.
@@ -24,6 +25,7 @@ This project is an independent implementation. It is not affiliated with Stardoc
 - Multi-tab zone support in the workspace model and zone UI.
 - `orbitdockctl` CLI for local agents and scripts to validate workspaces, switch layouts, move dock items, and manage desktop pins.
 - Tray menu for settings, layer reset, reload, config access, and exit.
+- Settings can add or remove OrbitDock from Windows startup apps.
 - `Ctrl+Alt+Space` layer-reset hotkey that sends docks behind active windows.
 - Best-effort shell attachment remains available, but the default test layout uses normal windows plus clean-desktop mode for better reliability.
 - Core rule matching library with starter rule templates. Rule automation is disabled by default.

@@ -126,6 +126,7 @@
                         <StackPanel Grid.Row="2">
                             <Button Content="Add Zone" Click="AddZone_Click" Margin="0,14,0,8" />
                             <Button Content="Open Workspace JSON" Click="OpenWorkspace_Click" Margin="0,0,0,8" />
+                            <Button Content="Repair Dock Sizes" Click="RepairDockSizes_Click" Margin="0,0,0,8" />
                             <Button Content="Reload" Click="Reload_Click" Margin="0" />
                         </StackPanel>
                     </Grid>
@@ -196,6 +197,7 @@
                                 <CheckBox x:Name="CollapsedCheckBox" Content="Rolled up" />
                                 <CheckBox x:Name="AttachDesktopCheckBox" Content="Desktop attach" ToolTip="Best-effort shell attachment; disable if it misbehaves." />
                                 <CheckBox x:Name="CleanDesktopCheckBox" Content="Clean desktop" ToolTip="Hide the raw Windows desktop icon grid while OrbitDock is running." />
+                                <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start with Windows" ToolTip="Adds or removes OrbitDock from your Windows startup apps." />
                                 <CheckBox x:Name="SoundEffectsCheckBox" Content="Sound effects" />
                                 <CheckBox x:Name="MusicDockCheckBox" Content="Music dock" />
                             </WrapPanel>
@@ -218,6 +220,7 @@
 
                             <WrapPanel>
                                 <Button Content="Save Zone" Click="SaveZone_Click" />
+                                <Button Content="Restore Size" Click="RestoreDockSize_Click" />
                                 <Button Content="Duplicate Zone" Click="DuplicateZone_Click" />
                                 <Button Content="Delete Zone" Click="DeleteZone_Click" />
                                 <Button Content="Open Music Folder" Click="OpenMusicFolder_Click" />

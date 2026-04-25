@@ -40,6 +40,7 @@ public partial class SettingsWindow : Window
 
             AttachDesktopCheckBox.IsChecked = _manager.Workspace.Settings.AttachWindowsToDesktop;
             CleanDesktopCheckBox.IsChecked = _manager.Workspace.Settings.HideDesktopIconsWhenRunning;
+            StartWithWindowsCheckBox.IsChecked = _manager.Workspace.Settings.StartWithWindows || StartupAppService.IsEnabled();
             SoundEffectsCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableSoundEffects;
             MusicDockCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableMusicDock;
             SoundEffectsVolumeTextBox.Text = _manager.Workspace.Settings.Audio.SoundEffectsVolume.ToString("0.00");
@@ -137,10 +138,13 @@ public partial class SettingsWindow : Window
         ApplyFields(zone);
         _manager.Workspace.Settings.AttachWindowsToDesktop = AttachDesktopCheckBox.IsChecked == true;
         _manager.Workspace.Settings.HideDesktopIconsWhenRunning = CleanDesktopCheckBox.IsChecked == true;
+        var startupStatus = ApplyStartupField();
         ApplyAudioFields();
         _manager.Save();
         _manager.Reload();
-        StatusText.Text = "Saved and reloaded.";
+        StatusText.Text = string.IsNullOrWhiteSpace(startupStatus)
+            ? "Saved and reloaded."
+            : $"Saved and reloaded. {startupStatus}";
     }
 
     private void AddZone_Click(object sender, RoutedEventArgs e)
@@ -253,6 +257,29 @@ public partial class SettingsWindow : Window
         }
 
         OpenPath(path);
+    }
+
+    private void RestoreDockSize_Click(object sender, RoutedEventArgs e)
+    {
+        if (ZonesList.SelectedItem is not ZoneDefinition zone)
+        {
+            return;
+        }
+
+        WorkspaceLayoutService.RestoreDockBounds(_manager.Workspace, zone.Id, DisplaySnapshotProvider.GetDisplays());
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = $"Restored '{zone.Name}' to a normal dock size.";
+    }
+
+    private void RepairDockSizes_Click(object sender, RoutedEventArgs e)
+    {
+        var changed = WorkspaceLayoutService.RepairOversizedDockBounds(_manager.Workspace, DisplaySnapshotProvider.GetDisplays());
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = changed == 0
+            ? "Dock sizes already look normal."
+            : "Repaired oversized dock bounds and reloaded.";
     }
 
     private void Reload_Click(object sender, RoutedEventArgs e)
@@ -378,6 +405,24 @@ public partial class SettingsWindow : Window
 
         var musicDock = WorkspaceLayoutService.EnsureMusicDock(_manager.Workspace);
         WorkspaceLayoutService.SetDockVisibility(_manager.Workspace, musicDock.Id, audio.EnableMusicDock);
+    }
+
+    private string ApplyStartupField()
+    {
+        var enabled = StartWithWindowsCheckBox.IsChecked == true;
+        var wasEnabled = StartupAppService.IsEnabled();
+        _manager.Workspace.Settings.StartWithWindows = enabled;
+        try
+        {
+            StartupAppService.SetEnabled(enabled);
+            return enabled == wasEnabled
+                ? string.Empty
+                : enabled ? "Startup app enabled." : "Startup app disabled.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            return $"Startup setting could not be updated: {ex.Message}";
+        }
     }
 
     private static string NormalizeColor(string value, string fallback)

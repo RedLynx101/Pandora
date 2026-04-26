@@ -47,6 +47,7 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void Start()
     {
+        ManagedShortcutRepairService.RepairWorkspaceVirtualShortcuts(Workspace);
         ApplyCurrentDisplayVariant();
         OpenZoneWindows();
         OpenDesktopPins();
@@ -67,6 +68,7 @@ public sealed class DesktopZoneManager : IDisposable
         try
         {
             Workspace = _store.LoadOrCreate();
+            ManagedShortcutRepairService.RepairWorkspaceVirtualShortcuts(Workspace);
             ApplyCurrentDisplayVariant();
             OpenZoneWindows();
             OpenDesktopPins();

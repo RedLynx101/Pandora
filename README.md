@@ -119,6 +119,11 @@ Important defaults:
 - `enableSoundEffects`: `false`
 - `enableMusicDock`: `false`
 
+OrbitDock-managed virtual shortcut folders, including the default AI tab under
+`%APPDATA%\OrbitDock\VirtualTabs\AI`, are repaired on app startup/reload. This
+keeps Store-app icon paths current after apps such as Claude, Codex, ChatGPT,
+or Manus update their versioned `WindowsApps` install folders.
+
 See [docs/configuration.md](docs/configuration.md) for the schema and layout model.
 
 ## Agent Control

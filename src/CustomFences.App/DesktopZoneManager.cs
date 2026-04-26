@@ -284,8 +284,9 @@ public sealed class DesktopZoneManager : IDisposable
 
     private void ApplyCurrentDisplayVariant()
     {
+        var signatureDisplays = DisplaySnapshotProvider.GetPhysicalDisplays();
         var displays = DisplaySnapshotProvider.GetDisplays();
-        var signature = WorkspaceLayoutService.ComputeDisplaySignature(displays);
+        var signature = WorkspaceLayoutService.ComputeDisplaySignature(signatureDisplays);
         var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
         WorkspaceLayoutService.UseDisplayVariant(Workspace, key, signature, displays);
         WorkspaceLayoutService.CaptureAllZoneStates(Workspace);

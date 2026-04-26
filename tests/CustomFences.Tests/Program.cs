@@ -14,6 +14,7 @@ var tests = new List<(string Name, Action Body)>
     ("Dock membership overrides persist", DockMembershipPersistence),
     ("Desktop pins persist in active layout", DesktopPinPersistence),
     ("Display signatures and variants are stable", DisplayVariants),
+    ("Second-monitor dock bounds survive layout clamp", SecondMonitorDockBounds),
     ("Oversized dock bounds are repaired", OversizedDockBoundsRepair),
     ("Dock search matches name, extension, and path", DockSearch),
     ("Music scanner handles playlists and unsupported files", MusicScanner),
@@ -222,6 +223,51 @@ static void DisplayVariants()
     var state = variant.DockStates.First(state => state.DockId == workspace.Zones[0].Id);
     Assert(state.Bounds.X < 800 && state.Bounds.Y < 600, "Unknown display variant should clamp dock bounds.");
     Assert(WorkspaceLayoutService.EnsureActiveLayout(workspace).DisplayVariants.Count >= 2, "Using a monitor signature should create a reusable display variant.");
+}
+
+static void SecondMonitorDockBounds()
+{
+    var workspace = WorkspaceFactory.CreateDefault();
+    var displays = new[]
+    {
+        new DisplayDescriptor
+        {
+            DeviceName = @"\\.\DISPLAY1",
+            IsPrimary = true,
+            BoundsX = 0,
+            BoundsY = 0,
+            BoundsWidth = 1536,
+            BoundsHeight = 864,
+            WorkAreaX = 0,
+            WorkAreaY = 0,
+            WorkAreaWidth = 1536,
+            WorkAreaHeight = 816
+        },
+        new DisplayDescriptor
+        {
+            DeviceName = @"\\.\DISPLAY5",
+            IsPrimary = false,
+            BoundsX = 1536,
+            BoundsY = 0,
+            BoundsWidth = 1536,
+            BoundsHeight = 864,
+            WorkAreaX = 1536,
+            WorkAreaY = 0,
+            WorkAreaWidth = 1536,
+            WorkAreaHeight = 816
+        }
+    };
+    var signature = WorkspaceLayoutService.ComputeDisplaySignature(displays);
+    var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
+    var zone = workspace.Zones[0];
+    zone.Bounds = new ZoneBounds { X = 1980, Y = 40, Width = 390, Height = 320 };
+    WorkspaceLayoutService.CaptureZoneState(workspace, zone, null);
+
+    var variant = WorkspaceLayoutService.UseDisplayVariant(workspace, key, signature, displays);
+    var state = variant.DockStates.First(state => state.DockId == zone.Id);
+
+    Assert(state.Bounds.X >= 1536, "Dock should remain on the secondary display after clamping.");
+    Assert(Math.Abs(state.Bounds.X - 1980) < 0.1, "Valid secondary-display X coordinate should not drift during reload.");
 }
 
 static void OversizedDockBoundsRepair()

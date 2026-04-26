@@ -8,8 +8,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using CustomFences.Core;
-using Forms = System.Windows.Forms;
-using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace CustomFences.App;
 
@@ -854,15 +852,9 @@ public partial class ZoneWindow : Window
             Math.Min(area.Height - WorkspaceLayoutService.DockWorkAreaMargin * 2, area.Height * WorkspaceLayoutService.DockMaxWorkAreaRatio));
     }
 
-    private static Rect GetWorkingArea(double x, double y, double width, double height)
+    private Rect GetWorkingArea(double x, double y, double width, double height)
     {
-        var rectangle = new DrawingRectangle(
-            (int)Math.Round(x),
-            (int)Math.Round(y),
-            Math.Max(1, (int)Math.Round(width)),
-            Math.Max(1, (int)Math.Round(height)));
-        var workingArea = Forms.Screen.FromRectangle(rectangle).WorkingArea;
-        return new Rect(workingArea.X, workingArea.Y, workingArea.Width, workingArea.Height);
+        return DisplaySnapshotProvider.GetWorkingAreaForBounds(x, y, width, height, this);
     }
 
     private static void OpenPath(string path)

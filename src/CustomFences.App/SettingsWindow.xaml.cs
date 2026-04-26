@@ -14,6 +14,9 @@ public partial class SettingsWindow : Window
 {
     private readonly DesktopZoneManager _manager;
     private bool _isRefreshing;
+    private bool _isPseudoMaximized;
+    private bool _isCoercingMaximize;
+    private Rect _restoreBounds;
 
     public SettingsWindow(DesktopZoneManager manager)
     {
@@ -319,7 +322,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        WorkspaceLayoutService.RestoreDockBounds(_manager.Workspace, zone.Id, DisplaySnapshotProvider.GetDisplays());
+        WorkspaceLayoutService.RestoreDockBounds(_manager.Workspace, zone.Id, DisplaySnapshotProvider.GetDisplays(this));
         _manager.Save();
         _manager.Reload();
         StatusText.Text = $"Restored '{zone.Name}' to a normal dock size.";
@@ -332,7 +335,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var display = ChooseCenterDisplay(DisplaySnapshotProvider.GetDisplays(), zone.Bounds);
+        var display = ChooseCenterDisplay(DisplaySnapshotProvider.GetDisplays(this), zone.Bounds);
         var width = Math.Clamp(
             zone.Bounds.Width,
             WorkspaceLayoutService.MinimumDockWidth,
@@ -354,7 +357,7 @@ public partial class SettingsWindow : Window
 
     private void RepairDockSizes_Click(object sender, RoutedEventArgs e)
     {
-        var changed = WorkspaceLayoutService.RepairOversizedDockBounds(_manager.Workspace, DisplaySnapshotProvider.GetDisplays());
+        var changed = WorkspaceLayoutService.RepairOversizedDockBounds(_manager.Workspace, DisplaySnapshotProvider.GetDisplays(this));
         _manager.Save();
         _manager.Reload();
         StatusText.Text = changed == 0
@@ -370,10 +373,20 @@ public partial class SettingsWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
         if (e.ClickCount == 2)
         {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            TogglePseudoMaximized();
             return;
+        }
+
+        if (_isPseudoMaximized)
+        {
+            RestoreForHeaderDrag(e);
         }
 
         try
@@ -389,6 +402,88 @@ public partial class SettingsWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        if (_isCoercingMaximize || WindowState != WindowState.Maximized)
+        {
+            return;
+        }
+
+        _isCoercingMaximize = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (!_isPseudoMaximized && RestoreBounds.Width > 0 && RestoreBounds.Height > 0)
+                {
+                    _restoreBounds = RestoreBounds;
+                }
+
+                WindowState = WindowState.Normal;
+                ApplyBounds(GetCurrentScreenWorkArea());
+                _isPseudoMaximized = true;
+            }
+            finally
+            {
+                _isCoercingMaximize = false;
+            }
+        }));
+    }
+
+    private void TogglePseudoMaximized()
+    {
+        if (_isPseudoMaximized)
+        {
+            ApplyBounds(_restoreBounds);
+            _isPseudoMaximized = false;
+            return;
+        }
+
+        _restoreBounds = new Rect(Left, Top, Width, Height);
+        var workArea = GetCurrentScreenWorkArea();
+        WindowState = WindowState.Normal;
+        ApplyBounds(workArea);
+        _isPseudoMaximized = true;
+    }
+
+    private void RestoreForHeaderDrag(MouseButtonEventArgs e)
+    {
+        var pointer = DevicePointToDip(PointToScreen(e.GetPosition(this)));
+        var headerPoint = e.GetPosition(this);
+        var restoreWidth = Math.Max(MinWidth, _restoreBounds.Width);
+        var restoreHeight = Math.Max(MinHeight, _restoreBounds.Height);
+        var xRatio = ActualWidth <= 1 ? 0.5 : Math.Clamp(headerPoint.X / ActualWidth, 0.18, 0.82);
+
+        Width = restoreWidth;
+        Height = restoreHeight;
+        Left = pointer.X - restoreWidth * xRatio;
+        Top = pointer.Y - Math.Min(24, restoreHeight / 3);
+        _isPseudoMaximized = false;
+    }
+
+    private Rect GetCurrentScreenWorkArea()
+    {
+        return DisplaySnapshotProvider.GetWorkingAreaForBounds(Left, Top, Width, Height, this);
+    }
+
+    private Point DevicePointToDip(Point point)
+    {
+        var source = PresentationSource.FromVisual(this);
+        return source?.CompositionTarget is null
+            ? point
+            : source.CompositionTarget.TransformFromDevice.Transform(point);
+    }
+
+    private void ApplyBounds(Rect bounds)
+    {
+        Left = bounds.Left;
+        Top = bounds.Top;
+        Width = Math.Max(MinWidth, bounds.Width);
+        Height = Math.Max(MinHeight, bounds.Height);
     }
 
     private void PopulateFields(ZoneDefinition? zone)

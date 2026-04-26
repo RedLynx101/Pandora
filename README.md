@@ -27,6 +27,7 @@ This project is an independent implementation. It is not affiliated with Stardoc
 - Tray menu for settings, layer reset, reload, config access, and exit.
 - Settings can add or remove OrbitDock from Windows startup apps using a Startup-folder shortcut that Windows Settings can display.
 - `Ctrl+Alt+Space` layer-reset hotkey that sends docks behind active windows.
+- Dock and desktop-pin windows are marked as desktop overlays so they stay out of Alt-Tab and Windows Task View where supported.
 - Best-effort shell attachment remains available, but the default test layout uses normal windows plus clean-desktop mode for better reliability.
 - Core rule matching library with starter rule templates. Rule automation is disabled by default.
 

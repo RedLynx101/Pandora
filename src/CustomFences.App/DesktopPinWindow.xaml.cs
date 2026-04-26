@@ -36,6 +36,7 @@ public partial class DesktopPinWindow : Window
 
     private void Window_SourceInitialized(object sender, EventArgs e)
     {
+        DockWindowLayer.ApplyDesktopOverlayStyles(this);
         if (_manager.Workspace.Settings.AttachWindowsToDesktop)
         {
             DesktopHost.TryAttach(this);

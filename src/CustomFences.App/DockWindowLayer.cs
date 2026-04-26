@@ -11,6 +11,7 @@ public static class DockWindowLayer
     private static readonly IntPtr HwndTop = IntPtr.Zero;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpFrameChanged = 0x0020;
     private const uint SwpNoOwnerZOrder = 0x0200;
@@ -35,10 +36,15 @@ public static class DockWindowLayer
             }
 
             var extendedStyle = GetWindowLongPtr(handle, GwlExStyle).ToInt64();
-            extendedStyle |= WsExToolWindow;
-            extendedStyle &= ~WsExAppWindow;
-            SetWindowLongPtr(handle, GwlExStyle, new IntPtr(extendedStyle));
-            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder | SwpFrameChanged);
+            var desiredExtendedStyle = extendedStyle | WsExToolWindow;
+            desiredExtendedStyle &= ~WsExAppWindow;
+            if (desiredExtendedStyle == extendedStyle)
+            {
+                return;
+            }
+
+            SetWindowLongPtr(handle, GwlExStyle, new IntPtr(desiredExtendedStyle));
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpNoOwnerZOrder | SwpFrameChanged);
         }
         catch
         {

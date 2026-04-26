@@ -19,6 +19,7 @@ public sealed class DesktopZoneManager : IDisposable
     private FileSystemWatcher? _workspaceWatcher;
     private bool _isPeekVisible;
     private bool _isReloading;
+    private bool _wasDesktopExposed;
     private DateTime _lastLocalWriteUtc = DateTime.MinValue;
 
     public DesktopZoneManager(WorkspaceStore store)
@@ -161,19 +162,19 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void ApplyDockLayering()
     {
-        foreach (var window in _windows.Where(window => !window.IsCollapsed))
-        {
-            DockWindowLayer.SendBehindNormalWindows(window);
-        }
-
-        foreach (var window in _windows.Where(window => window.IsCollapsed))
-        {
-            DockWindowLayer.SendBehindNormalWindows(window);
-        }
-
-        foreach (var pinWindow in _pinWindows)
+        foreach (var pinWindow in _pinWindows.ToArray())
         {
             DockWindowLayer.SendBehindNormalWindows(pinWindow);
+        }
+
+        foreach (var window in _windows.Where(window => window.IsCollapsed).ToArray())
+        {
+            DockWindowLayer.SendBehindNormalWindows(window);
+        }
+
+        foreach (var window in _windows.Where(window => !window.IsCollapsed).ToArray())
+        {
+            DockWindowLayer.SendBehindNormalWindows(window);
         }
     }
 
@@ -299,7 +300,8 @@ public sealed class DesktopZoneManager : IDisposable
     {
         if (Workspace.Settings.StayVisibleOnShowDesktop)
         {
-            MaintainDesktopOverlays();
+            _wasDesktopExposed = false;
+            MaintainDesktopOverlays(forceLayerRefresh: true);
             _desktopOverlayTimer.Start();
         }
         else
@@ -308,23 +310,32 @@ public sealed class DesktopZoneManager : IDisposable
         }
     }
 
-    private void MaintainDesktopOverlays()
+    private void MaintainDesktopOverlays(bool forceLayerRefresh = false)
     {
         if (!Workspace.Settings.StayVisibleOnShowDesktop)
         {
             return;
         }
 
-        var restoreHiddenWindows = DockWindowLayer.IsDesktopExposed();
+        var desktopExposed = DockWindowLayer.IsDesktopExposed();
+        var refreshLayering = forceLayerRefresh || (desktopExposed && !_wasDesktopExposed);
+        var changed = false;
         foreach (var window in _windows.ToArray())
         {
-            window.MaintainDesktopOverlay(restoreHiddenWindows);
+            changed |= window.MaintainDesktopOverlay(desktopExposed, refreshLayering);
         }
 
         foreach (var pinWindow in _pinWindows.ToArray())
         {
-            pinWindow.MaintainDesktopOverlay(restoreHiddenWindows);
+            changed |= pinWindow.MaintainDesktopOverlay(desktopExposed, refreshLayering);
         }
+
+        if (changed || refreshLayering)
+        {
+            ApplyDockLayering();
+        }
+
+        _wasDesktopExposed = desktopExposed;
     }
 
     private void OnMusicEnded()

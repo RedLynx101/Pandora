@@ -48,11 +48,17 @@ public partial class DesktopPinWindow : Window
         DockWindowLayer.SendBehindNormalWindows(this);
     }
 
-    public void MaintainDesktopOverlay(bool restoreHiddenWindow)
+    public bool MaintainDesktopOverlay(bool restoreHiddenWindow, bool refreshLayering)
     {
         if (!IsLoaded)
         {
-            return;
+            return false;
+        }
+
+        var needsRestore = WindowState == WindowState.Minimized || !IsVisible;
+        if (!needsRestore && !refreshLayering)
+        {
+            return false;
         }
 
         DockWindowLayer.ApplyDesktopOverlayStyles(this);
@@ -61,7 +67,7 @@ public partial class DesktopPinWindow : Window
         {
             if (!restoreHiddenWindow)
             {
-                return;
+                return false;
             }
 
             WindowState = WindowState.Normal;
@@ -71,18 +77,18 @@ public partial class DesktopPinWindow : Window
         {
             if (!restoreHiddenWindow)
             {
-                return;
+                return false;
             }
 
             Show();
         }
 
-        if (restoreHiddenWindow)
+        if (needsRestore && restoreHiddenWindow)
         {
             DockWindowLayer.ShowNoActivate(this);
         }
 
-        DockWindowLayer.SendBehindNormalWindows(this);
+        return true;
     }
 
     private void Window_PlacementChanged(object sender, EventArgs e)

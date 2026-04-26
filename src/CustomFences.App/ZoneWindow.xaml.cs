@@ -77,11 +77,17 @@ public partial class ZoneWindow : Window
         _manager.ApplyDockLayering();
     }
 
-    public void MaintainDesktopOverlay(bool restoreHiddenWindow)
+    public bool MaintainDesktopOverlay(bool restoreHiddenWindow, bool refreshLayering)
     {
         if (!IsLoaded)
         {
-            return;
+            return false;
+        }
+
+        var needsRestore = WindowState == WindowState.Minimized || !IsVisible;
+        if (!needsRestore && !refreshLayering)
+        {
+            return false;
         }
 
         DockWindowLayer.ApplyDesktopOverlayStyles(this);
@@ -90,7 +96,7 @@ public partial class ZoneWindow : Window
         {
             if (!restoreHiddenWindow)
             {
-                return;
+                return false;
             }
 
             WindowState = WindowState.Normal;
@@ -100,18 +106,18 @@ public partial class ZoneWindow : Window
         {
             if (!restoreHiddenWindow)
             {
-                return;
+                return false;
             }
 
             Show();
         }
 
-        if (restoreHiddenWindow)
+        if (needsRestore && restoreHiddenWindow)
         {
             DockWindowLayer.ShowNoActivate(this);
         }
 
-        _manager.ApplyDockLayering();
+        return true;
     }
 
     private void Window_PlacementChanged(object sender, EventArgs e)
@@ -168,7 +174,13 @@ public partial class ZoneWindow : Window
         {
             if (_manager.Workspace.Settings.StayVisibleOnShowDesktop && DockWindowLayer.IsDesktopExposed())
             {
-                Dispatcher.BeginInvoke(() => MaintainDesktopOverlay(restoreHiddenWindow: true));
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (MaintainDesktopOverlay(restoreHiddenWindow: true, refreshLayering: true))
+                    {
+                        _manager.ApplyDockLayering();
+                    }
+                });
             }
 
             return;

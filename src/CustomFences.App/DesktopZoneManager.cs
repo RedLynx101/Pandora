@@ -31,8 +31,8 @@ public sealed class DesktopZoneManager : IDisposable
             _reloadTimer.Stop();
             Reload();
         };
-        _desktopOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
-        _desktopOverlayTimer.Tick += (_, _) => EnsureDesktopOverlaysVisible();
+        _desktopOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        _desktopOverlayTimer.Tick += (_, _) => MaintainDesktopOverlays();
         Audio = new OrbitAudioService();
         Audio.MusicEnded += (_, _) => OnMusicEnded();
     }
@@ -299,7 +299,7 @@ public sealed class DesktopZoneManager : IDisposable
     {
         if (Workspace.Settings.StayVisibleOnShowDesktop)
         {
-            EnsureDesktopOverlaysVisible();
+            MaintainDesktopOverlays();
             _desktopOverlayTimer.Start();
         }
         else
@@ -308,21 +308,22 @@ public sealed class DesktopZoneManager : IDisposable
         }
     }
 
-    private void EnsureDesktopOverlaysVisible()
+    private void MaintainDesktopOverlays()
     {
         if (!Workspace.Settings.StayVisibleOnShowDesktop)
         {
             return;
         }
 
+        var restoreHiddenWindows = DockWindowLayer.IsDesktopExposed();
         foreach (var window in _windows.ToArray())
         {
-            window.EnsureDesktopOverlayVisible();
+            window.MaintainDesktopOverlay(restoreHiddenWindows);
         }
 
         foreach (var pinWindow in _pinWindows.ToArray())
         {
-            pinWindow.EnsureDesktopOverlayVisible();
+            pinWindow.MaintainDesktopOverlay(restoreHiddenWindows);
         }
     }
 

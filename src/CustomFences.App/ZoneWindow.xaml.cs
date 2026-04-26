@@ -45,7 +45,12 @@ public partial class ZoneWindow : Window
     public void SetPeek(bool visible)
     {
         Topmost = false;
-        Show();
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        DockWindowLayer.ShowNoActivate(this);
         _manager.ApplyDockLayering();
     }
 
@@ -72,7 +77,7 @@ public partial class ZoneWindow : Window
         _manager.ApplyDockLayering();
     }
 
-    public void EnsureDesktopOverlayVisible()
+    public void MaintainDesktopOverlay(bool restoreHiddenWindow)
     {
         if (!IsLoaded)
         {
@@ -83,12 +88,27 @@ public partial class ZoneWindow : Window
         TryAttachToDesktop();
         if (WindowState == WindowState.Minimized)
         {
+            if (!restoreHiddenWindow)
+            {
+                return;
+            }
+
             WindowState = WindowState.Normal;
         }
 
         if (!IsVisible)
         {
+            if (!restoreHiddenWindow)
+            {
+                return;
+            }
+
             Show();
+        }
+
+        if (restoreHiddenWindow)
+        {
+            DockWindowLayer.ShowNoActivate(this);
         }
 
         _manager.ApplyDockLayering();
@@ -97,6 +117,11 @@ public partial class ZoneWindow : Window
     private void Window_PlacementChanged(object sender, EventArgs e)
     {
         if (_isApplyingPlacement || !IsLoaded)
+        {
+            return;
+        }
+
+        if (WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -136,6 +161,16 @@ public partial class ZoneWindow : Window
     {
         if (_isApplyingPlacement || !IsLoaded || WindowState == WindowState.Normal)
         {
+            return;
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            if (_manager.Workspace.Settings.StayVisibleOnShowDesktop && DockWindowLayer.IsDesktopExposed())
+            {
+                Dispatcher.BeginInvoke(() => MaintainDesktopOverlay(restoreHiddenWindow: true));
+            }
+
             return;
         }
 

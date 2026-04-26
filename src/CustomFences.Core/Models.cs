@@ -101,6 +101,11 @@ public sealed class LayoutProfile
     public List<DockLayoutState> DockStates { get; set; } = [];
     public List<DockItemOverride> ItemOverrides { get; set; } = [];
     public List<DesktopPinDefinition> DesktopPins { get; set; } = [];
+
+    public override string ToString()
+    {
+        return Name;
+    }
 }
 
 public sealed class DisplayLayoutVariant

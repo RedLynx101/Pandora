@@ -16,6 +16,11 @@ public sealed class MusicPlaylistViewModel
     public string Id { get; }
     public string Name { get; }
     public IReadOnlyList<MusicTrackViewModel> Tracks { get; }
+
+    public override string ToString()
+    {
+        return Name;
+    }
 }
 
 public sealed class MusicTrackViewModel

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -47,6 +48,7 @@ public partial class SettingsWindow : Window
             SoundEffectsVolumeTextBox.Text = _manager.Workspace.Settings.Audio.SoundEffectsVolume.ToString("0.00");
             MusicFolderTextBox.Text = _manager.Workspace.Settings.Audio.MusicRootPath;
             ExpansionEdgeComboBox.ItemsSource = Enum.GetValues(typeof(DockExpansionEdge));
+            DeleteLayoutButton.IsEnabled = _manager.Workspace.Layouts.Count > 1;
             PopulateFields(ZonesList.SelectedItem as ZoneDefinition);
         }
         finally
@@ -114,6 +116,41 @@ public partial class SettingsWindow : Window
             _manager.Save();
             RefreshFromWorkspace();
             StatusText.Text = $"Duplicated layout '{target}'.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusText.Text = ex.Message;
+        }
+    }
+
+    private void DeleteLayout_Click(object sender, RoutedEventArgs e)
+    {
+        var name = LayoutsComboBox.SelectedItem is LayoutProfile profile
+            ? profile.Name
+            : LayoutNameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(
+            this,
+            $"Delete layout '{name}'?\n\nThis removes only the saved OrbitDock layout. Files and shortcuts are not touched.",
+            "Delete layout",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            WorkspaceLayoutService.DeleteLayout(_manager.Workspace, name);
+            _manager.Save();
+            _manager.Reload();
+            StatusText.Text = $"Deleted layout '{name}'.";
         }
         catch (InvalidOperationException ex)
         {
@@ -288,6 +325,33 @@ public partial class SettingsWindow : Window
         StatusText.Text = $"Restored '{zone.Name}' to a normal dock size.";
     }
 
+    private void CenterZone_Click(object sender, RoutedEventArgs e)
+    {
+        if (ZonesList.SelectedItem is not ZoneDefinition zone)
+        {
+            return;
+        }
+
+        var display = ChooseCenterDisplay(DisplaySnapshotProvider.GetDisplays(), zone.Bounds);
+        var width = Math.Clamp(
+            zone.Bounds.Width,
+            WorkspaceLayoutService.MinimumDockWidth,
+            Math.Max(WorkspaceLayoutService.MinimumDockWidth, display.WorkAreaWidth - WorkspaceLayoutService.DockWorkAreaMargin * 2));
+        var height = Math.Clamp(
+            zone.Bounds.Height,
+            WorkspaceLayoutService.MinimumDockHeight,
+            Math.Max(WorkspaceLayoutService.MinimumDockHeight, display.WorkAreaHeight - WorkspaceLayoutService.DockWorkAreaMargin * 2));
+        var x = display.WorkAreaX + (display.WorkAreaWidth - width) / 2;
+        var y = display.WorkAreaY + (display.WorkAreaHeight - height) / 2;
+
+        zone.IsVisible = true;
+        zone.IsCollapsed = false;
+        WorkspaceLayoutService.SetDockBounds(_manager.Workspace, zone.Id, x, y, width, height);
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = $"Centered '{zone.Name}' on the active display.";
+    }
+
     private void RepairDockSizes_Click(object sender, RoutedEventArgs e)
     {
         var changed = WorkspaceLayoutService.RepairOversizedDockBounds(_manager.Workspace, DisplaySnapshotProvider.GetDisplays());
@@ -341,6 +405,11 @@ public partial class SettingsWindow : Window
         VisibleCheckBox.IsEnabled = enabled;
         LockedCheckBox.IsEnabled = enabled;
         CollapsedCheckBox.IsEnabled = enabled;
+        SaveZoneButton.IsEnabled = enabled;
+        CenterZoneButton.IsEnabled = enabled;
+        RestoreSizeButton.IsEnabled = enabled;
+        DuplicateZoneButton.IsEnabled = enabled;
+        DeleteZoneButton.IsEnabled = enabled;
 
         if (zone is null)
         {
@@ -455,6 +524,49 @@ public partial class SettingsWindow : Window
         }
 
         return trimmed.Length is 7 or 9 ? trimmed : fallback;
+    }
+
+    private static DisplayDescriptor ChooseCenterDisplay(IReadOnlyList<DisplayDescriptor> displays, ZoneBounds bounds)
+    {
+        if (displays.Count == 0)
+        {
+            return new DisplayDescriptor
+            {
+                IsPrimary = true,
+                WorkAreaWidth = 1920,
+                WorkAreaHeight = 1040,
+                BoundsWidth = 1920,
+                BoundsHeight = 1080
+            };
+        }
+
+        var centerX = bounds.X + bounds.Width / 2;
+        var centerY = bounds.Y + bounds.Height / 2;
+        var containingDisplay = displays.FirstOrDefault(display =>
+            centerX >= display.WorkAreaX &&
+            centerX <= display.WorkAreaX + display.WorkAreaWidth &&
+            centerY >= display.WorkAreaY &&
+            centerY <= display.WorkAreaY + display.WorkAreaHeight);
+        if (containingDisplay is not null)
+        {
+            return containingDisplay;
+        }
+
+        return displays
+            .OrderByDescending(display => display.IsPrimary)
+            .ThenBy(display => DistanceToDisplayCenter(bounds, display))
+            .First();
+    }
+
+    private static double DistanceToDisplayCenter(ZoneBounds bounds, DisplayDescriptor display)
+    {
+        var boundsCenterX = bounds.X + bounds.Width / 2;
+        var boundsCenterY = bounds.Y + bounds.Height / 2;
+        var displayCenterX = display.WorkAreaX + display.WorkAreaWidth / 2;
+        var displayCenterY = display.WorkAreaY + display.WorkAreaHeight / 2;
+        var dx = boundsCenterX - displayCenterX;
+        var dy = boundsCenterY - displayCenterY;
+        return dx * dx + dy * dy;
     }
 
     private static double TryReadDouble(string value, double fallback, double min, double max)

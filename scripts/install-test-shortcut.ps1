@@ -1,5 +1,6 @@
 param(
-    [switch]$SettingsShortcut
+    [switch]$SettingsShortcut,
+    [switch]$StartupShortcut
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,27 +12,56 @@ if (-not (Test-Path $exe)) {
 }
 
 $desktop = [Environment]::GetFolderPath("DesktopDirectory")
-Remove-Item -LiteralPath (Join-Path $desktop "CustomFences Test.lnk") -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath (Join-Path $desktop "CustomFences Settings.lnk") -ErrorAction SilentlyContinue
+$startup = [Environment]::GetFolderPath("Startup")
+$legacyShortcutNames = @("CustomFences.lnk", "CustomFences Test.lnk", "CustomFences Settings.lnk")
+foreach ($name in $legacyShortcutNames) {
+    Remove-Item -LiteralPath (Join-Path $desktop $name) -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $startup $name) -ErrorAction SilentlyContinue
+}
+
+$shell = New-Object -ComObject WScript.Shell
+$workingDirectory = Split-Path $exe
+$iconPath = Join-Path $workingDirectory "Assets\Brand\OrbitDock.ico"
+$iconLocation = if (Test-Path -LiteralPath $iconPath) { "$iconPath,0" } else { "$exe,0" }
+
+function Set-OrbitDockShortcut {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [string]$Arguments = "",
+        [string]$Description = "Launch OrbitDock desktop organizer"
+    )
+
+    $shortcut = $shell.CreateShortcut($Path)
+    $shortcut.TargetPath = $exe
+    $shortcut.Arguments = $Arguments
+    $shortcut.WorkingDirectory = $workingDirectory
+    $shortcut.IconLocation = $iconLocation
+    $shortcut.Description = $Description
+    $shortcut.Save()
+    Write-Host "Created $Path"
+}
 
 $shortcutPath = Join-Path $desktop "OrbitDock.lnk"
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $exe
-$shortcut.WorkingDirectory = Split-Path $exe
-$shortcut.IconLocation = "$exe,0"
-$shortcut.Description = "Launch OrbitDock desktop organizer"
-$shortcut.Save()
-Write-Host "Created $shortcutPath"
+Set-OrbitDockShortcut -Path $shortcutPath
 
 if ($SettingsShortcut) {
     $settingsShortcutPath = Join-Path $desktop "OrbitDock Settings.lnk"
-    $settingsLink = $shell.CreateShortcut($settingsShortcutPath)
-    $settingsLink.TargetPath = $exe
-    $settingsLink.Arguments = "--settings"
-    $settingsLink.WorkingDirectory = Split-Path $exe
-    $settingsLink.IconLocation = "$exe,0"
-    $settingsLink.Description = "Open OrbitDock settings"
-    $settingsLink.Save()
-    Write-Host "Created $settingsShortcutPath"
+    Set-OrbitDockShortcut -Path $settingsShortcutPath -Arguments "--settings" -Description "Open OrbitDock settings"
+}
+
+if ($StartupShortcut) {
+    $startupShortcutPath = Join-Path $startup "OrbitDock.lnk"
+    Set-OrbitDockShortcut -Path $startupShortcutPath
+
+    $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    $startupApprovedRunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+    $startupApprovedFolderKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
+    foreach ($valueName in @("OrbitDock", "CustomFences")) {
+        Remove-ItemProperty -Path $runKey -Name $valueName -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $startupApprovedRunKey -Name $valueName -ErrorAction SilentlyContinue
+    }
+
+    New-Item -Path $startupApprovedFolderKey -Force | Out-Null
+    New-ItemProperty -Path $startupApprovedFolderKey -Name "OrbitDock.lnk" -PropertyType Binary -Value ([byte[]](0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)) -Force | Out-Null
+    Write-Host "Registered OrbitDock startup shortcut"
 }

@@ -94,6 +94,12 @@ Create desktop shortcuts for the published test build:
 .\scripts\install-test-shortcut.ps1 -SettingsShortcut
 ```
 
+Repair desktop shortcuts and the current-user Startup shortcut after moving the repo:
+
+```powershell
+.\scripts\install-test-shortcut.ps1 -SettingsShortcut -StartupShortcut
+```
+
 ## Configuration
 
 OrbitDock stores a human-readable workspace at:

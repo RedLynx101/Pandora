@@ -157,7 +157,7 @@ public partial class DesktopPinWindow : Window
 
     private void TryAttachToDesktop()
     {
-        if (_isDesktopAttached || (!_manager.Workspace.Settings.StayVisibleOnShowDesktop && !_manager.Workspace.Settings.AttachWindowsToDesktop))
+        if (_isDesktopAttached || !_manager.Workspace.Settings.AttachWindowsToDesktop)
         {
             return;
         }

@@ -6,7 +6,7 @@ Workspace path:
 %APPDATA%\OrbitDock\workspace.json
 ```
 
-If `%APPDATA%\OrbitDock\workspace.json` does not exist, OrbitDock imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to schema v2.
+If `%APPDATA%\OrbitDock\workspace.json` does not exist, OrbitDock imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to the current schema.
 
 Starter workspace shape:
 

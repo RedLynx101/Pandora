@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$exe = Join-Path $root "artifacts\CustomFences-win-x64\CustomFences.App.exe"
+$exe = Join-Path $root "artifacts\OrbitDock-win-x64\OrbitDock.App.exe"
 
 if (-not (Test-Path $exe)) {
     & (Join-Path $PSScriptRoot "publish-portable.ps1") | Write-Host

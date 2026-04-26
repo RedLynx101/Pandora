@@ -4,7 +4,7 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$brandDir = Join-Path $root "src\CustomFences.App\Assets\Brand"
+$brandDir = Join-Path $root "src\OrbitDock.App\Assets\Brand"
 New-Item -ItemType Directory -Path $brandDir -Force | Out-Null
 
 function New-BrandBitmap {

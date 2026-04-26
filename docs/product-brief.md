@@ -40,4 +40,4 @@ Build OrbitDock, a native Windows desktop organizer that gives users flexible do
 
 ## Naming
 
-The repository is `CustomFences`, but the product identity is OrbitDock. Public copy should describe the product as "desktop docks", "launchpads", or "desktop organizer" wherever possible to avoid leaning on another product's marks.
+The repository and product identity are `OrbitDock`. Public copy should describe the product as "desktop docks", "launchpads", or "desktop organizer" wherever possible to avoid leaning on another product's marks.

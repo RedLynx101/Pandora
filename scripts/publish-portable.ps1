@@ -6,9 +6,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$project = Join-Path $root "src\CustomFences.App\CustomFences.App.csproj"
+$project = Join-Path $root "src\OrbitDock.App\OrbitDock.App.csproj"
 $cliProject = Join-Path $root "src\OrbitDock.Cli\OrbitDock.Cli.csproj"
-$output = Join-Path $root "artifacts\CustomFences-$Runtime"
+$output = Join-Path $root "artifacts\OrbitDock-$Runtime"
 $selfContainedValue = if ($SelfContained) { "true" } else { "false" }
 
 dotnet publish $project `
@@ -31,4 +31,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "CLI publish failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Published CustomFences to $output"
+Write-Host "Published OrbitDock to $output"

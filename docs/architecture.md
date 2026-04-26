@@ -2,7 +2,7 @@
 
 ## Projects
 
-- `src/CustomFences.Core`
+- `src/OrbitDock.Core`
   - Workspace models
   - JSON storage
   - Layout migration and profile manipulation
@@ -10,7 +10,7 @@
   - Music library scanning
   - Path expansion/compression
   - Rule matching
-- `src/CustomFences.App`
+- `src/OrbitDock.App`
   - WPF zone windows
   - Settings window
   - Tray icon
@@ -19,7 +19,7 @@
   - File/folder portal UI
 - `src/OrbitDock.Cli`
   - Local-agent command surface backed by the same workspace schema
-- `tests/CustomFences.Tests`
+- `tests/OrbitDock.Tests`
   - Dependency-light console tests for the core library
 
 ## Runtime Flow

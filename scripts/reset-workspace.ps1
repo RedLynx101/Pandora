@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $workspace = Join-Path $env:APPDATA "OrbitDock\workspace.json"
 $legacyWorkspace = Join-Path $env:APPDATA "CustomFences\workspace.json"
 
-Get-Process CustomFences.App -ErrorAction SilentlyContinue | Stop-Process
+Get-Process OrbitDock.App -ErrorAction SilentlyContinue | Stop-Process
 & (Join-Path $PSScriptRoot "show-desktop-icons.ps1") | Write-Host
 
 if (-not (Test-Path $workspace)) {

@@ -47,9 +47,9 @@ The changelog suggests a mature desktop organizer spends significant engineering
 
 Desktop Fences+ and Palisades validate WPF/.NET as a pragmatic implementation path for an open-source Windows desktop organizer. The useful gap for this repo is a safer, more modular version: core config/rules separated from WPF, destructive behavior disabled by default, and documented fallbacks for shell attachment.
 
-## Positioning for CustomFences
+## Positioning for OrbitDock
 
-CustomFences should not be a visual clone. The strongest open-source angle is:
+OrbitDock should not be a visual clone. The strongest open-source angle is:
 
 - Transparent safety posture.
 - Human-readable workspace config.

@@ -1,4 +1,4 @@
-using CustomFences.Core;
+using OrbitDock.Core;
 
 var arguments = args.ToList();
 var workspacePath = TakeOption(arguments, "--workspace");

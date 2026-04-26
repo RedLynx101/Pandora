@@ -1,98 +1,126 @@
 # OrbitDock
 
-OrbitDock is a free, open-source Windows desktop organizer. It creates customizable desktop docks that group app shortcuts, mirror folders, roll up out of the way, and stay behind normal app windows.
+<p align="center">
+  <img src="src/OrbitDock.App/Assets/Brand/OrbitDock-128.png" alt="OrbitDock logo" width="96" height="96">
+</p>
 
-This project is an independent implementation. It is not affiliated with Stardock and does not copy Stardock assets, branding, or proprietary behavior. The goal is to build a safe, customizable desktop organization tool in the same broad product category.
+<p align="center">
+  A safe, open-source Windows desktop organizer with sleek docks, clean layouts, local music, and agent-accessible control.
+</p>
 
-## What Works Now
+<p align="center">
+  <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-56D6FF">
+  <img alt=".NET" src="https://img.shields.io/badge/.NET-8.0-7DDCFF">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-8BE9C7">
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha-F8C56B">
+</p>
 
-- Native WPF desktop dock windows with translucent styling.
+OrbitDock is a native Windows desktop organizer. It creates customizable desktop docks that group app shortcuts, mirror folders, roll up out of the way, remember different monitor layouts, and stay behind normal app windows.
+
+This project is independent. It is not affiliated with Stardock and does not copy Stardock assets, branding, or proprietary behavior. OrbitDock is built around a safer open-source posture: virtual organization first, explicit file mutations only, readable local config, and durable recovery scripts.
+
+## Highlights
+
+- Native WPF dock windows with translucent OrbitDock branding.
 - Smart desktop categories for apps, dev tools, creative apps, games, utilities, folders, and files.
-- Clean desktop mode that hides the raw Windows desktop icon grid while OrbitDock is running.
-- OrbitDock-managed desktop pins for items that should remain visible while the raw icon grid is hidden.
-- Generated OrbitDock app/tray branding under `src\CustomFences.App\Assets\Brand`.
-- Per-user JSON workspace at `%APPDATA%\OrbitDock\workspace.json`, with one-time import from `%APPDATA%\CustomFences\workspace.json`.
-- Named layout profiles with saved dock positions, active tabs, collapsed/visible state, item ordering, dock membership, and desktop pins.
-- Screen-combination-aware layout variants so a named layout can remember different positions for different monitor setups.
-- Starter docks for launchers, dev tools, creative apps, games, and desktop inbox files.
-- Folder portals that refresh when the underlying folder changes.
-- Per-dock search that expands from the header and filters by name, extension, and path.
-- Dock bounds are guarded against Windows snap/full-screen states, with Settings actions to restore a selected dock or repair oversized dock sizes.
-- Drag-and-drop organization. Smart docks use virtual membership and ordering; explicit folder docks still copy by default.
-- Optional sound effects and an optional local music dock for `%USERPROFILE%\Music\OrbitDock`.
-- Context menu actions for remove-from-dock, pin-to-desktop, reveal, and confirmed real deletion.
-- Roll-up/collapse per zone.
-- Multi-tab zone support in the workspace model and zone UI.
-- `orbitdockctl` CLI for local agents and scripts to validate workspaces, switch layouts, move dock items, and manage desktop pins.
-- Tray menu for settings, layer reset, reload, config access, and exit.
-- Settings can add or remove OrbitDock from Windows startup apps using a Startup-folder shortcut that Windows Settings can display.
-- `Ctrl+Alt+Space` layer-reset hotkey that sends docks behind active windows.
-- Dock and desktop-pin windows are marked as desktop overlays so they stay out of Alt-Tab and Windows Task View where supported.
-- Default-on Show Desktop persistence keeps docks and desktop pins visible when Windows reveals the desktop without desktop-parenting them by default.
-- Best-effort shell attachment remains available, but the default test layout uses normal windows plus clean-desktop mode for better reliability.
-- Core rule matching library with starter rule templates. Rule automation is disabled by default.
+- Folder portals that mirror real folders from the desktop.
+- Clean desktop mode that hides the raw Windows icon grid while OrbitDock is running.
+- OrbitDock-managed desktop pins for items that should remain visible.
+- Named layout profiles with dock positions, collapsed state, active tabs, item ordering, dock membership, and desktop pins.
+- Screen-combination-aware layout variants for one-monitor and multi-monitor setups.
+- Per-dock search, roll-up/collapse, bottom expansion, tabs, and themed scrollbars.
+- Optional local sound effects and an optional music dock backed by `%USERPROFILE%\Music\OrbitDock`.
+- Tray menu, startup registration, `Ctrl+Alt+Space` layer reset, settings UI, and repair/center actions for docks.
+- `orbitdockctl` CLI for local agents and scripts.
+- Atomic workspace writes with a lock file.
 
-## Build
+## Safety Defaults
 
-Requirements:
+OrbitDock starts as a portal-first organizer. It does not rearrange or delete your real desktop items by default.
+
+- Smart-dock organization is virtual.
+- Explicit folder docks copy dropped files by default.
+- Remove-from-dock hides an item from that dock only.
+- Real deletion is a separate confirmed context-menu action.
+- Rule automation is disabled by default.
+- Missing folders, missing audio, unsupported files, and shell-integration failures are recoverable.
+- `scripts\show-desktop-icons.ps1` can restore the raw Windows desktop icon grid if needed.
+
+See [docs/safety.md](docs/safety.md) for the full safety model.
+
+## Requirements
 
 - Windows 10 or 11
-- .NET 8 SDK with Windows Desktop runtime
+- .NET 8 SDK with the Windows Desktop runtime
+
+## Quick Start
 
 ```powershell
 dotnet restore
-dotnet build
-dotnet run --project src\CustomFences.App
+dotnet build OrbitDock.sln
+dotnet run --project src\OrbitDock.App
 ```
 
-Run the lightweight core verification suite:
+Run the verification suite:
 
 ```powershell
-dotnet run --project tests\CustomFences.Tests
+dotnet run --project tests\OrbitDock.Tests
 ```
 
 ## Desktop Test Build
 
-For normal testing, publish a framework-dependent Windows build and launch it from `artifacts`:
+For normal local testing, publish a framework-dependent Windows build and launch it from `artifacts`:
 
 ```powershell
 .\scripts\publish-portable.ps1
-.\scripts\start-customfences.ps1 -FromPublish
+.\scripts\start-orbitdock.ps1 -FromPublish
 ```
 
 Open settings immediately:
 
 ```powershell
-.\scripts\start-customfences.ps1 -FromPublish -Settings
+.\scripts\start-orbitdock.ps1 -FromPublish -Settings
 ```
 
-Stop the app:
+Stop OrbitDock:
 
 ```powershell
-.\scripts\stop-customfences.ps1
+.\scripts\stop-orbitdock.ps1
 ```
 
-Create a desktop shortcut for the published test build:
+Create desktop shortcuts for the published test build:
 
 ```powershell
-.\scripts\install-test-shortcut.ps1
+.\scripts\install-test-shortcut.ps1 -SettingsShortcut
 ```
 
-See [docs/testing.md](docs/testing.md) for the full testing loop and reset command.
+## Configuration
 
-## Configure
+OrbitDock stores a human-readable workspace at:
 
-Open settings from the tray icon or run:
-
-```powershell
-dotnet run --project src\CustomFences.App -- --settings
+```text
+%APPDATA%\OrbitDock\workspace.json
 ```
 
-The workspace JSON is intentionally human-readable. You can add zones, tabs, colors, paths, and rule templates directly.
+If present, legacy `%APPDATA%\CustomFences\workspace.json` is imported once.
 
-Use the CLI for agent-safe changes:
+Important defaults:
+
+- `defaultDropAction`: `copy`
+- `enableRuleAutomation`: `false`
+- `hideDesktopIconsWhenRunning`: `true`
+- `attachWindowsToDesktop`: `false` by default for reliability
+- `enableSoundEffects`: `false`
+- `enableMusicDock`: `false`
+
+See [docs/configuration.md](docs/configuration.md) for the schema and layout model.
+
+## Agent Control
+
+OrbitDock is local-agent friendly without exposing a network service. Agents should use `orbitdockctl` and the shared workspace JSON:
 
 ```powershell
+.\scripts\orbitdockctl.ps1 workspace validate
 .\scripts\orbitdockctl.ps1 layout list
 .\scripts\orbitdockctl.ps1 layout variants
 .\scripts\orbitdockctl.ps1 dock set-bounds build 980 455 420 360
@@ -100,25 +128,25 @@ Use the CLI for agent-safe changes:
 .\scripts\orbitdockctl.ps1 item pin "$env:USERPROFILE\Desktop\Visual Studio Code.lnk" --dock build
 .\scripts\orbitdockctl.ps1 desktop-pin add "$env:USERPROFILE\Desktop\Steam.lnk" --x 120 --y 220
 .\scripts\orbitdockctl.ps1 audio music on
-.\scripts\orbitdockctl.ps1 workspace validate
 ```
 
-Important defaults:
+The running app watches the workspace file and reloads safely after CLI changes.
 
-- `defaultDropAction` is `copy`.
-- `enableRuleAutomation` is `false`.
-- `attachWindowsToDesktop` can be set to `false` if shell attachment misbehaves on a machine.
-- Smart-dock item moves are virtual. Real files and shortcuts remain where they are unless you explicitly use a folder dock drop or confirm a real delete action.
+## Repository Layout
 
-## Safety Model
-
-OrbitDock starts as a portal-first organizer. It hides the raw Windows desktop icon grid while running so the dock layer can replace the visual clutter, but it does not delete or rearrange desktop items. Run `.\scripts\show-desktop-icons.ps1` if you need to restore the raw icon grid manually after a crash. Riskier actions, such as moving files or automated rule execution, are explicit workspace settings.
-
-See [docs/safety.md](docs/safety.md) for the full posture.
+```text
+src/
+  OrbitDock.App/     WPF desktop app, tray, settings, shell integration, audio
+  OrbitDock.Core/    Workspace schema, layout service, rules, scanners, storage
+  OrbitDock.Cli/     Local CLI for agents and scripts
+tests/
+  OrbitDock.Tests/   Dependency-light console verification suite
+docs/                Architecture, safety, config, testing, audio, roadmap
+scripts/             Publish, start, stop, reset, shortcuts, CLI wrapper
+```
 
 ## Documentation
 
-- [Research notes](docs/research-notes.md)
 - [Product brief](docs/product-brief.md)
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
@@ -128,7 +156,16 @@ See [docs/safety.md](docs/safety.md) for the full posture.
 - [Desktop testing](docs/testing.md)
 - [Roadmap](docs/roadmap.md)
 - [Visual direction](docs/visual-direction.md)
+- [Research notes](docs/research-notes.md)
+
+## Project Status
+
+OrbitDock is alpha software. It is usable for local desktop testing, but Windows shell behavior, multi-monitor transitions, mixed-DPI setups, and Explorer restart recovery still need broader real-world testing.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Keep changes small, testable, and conservative around filesystem and shell behavior.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

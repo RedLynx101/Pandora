@@ -11,7 +11,7 @@ Use these scripts from the repository root.
 The app is published to:
 
 ```text
-artifacts\CustomFences-win-x64\CustomFences.App.exe
+artifacts\OrbitDock-win-x64\OrbitDock.App.exe
 ```
 
 The CLI is published into the same folder as `OrbitDock.Cli.exe`.
@@ -19,25 +19,25 @@ The CLI is published into the same folder as `OrbitDock.Cli.exe`.
 ## Launch
 
 ```powershell
-.\scripts\start-customfences.ps1 -FromPublish
+.\scripts\start-orbitdock.ps1 -FromPublish
 ```
 
 Open settings on launch:
 
 ```powershell
-.\scripts\start-customfences.ps1 -FromPublish -Settings
+.\scripts\start-orbitdock.ps1 -FromPublish -Settings
 ```
 
 Restart a running copy:
 
 ```powershell
-.\scripts\start-customfences.ps1 -FromPublish -Restart
+.\scripts\start-orbitdock.ps1 -FromPublish -Restart
 ```
 
 ## Stop
 
 ```powershell
-.\scripts\stop-customfences.ps1
+.\scripts\stop-orbitdock.ps1
 ```
 
 ## Reset Test Workspace

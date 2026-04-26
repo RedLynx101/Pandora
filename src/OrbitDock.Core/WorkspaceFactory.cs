@@ -74,6 +74,7 @@ public static class WorkspaceFactory
 
         workspace.Zones.Add(CreateFolderZone("desktop-inbox", "Desktop Inbox", desktop, "#5CC8A7", 980, 835, 805, 170));
         workspace.Zones.Add(CreateMusicZone());
+        workspace.Zones.Add(CreateAgentFeedZone());
 
         workspace.Rules =
         [
@@ -180,6 +181,34 @@ public static class WorkspaceFactory
                 Opacity = 0.80,
                 CornerRadius = 24,
                 IconSize = 44
+            },
+            Tabs = []
+        };
+    }
+
+    internal static ZoneDefinition CreateAgentFeedZone()
+    {
+        return new ZoneDefinition
+        {
+            Id = "orbit-brief",
+            Name = "Orbit Brief",
+            Kind = ZoneKind.AgentFeed,
+            IsVisible = true,
+            IsCollapsed = true,
+            Bounds = new ZoneBounds { X = 545, Y = 70, Width = 420, Height = 320 },
+            Appearance = new ZoneAppearance
+            {
+                AccentColor = "#8BE9C7",
+                BackgroundColor = "#08111A",
+                Opacity = 0.82,
+                CornerRadius = 24,
+                IconSize = 42
+            },
+            AgentFeed = new AgentFeedDockSettings
+            {
+                FeedIds = ["morning-brief"],
+                DisplayMode = AgentFeedDisplayMode.SummaryAndTasks,
+                MarkReadOnExpand = true
             },
             Tabs = []
         };

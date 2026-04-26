@@ -68,11 +68,34 @@
 
                     <StackPanel x:Name="TitleStackPanel" Grid.Column="1" VerticalAlignment="Center">
                         <StackPanel x:Name="DockTitlePanel">
-                            <TextBlock Text="{Binding Name}"
-                                       Foreground="#F7FAFF"
-                                       FontFamily="Segoe UI Semibold"
-                                       FontSize="15"
-                                       TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="#F7FAFF"
+                                           FontFamily="Segoe UI Semibold"
+                                           FontSize="15"
+                                           TextTrimming="CharacterEllipsis" />
+                                <Border x:Name="AgentBadgeBorder"
+                                        Margin="8,0,0,0"
+                                        Padding="7,1"
+                                        CornerRadius="8"
+                                        Background="#CC8BE9C7"
+                                        VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AgentFeedBadgeText}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding AgentFeedBadgeText}"
+                                               Foreground="#061016"
+                                               FontFamily="Segoe UI Semibold"
+                                               FontSize="10" />
+                                </Border>
+                            </StackPanel>
                             <StackPanel x:Name="TabsPanel" Orientation="Horizontal" Margin="0,5,0,0" />
                         </StackPanel>
                         <TextBox x:Name="SearchBox"
@@ -126,7 +149,8 @@
                                 ToolTip="Refresh"
                                 Margin="6,0,0,0"
                                 Click="Refresh_Click" />
-                        <Button Style="{StaticResource IconButton}"
+                        <Button x:Name="OpenExplorerButton"
+                                Style="{StaticResource IconButton}"
                                 Content="&#xE8B7;"
                                 ToolTip="Open in Explorer"
                                 Margin="6,0,0,0"
@@ -314,6 +338,132 @@
                             BorderBrush="#39475B"
                             Click="OpenMusicFolder_Click" />
                 </Grid>
+            </Grid>
+
+            <Grid x:Name="AgentFeedPanel"
+                  Visibility="Collapsed"
+                  Margin="14,12,14,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding AgentFeedTitle}"
+                                   Foreground="#F7FAFF"
+                                   FontFamily="Segoe UI Semibold"
+                                   FontSize="15"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <Border Padding="7,2"
+                                    CornerRadius="8"
+                                    Background="#228BE9C7"
+                                    BorderBrush="#668BE9C7"
+                                    BorderThickness="1">
+                                <TextBlock Text="{Binding AgentFeedStatusText}"
+                                           Foreground="#DFFDF4"
+                                           FontSize="10"
+                                           FontFamily="Segoe UI Semibold" />
+                            </Border>
+                            <TextBlock Text="{Binding AgentFeedSourceLine}"
+                                       Foreground="#8EA3B8"
+                                       FontSize="11"
+                                       Margin="8,2,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                    <ComboBox Grid.Column="1"
+                              x:Name="AgentFeedSelector"
+                              Width="150"
+                              ItemsSource="{Binding AgentFeeds}"
+                              SelectedItem="{Binding SelectedAgentFeed, Mode=TwoWay}"
+                              DisplayMemberPath="Title"
+                              SelectionChanged="AgentFeedSelector_SelectionChanged" />
+                </Grid>
+
+                <Border Grid.Row="1"
+                        Margin="0,12,0,10"
+                        Padding="11,9"
+                        CornerRadius="8"
+                        Background="#1AFFFFFF"
+                        BorderBrush="#338BE9C7"
+                        BorderThickness="1">
+                    <TextBlock Text="{Binding AgentFeedSummary}"
+                               Foreground="#EAF3FF"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding SelectedAgentFeed.Sections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type local:AgentFeedSectionViewModel}">
+                                <Border Margin="0,0,0,10"
+                                        Padding="11,9"
+                                        CornerRadius="8"
+                                        Background="#12000000"
+                                        BorderBrush="#263C4F"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}"
+                                                   Foreground="#F7FAFF"
+                                                   FontFamily="Segoe UI Semibold"
+                                                   FontSize="12" />
+                                        <TextBlock Text="{Binding Text}"
+                                                   Foreground="#C8D7E8"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,0" />
+                                        <ItemsControl ItemsSource="{Binding ChecklistItems}" Margin="0,7,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type local:AgentFeedChecklistItemViewModel}">
+                                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                                              Foreground="#EAF3FF"
+                                                              Margin="0,0,0,7">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Text}"
+                                                                       Foreground="#EAF3FF"
+                                                                       FontSize="12"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Detail}"
+                                                                       Foreground="#8EA3B8"
+                                                                       FontSize="10"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,7,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type local:AgentFeedTextItemViewModel}">
+                                                    <StackPanel Margin="0,0,0,7">
+                                                        <TextBlock Text="{Binding Text}"
+                                                                   Foreground="#EAF3FF"
+                                                                   FontSize="12"
+                                                                   TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Detail}"
+                                                                   Foreground="#8EA3B8"
+                                                                   FontSize="10"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </Grid>
             </Grid>
 

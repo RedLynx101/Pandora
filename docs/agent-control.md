@@ -75,3 +75,43 @@ Desktop pins are OrbitDock overlay icons. They are useful when clean desktop mod
 ```
 
 The running app watches the workspace file and reloads after external changes, so CLI edits should appear without restarting OrbitDock.
+
+## Agent Feeds
+
+Agent feeds are for frequently changing briefs, checklists, and status cards. They are stored outside the workspace so agents can update them often without rewriting dock layout state.
+
+Default feed folder:
+
+```text
+%APPDATA%\OrbitDock\AgentFeeds
+```
+
+Publish a small update:
+
+```powershell
+.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
+```
+
+Publish a brief with checklist items from a JSON or line-based file:
+
+```powershell
+.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Calendar is heavy today." --checklist-file .\brief-checklist.json --status actionNeeded
+```
+
+Write a full feed document:
+
+```powershell
+.\scripts\orbitdockctl.ps1 agent-feed write morning-brief --file .\morning-brief.feed.json
+```
+
+Manage read and local checklist state:
+
+```powershell
+.\scripts\orbitdockctl.ps1 agent-feed list
+.\scripts\orbitdockctl.ps1 agent-feed show morning-brief
+.\scripts\orbitdockctl.ps1 agent-feed mark-read morning-brief
+.\scripts\orbitdockctl.ps1 agent-feed complete morning-brief email-1
+.\scripts\orbitdockctl.ps1 agent-feed reopen morning-brief email-1
+```
+
+See [agent-feeds.md](agent-feeds.md) for the schema and morning brief integration pattern.

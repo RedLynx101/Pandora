@@ -59,6 +59,10 @@ public partial class ZoneWindow : Window
         RenderMusicControls();
         ApplyExpansionEdgeLayout();
         ApplyCollapsedState();
+        if (_viewModel.IsAgentFeedDock && !_viewModel.Zone.IsCollapsed)
+        {
+            Dispatcher.BeginInvoke(_viewModel.MarkSelectedAgentFeedRead);
+        }
         Dispatcher.BeginInvoke(() => _manager.ApplyDockLayering());
     }
 
@@ -229,6 +233,11 @@ public partial class ZoneWindow : Window
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (_viewModel.IsAgentFeedDock)
+        {
+            return;
+        }
+
         OpenPath(_viewModel.SelectedFolderPath);
         _manager.Audio.PlaySoundEffect(_manager.Workspace, "item-open");
     }
@@ -684,6 +693,10 @@ public partial class ZoneWindow : Window
 
             ApplyContentMode();
             SaveCurrentWindowBoundsToModel();
+            if (!_viewModel.Zone.IsCollapsed && _viewModel.IsAgentFeedDock)
+            {
+                Dispatcher.BeginInvoke(_viewModel.MarkSelectedAgentFeedRead);
+            }
         }
         finally
         {
@@ -914,25 +927,27 @@ public partial class ZoneWindow : Window
             return;
         }
 
-        ItemsList.Visibility = _viewModel.IsMusicDock ? Visibility.Collapsed : Visibility.Visible;
+        ItemsList.Visibility = _viewModel.IsMusicDock || _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
         MusicPanel.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
+        AgentFeedPanel.Visibility = _viewModel.IsAgentFeedDock ? Visibility.Visible : Visibility.Collapsed;
+        AgentFeedSelector.Visibility = _viewModel.AgentFeeds.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RenderMusicControls()
     {
         MusicHeaderControls.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
-        OpenFolderButtonVisibility();
+        SearchButton.Visibility = _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
+        OpenExplorerButton.Visibility = _viewModel.IsMusicDock || _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
         RepeatComboBox.ItemsSource = Enum.GetValues(typeof(MusicRepeatMode));
         RepeatComboBox.SelectedItem = _viewModel.MusicRepeat;
     }
 
-    private void OpenFolderButtonVisibility()
+    private void AgentFeedSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // Music docks expose their folder from the expanded music panel.
-        HeaderButtons.Children.OfType<Button>()
-            .Where(button => Equals(button.ToolTip, "Open in Explorer"))
-            .ToList()
-            .ForEach(button => button.Visibility = _viewModel.IsMusicDock ? Visibility.Collapsed : Visibility.Visible);
+        if (_viewModel.IsAgentFeedDock && !_viewModel.Zone.IsCollapsed)
+        {
+            _viewModel.MarkSelectedAgentFeedRead();
+        }
     }
 
     private void Manager_MusicEnded()

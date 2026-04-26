@@ -30,6 +30,7 @@ This project is independent. It is not affiliated with Stardock and does not cop
 - Screen-combination-aware layout variants for one-monitor and multi-monitor setups.
 - Per-dock search, roll-up/collapse, bottom expansion, tabs, and themed scrollbars.
 - Optional local sound effects and an optional music dock backed by `%USERPROFILE%\Music\OrbitDock`.
+- Agent feed docks for local agents to publish briefs, checklists, unread badges, and status summaries.
 - Tray menu, startup registration, `Ctrl+Alt+Space` layer reset, settings UI, and repair/center actions for docks.
 - `orbitdockctl` CLI for local agents and scripts.
 - Atomic workspace writes with a lock file.
@@ -139,9 +140,11 @@ OrbitDock is local-agent friendly without exposing a network service. Agents sho
 .\scripts\orbitdockctl.ps1 item pin "$env:USERPROFILE\Desktop\Visual Studio Code.lnk" --dock build
 .\scripts\orbitdockctl.ps1 desktop-pin add "$env:USERPROFILE\Desktop\Steam.lnk" --x 120 --y 220
 .\scripts\orbitdockctl.ps1 audio music on
+.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
 ```
 
 The running app watches the workspace file and reloads safely after CLI changes.
+Agent feed docks also watch `%APPDATA%\OrbitDock\AgentFeeds` so local agent updates appear without restarting OrbitDock.
 
 ## Repository Layout
 
@@ -162,6 +165,7 @@ scripts/             Publish, start, stop, reset, shortcuts, CLI wrapper
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
 - [Agent control](docs/agent-control.md)
+- [Agent feeds](docs/agent-feeds.md)
 - [Audio](docs/audio.md)
 - [Safety](docs/safety.md)
 - [Desktop testing](docs/testing.md)

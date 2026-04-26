@@ -27,6 +27,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     private string _searchQuery = string.Empty;
     private MusicPlaylistViewModel? _selectedMusicPlaylist;
     private MusicTrackViewModel? _selectedMusicTrack;
+    private AgentFeedCardViewModel? _selectedAgentFeed;
     private string _nowPlayingText = "No track selected";
     private bool _isMusicPlaying;
 
@@ -46,6 +47,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<FileItemViewModel> Items { get; } = [];
     public ObservableCollection<MusicPlaylistViewModel> MusicPlaylists { get; } = [];
     public ObservableCollection<MusicTrackViewModel> MusicTracks { get; } = [];
+    public ObservableCollection<AgentFeedCardViewModel> AgentFeeds { get; } = [];
 
     public IReadOnlyList<ZoneTabDefinition> Tabs => Zone.Tabs;
     public string Name => Zone.Name;
@@ -80,6 +82,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)
             : PathExpander.Expand(SelectedTab.Path);
     public bool IsMusicDock => Zone.Kind == ZoneKind.Music;
+    public bool IsAgentFeedDock => Zone.Kind == ZoneKind.AgentFeed;
     public bool IsSmartDock => SelectedTab?.Source == ZoneTabSource.SmartDesktop;
     public string DockId => Zone.Id;
     public string? SelectedTabId => SelectedTab?.Id;
@@ -130,6 +133,50 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             _selectedMusicPlaylist = value;
             OnPropertyChanged();
             ApplySelectedPlaylist(save: true);
+        }
+    }
+
+    public AgentFeedCardViewModel? SelectedAgentFeed
+    {
+        get => _selectedAgentFeed;
+        set
+        {
+            if (_selectedAgentFeed == value)
+            {
+                return;
+            }
+
+            _selectedAgentFeed = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AgentFeedTitle));
+            OnPropertyChanged(nameof(AgentFeedSummary));
+            OnPropertyChanged(nameof(AgentFeedSourceLine));
+            OnPropertyChanged(nameof(AgentFeedStatusText));
+            OnPropertyChanged(nameof(AgentFeedBadgeText));
+        }
+    }
+
+    public string AgentFeedTitle => SelectedAgentFeed?.Title ?? "Agent Feed";
+    public string AgentFeedSummary => SelectedAgentFeed?.Summary ?? "No agent update is available yet.";
+    public string AgentFeedSourceLine => SelectedAgentFeed?.SourceLine ?? "Waiting for a local agent update.";
+    public string AgentFeedStatusText => SelectedAgentFeed?.StatusText ?? "Quiet";
+    public string AgentFeedBadgeText
+    {
+        get
+        {
+            var unread = AgentFeeds.Count(feed => feed.IsUnread);
+            var open = AgentFeeds.Sum(feed => feed.OpenAttentionCount);
+            if (unread > 0 && open > 0)
+            {
+                return $"new {open}";
+            }
+
+            if (unread > 0)
+            {
+                return "new";
+            }
+
+            return open > 0 ? open.ToString() : string.Empty;
         }
     }
 
@@ -231,6 +278,12 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         if (IsMusicDock)
         {
             RefreshMusic();
+            return;
+        }
+
+        if (IsAgentFeedDock)
+        {
+            RefreshAgentFeeds();
             return;
         }
 
@@ -512,6 +565,28 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         SearchQuery = string.Empty;
     }
 
+    public void MarkSelectedAgentFeedRead()
+    {
+        if (!IsAgentFeedDock ||
+            !Zone.AgentFeed.MarkReadOnExpand ||
+            SelectedAgentFeed is null ||
+            SelectedAgentFeed.IsFallback ||
+            !SelectedAgentFeed.IsUnread)
+        {
+            return;
+        }
+
+        try
+        {
+            _manager.AgentFeeds.MarkRead(SelectedAgentFeed.FeedId);
+            RefreshAgentFeeds();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            StatusMessage = $"Could not mark feed read: {ex.Message}";
+        }
+    }
+
     public void PlaySelectedTrack()
     {
         if (SelectedMusicTrack is null)
@@ -640,6 +715,116 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         NowPlayingText = SelectedMusicTrack?.Title ?? "No track selected";
         _baseStatusMessage = library.StatusMessage;
         StatusMessage = library.StatusMessage;
+    }
+
+    private void RefreshAgentFeeds()
+    {
+        AgentFeeds.Clear();
+        var state = _manager.AgentFeeds.LoadState();
+        var selectedId = SelectedAgentFeed?.FeedId;
+        var feedIds = Zone.AgentFeed.FeedIds.Count == 0
+            ? new[] { "morning-brief" }
+            : Zone.AgentFeed.FeedIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+        foreach (var feedId in feedIds)
+        {
+            var card = LoadAgentFeedCard(feedId, state);
+            AgentFeeds.Add(card);
+        }
+
+        SelectedAgentFeed = AgentFeeds.FirstOrDefault(feed =>
+            string.Equals(feed.FeedId, selectedId, StringComparison.OrdinalIgnoreCase))
+            ?? AgentFeeds.FirstOrDefault();
+
+        _baseStatusMessage = AgentFeeds.Count == 0
+            ? "No agent feeds configured."
+            : $"{AgentFeeds.Count} agent feed(s)";
+        StatusMessage = AgentFeedBadgeText.Length == 0
+            ? _baseStatusMessage
+            : $"{_baseStatusMessage} - {AgentFeedBadgeText}";
+        OnPropertyChanged(nameof(AgentFeedBadgeText));
+        StartAgentFeedWatcher();
+    }
+
+    private AgentFeedCardViewModel LoadAgentFeedCard(string feedId, AgentFeedStateDocument state)
+    {
+        try
+        {
+            var document = _manager.AgentFeeds.LoadFeed(feedId);
+            if (document is null)
+            {
+                return CreateAgentFeedCard(CreateMissingAgentFeed(feedId), state, isFallback: true);
+            }
+
+            return CreateAgentFeedCard(document, state, isFallback: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return CreateAgentFeedCard(new AgentFeedDocument
+            {
+                FeedId = feedId,
+                Title = feedId,
+                SourceAgent = "OrbitDock",
+                Status = AgentFeedStatus.Error,
+                UpdatedUtc = DateTime.UtcNow,
+                Revision = "error",
+                Summary = $"Feed could not be read: {ex.Message}",
+                Sections =
+                [
+                    new AgentFeedSection
+                    {
+                        Id = "error",
+                        Title = "Feed Error",
+                        Kind = AgentFeedSectionKind.Summary,
+                        Text = ex.Message
+                    }
+                ]
+            }, state, isFallback: true);
+        }
+    }
+
+    private AgentFeedCardViewModel CreateAgentFeedCard(AgentFeedDocument document, AgentFeedStateDocument state, bool isFallback)
+    {
+        var unread = !isFallback && _manager.AgentFeeds.IsUnread(document, state);
+        var count = _manager.AgentFeeds.CountOpenAttentionItems(document, state);
+        return new AgentFeedCardViewModel(document, unread, count, isFallback, state, _manager.AgentFeeds, SetAgentFeedItemState);
+    }
+
+    private static AgentFeedDocument CreateMissingAgentFeed(string feedId)
+    {
+        return new AgentFeedDocument
+        {
+            FeedId = feedId,
+            Title = feedId == "morning-brief" ? "Morning Brief" : feedId,
+            SourceAgent = "OrbitDock",
+            Status = AgentFeedStatus.Quiet,
+            UpdatedUtc = DateTime.UtcNow,
+            Revision = "missing",
+            Summary = "No update has been published yet. Local agents can write this feed with orbitdockctl agent-feed publish or write.",
+            Sections =
+            [
+                new AgentFeedSection
+                {
+                    Id = "waiting",
+                    Title = "Waiting for Agent",
+                    Kind = AgentFeedSectionKind.Summary,
+                    Text = "This dock is ready for local agent updates."
+                }
+            ]
+        };
+    }
+
+    private void SetAgentFeedItemState(string feedId, string itemId, AgentFeedItemState state)
+    {
+        try
+        {
+            _manager.AgentFeeds.SetItemState(feedId, itemId, state);
+            RefreshAgentFeeds();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            StatusMessage = $"Could not save checklist state: {ex.Message}";
+        }
     }
 
     private void ApplySelectedPlaylist(bool save)
@@ -782,6 +967,29 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void StartAgentFeedWatcher()
+    {
+        try
+        {
+            Directory.CreateDirectory(_manager.AgentFeeds.FeedsDirectory);
+            var watcher = new FileSystemWatcher(_manager.AgentFeeds.FeedsDirectory, "*.json")
+            {
+                IncludeSubdirectories = false,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                EnableRaisingEvents = true
+            };
+            watcher.Created += AgentFeedChanged;
+            watcher.Deleted += AgentFeedChanged;
+            watcher.Renamed += AgentFeedChanged;
+            watcher.Changed += AgentFeedChanged;
+            _watchers.Add(watcher);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            StatusMessage = $"Agent feed live refresh unavailable: {ex.Message}";
+        }
+    }
+
     private void StopWatchers()
     {
         foreach (var watcher in _watchers)
@@ -790,6 +998,10 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             watcher.Deleted -= WatcherChanged;
             watcher.Renamed -= WatcherChanged;
             watcher.Changed -= WatcherChanged;
+            watcher.Created -= AgentFeedChanged;
+            watcher.Deleted -= AgentFeedChanged;
+            watcher.Renamed -= AgentFeedChanged;
+            watcher.Changed -= AgentFeedChanged;
             watcher.Dispose();
         }
 
@@ -798,6 +1010,16 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void WatcherChanged(object sender, FileSystemEventArgs e)
     {
+        _dispatcher.BeginInvoke(Refresh);
+    }
+
+    private void AgentFeedChanged(object sender, FileSystemEventArgs e)
+    {
+        if (e.Name is not null && e.Name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         _dispatcher.BeginInvoke(Refresh);
     }
 

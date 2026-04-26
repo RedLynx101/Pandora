@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public static class WorkspaceMigrator
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     public static bool MigrateToCurrent(Workspace workspace)
     {
@@ -79,6 +79,8 @@ public static class WorkspaceMigrator
         {
             WorkspaceLayoutService.EnsureMusicDock(workspace);
         }
+
+        WorkspaceLayoutService.EnsureAgentFeedDock(workspace);
 
         var activeBefore = workspace.ActiveLayoutName;
         var variantBefore = WorkspaceLayoutService.EnsureActiveLayout(workspace).ActiveDisplayVariantKey;

@@ -44,7 +44,7 @@ public sealed class WorkspaceStore
             WorkspaceLayoutService.ApplyActiveLayoutToZones(loaded);
             if (migrated)
             {
-                Backup("migrated-v3");
+                Backup($"migrated-v{WorkspaceMigrator.CurrentSchemaVersion}");
                 Save(loaded);
             }
 

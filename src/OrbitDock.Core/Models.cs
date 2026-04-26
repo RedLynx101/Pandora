@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public sealed class Workspace
 {
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
     public AppSettings Settings { get; set; } = new();
     public List<ZoneDefinition> Zones { get; set; } = [];
     public List<RuleDefinition> Rules { get; set; } = [];
@@ -43,7 +43,15 @@ public sealed class ZoneDefinition
     public ZoneBounds Bounds { get; set; } = new();
     public ZoneAppearance Appearance { get; set; } = new();
     public ItemSort Sort { get; set; } = ItemSort.NameAscending;
+    public AgentFeedDockSettings AgentFeed { get; set; } = new();
     public List<ZoneTabDefinition> Tabs { get; set; } = [];
+}
+
+public sealed class AgentFeedDockSettings
+{
+    public List<string> FeedIds { get; set; } = [];
+    public AgentFeedDisplayMode DisplayMode { get; set; } = AgentFeedDisplayMode.SummaryAndTasks;
+    public bool MarkReadOnExpand { get; set; } = true;
 }
 
 public sealed class ZoneTabDefinition
@@ -199,7 +207,15 @@ public enum DropAction
 public enum ZoneKind
 {
     Standard,
-    Music
+    Music,
+    AgentFeed
+}
+
+public enum AgentFeedDisplayMode
+{
+    SummaryAndTasks,
+    SummaryOnly,
+    ChecklistFirst
 }
 
 public enum DockExpansionEdge

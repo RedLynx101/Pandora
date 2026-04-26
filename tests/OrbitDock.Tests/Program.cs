@@ -18,6 +18,8 @@ var tests = new List<(string Name, Action Body)>
     ("Oversized dock bounds are repaired", OversizedDockBoundsRepair),
     ("Dock search matches name, extension, and path", DockSearch),
     ("Music scanner handles playlists and unsupported files", MusicScanner),
+    ("Agent feed store persists read and checklist state", AgentFeedStorePersistence),
+    ("Agent feed CLI publishes, validates, and updates state", AgentFeedCli),
     ("orbitdockctl validates a workspace", CliValidation)
 };
 
@@ -84,7 +86,7 @@ static void WorkspaceRoundTrip()
     var workspace = WorkspaceFactory.CreateDefault();
     store.Save(workspace);
     var loaded = store.LoadOrCreate();
-    Assert(loaded.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Workspace should be schema v2.");
+    Assert(loaded.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Workspace should be on the current schema.");
     Assert(loaded.Layouts.Count >= 1, "Workspace should include at least one layout.");
     Assert(loaded.Zones.Count >= 3, "Default workspace should include starter zones.");
     Assert(loaded.Rules.Count >= 2, "Default workspace should include starter rule templates.");
@@ -97,6 +99,7 @@ static void SmartDesktopDefaults()
     Assert(workspace.Settings.StayVisibleOnShowDesktop, "Default workspace should keep dock overlays visible when showing the desktop.");
     Assert(workspace.Zones.Any(zone => zone.Tabs.Any(tab => tab.Source == ZoneTabSource.SmartDesktop)), "Expected smart desktop tabs.");
     Assert(workspace.Zones.Any(zone => zone.Name.Contains("Launchpad", StringComparison.OrdinalIgnoreCase)), "Expected a launchpad zone.");
+    Assert(workspace.Zones.Any(zone => zone.Kind == ZoneKind.AgentFeed && zone.AgentFeed.FeedIds.Contains("morning-brief")), "Expected a default morning-brief agent feed dock.");
 }
 
 static void WorkspaceMigration()
@@ -127,10 +130,12 @@ static void WorkspaceMigration()
         """);
 
     var workspace = new WorkspaceStore(tempPath).LoadOrCreate();
-    Assert(workspace.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Migrated workspace should be schema v3.");
+    Assert(workspace.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Migrated workspace should be on the current schema.");
     Assert(workspace.ActiveLayoutName == "Main", "Migration should create Main layout.");
-    Assert(workspace.Layouts.Single().DisplayVariants.Single().DockStates.Single().DockId == "legacy", "Migration should capture legacy dock state.");
-    Assert(Directory.EnumerateFiles(directory, "*.migrated-v3.bak").Any(), "Migration should back up old JSON.");
+    var dockStates = workspace.Layouts.Single().DisplayVariants.Single().DockStates;
+    Assert(dockStates.Any(state => state.DockId == "legacy"), "Migration should capture legacy dock state.");
+    Assert(dockStates.Any(state => state.DockId == "orbit-brief"), "Migration should add agent feed dock state.");
+    Assert(Directory.EnumerateFiles(directory, "*.migrated-v4.bak").Any(), "Migration should back up old JSON.");
 }
 
 static void LayoutSwitching()
@@ -321,6 +326,67 @@ static void MusicScanner()
     Assert(library.Playlists.Any(playlist => playlist.Id == MusicLibraryScanner.AllTracksPlaylistId), "Scanner should include All Tracks.");
     Assert(library.Playlists.Any(playlist => playlist.Id == "Focus/Deep"), "Scanner should include nested playlist folder.");
     Assert(library.Playlists.Single(playlist => playlist.Id == MusicLibraryScanner.AllTracksPlaylistId).Tracks.Count == 2, "Scanner should skip unsupported files.");
+}
+
+static void AgentFeedStorePersistence()
+{
+    var root = Path.Combine(Path.GetTempPath(), "OrbitDock.Tests", Guid.NewGuid().ToString("N"), "AgentFeeds");
+    var store = new AgentFeedStore(root);
+    var document = new AgentFeedDocument
+    {
+        FeedId = "morning-brief",
+        Title = "Morning Brief",
+        SourceAgent = "test",
+        Status = AgentFeedStatus.Attention,
+        Revision = "rev-1",
+        UpdatedUtc = DateTime.UtcNow,
+        Summary = "Check the day.",
+        Sections =
+        [
+            new AgentFeedSection
+            {
+                Id = "tasks",
+                Title = "What Needs Attention",
+                Kind = AgentFeedSectionKind.Checklist,
+                Items =
+                [
+                    new AgentFeedItem { Id = "email-1", Text = "Review important email", Priority = AgentFeedPriority.P1 }
+                ]
+            }
+        ]
+    };
+
+    store.SaveFeed(document);
+    var loaded = store.LoadFeed("morning-brief")!;
+    var state = store.LoadState();
+    Assert(store.IsUnread(loaded, state), "New feed should be unread.");
+    Assert(store.CountOpenAttentionItems(loaded, state) == 1, "Open attention item should count.");
+
+    store.MarkRead("morning-brief");
+    state = store.LoadState();
+    Assert(!store.IsUnread(loaded, state), "Mark read should clear unread state.");
+
+    store.SetItemState("morning-brief", "email-1", AgentFeedItemState.Done);
+    state = store.LoadState();
+    Assert(store.CountOpenAttentionItems(loaded, state) == 0, "Completed checklist item should stop counting as open attention.");
+}
+
+static void AgentFeedCli()
+{
+    var directory = Path.Combine(Path.GetTempPath(), "OrbitDock.Tests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    var workspacePath = Path.Combine(directory, "workspace.json");
+    new WorkspaceStore(workspacePath).Save(WorkspaceFactory.CreateDefault());
+    var checklistPath = Path.Combine(directory, "checklist.json");
+    File.WriteAllText(checklistPath, """["Review Needs Review queue","Check calendar conflicts"]""");
+    var repoRoot = FindRepoRoot();
+
+    RunCli(repoRoot, workspacePath, ["agent-feed", "publish", "morning-brief", "--title", "Morning Brief", "--summary", "Two things need attention.", "--checklist-file", checklistPath, "--status", "attention"], "Published");
+    RunCli(repoRoot, workspacePath, ["agent-feed", "list"], "morning-brief");
+    RunCli(repoRoot, workspacePath, ["agent-feed", "show", "morning-brief"], "Two things need attention.");
+    RunCli(repoRoot, workspacePath, ["agent-feed", "mark-read", "morning-brief"], "marked read");
+    RunCli(repoRoot, workspacePath, ["agent-feed", "complete", "morning-brief", "item-1"], "completed");
+    RunCli(repoRoot, workspacePath, ["agent-feed", "validate", Path.Combine(directory, "AgentFeeds", "morning-brief.json")], "OK");
 }
 
 static void CliValidation()

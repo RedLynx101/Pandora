@@ -1,10 +1,13 @@
 using OrbitDock.Core;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var arguments = args.ToList();
 var workspacePath = TakeOption(arguments, "--workspace");
 var store = string.IsNullOrWhiteSpace(workspacePath)
     ? WorkspaceStore.ForCurrentUser()
     : new WorkspaceStore(workspacePath);
+var agentFeeds = AgentFeedStore.ForWorkspace(store.WorkspacePath);
 
 try
 {
@@ -23,14 +26,155 @@ try
         "item" => HandleItem(store, rest),
         "desktop-pin" => HandleDesktopPin(store, rest),
         "audio" => HandleAudio(store, rest),
+        "agent-feed" => HandleAgentFeed(agentFeeds, rest),
         "workspace" => HandleWorkspace(store, rest),
         _ => Unknown($"Unknown command group: {group}")
     };
 }
-catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or JsonException)
 {
     Console.Error.WriteLine(ex.Message);
     return 1;
+}
+
+static int HandleAgentFeed(AgentFeedStore store, List<string> args)
+{
+    var verb = RequireArg(args, 0, "agent-feed command").ToLowerInvariant();
+    switch (verb)
+    {
+        case "list":
+        {
+            var state = store.LoadState();
+            foreach (var feedId in store.ListFeedIds())
+            {
+                var document = store.LoadFeed(feedId);
+                if (document is null)
+                {
+                    continue;
+                }
+
+                var unread = store.IsUnread(document, state) ? "unread" : "read";
+                var count = store.CountOpenAttentionItems(document, state);
+                Console.WriteLine($"{document.FeedId}\t{document.Title}\t{document.Status}\t{unread}\topen={count}\tupdated={document.UpdatedUtc:o}");
+            }
+
+            return 0;
+        }
+        case "show":
+        {
+            var feedId = RequireArg(args, 1, "feed id");
+            var document = store.LoadFeed(feedId) ?? throw new InvalidOperationException($"Agent feed '{feedId}' was not found.");
+            Console.WriteLine(SerializeFeed(document));
+            return 0;
+        }
+        case "write":
+        {
+            var feedId = RequireArg(args, 1, "feed id");
+            var file = RequireOption(args, "--file");
+            var document = store.LoadFeedFile(file, feedId);
+            document.FeedId = feedId;
+            store.SaveFeed(document);
+            Console.WriteLine($"Wrote agent feed '{document.FeedId}'.");
+            return 0;
+        }
+        case "publish":
+        {
+            var feedId = RequireArg(args, 1, "feed id");
+            var title = RequireOption(args, "--title");
+            var summary = RequireOption(args, "--summary");
+            var markdownFile = TakeOption(args, "--markdown-file");
+            var checklistFile = TakeOption(args, "--checklist-file");
+            var statusText = TakeOption(args, "--status") ?? "quiet";
+            if (!Enum.TryParse<AgentFeedStatus>(statusText, ignoreCase: true, out var status))
+            {
+                throw new InvalidOperationException("Status must be quiet, attention, actionNeeded, or error.");
+            }
+
+            var document = new AgentFeedDocument
+            {
+                FeedId = feedId,
+                Title = title,
+                SourceAgent = TakeOption(args, "--source") ?? "orbitdockctl",
+                Status = status,
+                UpdatedUtc = DateTime.UtcNow,
+                Revision = DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
+                Summary = summary
+            };
+            document.Sections.Add(new AgentFeedSection
+            {
+                Id = "summary",
+                Title = "Summary",
+                Kind = AgentFeedSectionKind.Summary,
+                Text = summary
+            });
+
+            if (!string.IsNullOrWhiteSpace(checklistFile))
+            {
+                document.Sections.Add(new AgentFeedSection
+                {
+                    Id = "checklist",
+                    Title = "What Needs Attention",
+                    Kind = AgentFeedSectionKind.Checklist,
+                    Items = ReadChecklistItems(checklistFile)
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(markdownFile))
+            {
+                document.Markdown = File.ReadAllText(markdownFile);
+                document.Sections.Add(new AgentFeedSection
+                {
+                    Id = "markdown",
+                    Title = "Full Brief",
+                    Kind = AgentFeedSectionKind.Markdown,
+                    Text = document.Markdown
+                });
+            }
+
+            store.SaveFeed(document);
+            Console.WriteLine($"Published agent feed '{document.FeedId}'.");
+            return 0;
+        }
+        case "clear":
+            store.DeleteFeed(RequireArg(args, 1, "feed id"));
+            Console.WriteLine("Agent feed cleared.");
+            return 0;
+        case "mark-read":
+            store.MarkRead(RequireArg(args, 1, "feed id"));
+            Console.WriteLine("Agent feed marked read.");
+            return 0;
+        case "mark-unread":
+            store.MarkUnread(RequireArg(args, 1, "feed id"));
+            Console.WriteLine("Agent feed marked unread.");
+            return 0;
+        case "complete":
+            store.SetItemState(RequireArg(args, 1, "feed id"), RequireArg(args, 2, "item id"), AgentFeedItemState.Done);
+            Console.WriteLine("Agent feed item completed.");
+            return 0;
+        case "reopen":
+            store.SetItemState(RequireArg(args, 1, "feed id"), RequireArg(args, 2, "item id"), AgentFeedItemState.Open);
+            Console.WriteLine("Agent feed item reopened.");
+            return 0;
+        case "validate":
+        {
+            var file = RequireArg(args, 1, "file");
+            var errors = store.ValidateFile(file);
+            if (errors.Count == 0)
+            {
+                Console.WriteLine("OK");
+                return 0;
+            }
+
+            foreach (var error in errors)
+            {
+                Console.Error.WriteLine(error);
+            }
+
+            return 1;
+        }
+        default:
+            return Unknown($"Unknown agent-feed command: {verb}");
+    }
 }
 
 static int HandleLayout(WorkspaceStore store, List<string> args)
@@ -308,6 +452,67 @@ static int HandleWorkspace(WorkspaceStore store, List<string> args)
     }
 }
 
+static string SerializeFeed(AgentFeedDocument document)
+{
+    var options = new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+    return JsonSerializer.Serialize(document, options);
+}
+
+static List<AgentFeedItem> ReadChecklistItems(string path)
+{
+    var text = File.ReadAllText(path);
+    if (string.IsNullOrWhiteSpace(text))
+    {
+        return [];
+    }
+
+    try
+    {
+        using var document = JsonDocument.Parse(text);
+        if (document.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            if (document.RootElement.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
+            {
+                return document.RootElement.EnumerateArray()
+                    .Select((item, index) => new AgentFeedItem
+                    {
+                        Id = $"item-{index + 1}",
+                        Text = item.GetString() ?? string.Empty,
+                        Priority = AgentFeedPriority.P2
+                    })
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Text))
+                    .ToList();
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+            };
+            return JsonSerializer.Deserialize<List<AgentFeedItem>>(text, options) ?? [];
+        }
+    }
+    catch (JsonException)
+    {
+        // Fall through to line-based parsing for simple agent output.
+    }
+
+    return text.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select((line, index) => new AgentFeedItem
+        {
+            Id = $"item-{index + 1}",
+            Text = line.TrimStart('-', '*', ' '),
+            Priority = AgentFeedPriority.P2
+        })
+        .Where(item => !string.IsNullOrWhiteSpace(item.Text))
+        .ToList();
+}
+
 static string? TakeOption(List<string> args, string name)
 {
     var index = args.FindIndex(arg => string.Equals(arg, name, StringComparison.OrdinalIgnoreCase));
@@ -392,5 +597,7 @@ static void PrintUsage()
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] item pin <path> --dock <dock>|unpin <path> --dock <dock>|move <path> --from <dock> --to <dock>|order <dock> <path...>");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] desktop-pin add <path> --x <x> --y <y>|remove <path-or-id>|list");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] audio sfx on|off|music on|off|set-music-folder <path>");
+    Console.Error.WriteLine("orbitdockctl [--workspace <path>] agent-feed list|show <feed>|write <feed> --file <json>|publish <feed> --title <text> --summary <text> [--markdown-file <path>] [--checklist-file <json>] [--status quiet|attention|actionNeeded|error]");
+    Console.Error.WriteLine("orbitdockctl [--workspace <path>] agent-feed clear <feed>|mark-read <feed>|mark-unread <feed>|complete <feed> <item>|reopen <feed> <item>|validate <file>");
     Console.Error.WriteLine("orbitdockctl [--workspace <path>] workspace validate|backup");
 }

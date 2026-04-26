@@ -344,6 +344,39 @@ public static class WorkspaceLayoutService
         return zone;
     }
 
+    public static ZoneDefinition EnsureAgentFeedDock(Workspace workspace)
+    {
+        var zone = workspace.Zones.FirstOrDefault(candidate =>
+            candidate.Kind == ZoneKind.AgentFeed ||
+            string.Equals(candidate.Id, "orbit-brief", StringComparison.OrdinalIgnoreCase));
+        if (zone is null)
+        {
+            zone = WorkspaceFactory.CreateAgentFeedZone();
+            workspace.Zones.Add(zone);
+        }
+
+        zone.Kind = ZoneKind.AgentFeed;
+        zone.AgentFeed ??= new AgentFeedDockSettings();
+        zone.AgentFeed.FeedIds ??= [];
+        if (zone.AgentFeed.FeedIds.Count == 0)
+        {
+            zone.AgentFeed.FeedIds.Add("morning-brief");
+        }
+
+        if (zone.AgentFeed.DisplayMode == default)
+        {
+            zone.AgentFeed.DisplayMode = AgentFeedDisplayMode.SummaryAndTasks;
+        }
+
+        var layout = EnsureActiveLayout(workspace);
+        foreach (var variant in layout.DisplayVariants)
+        {
+            EnsureDockState(variant.DockStates, zone);
+        }
+
+        return zone;
+    }
+
     public static void AddOrShowItem(Workspace workspace, string path, string dockId, string? tabId, int? order = null, string? displayName = null)
     {
         var normalized = NormalizePath(path);

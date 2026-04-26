@@ -35,6 +35,7 @@ public sealed class DesktopZoneManager : IDisposable
         _desktopOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _desktopOverlayTimer.Tick += (_, _) => MaintainDesktopOverlays();
         Audio = new OrbitAudioService();
+        AgentFeeds = AgentFeedStore.ForWorkspace(_store.WorkspacePath);
         Audio.MusicEnded += (_, _) => OnMusicEnded();
     }
 
@@ -44,6 +45,7 @@ public sealed class DesktopZoneManager : IDisposable
     public Workspace Workspace { get; private set; }
     public string WorkspacePath => _store.WorkspacePath;
     public OrbitAudioService Audio { get; }
+    public AgentFeedStore AgentFeeds { get; }
 
     public void Start()
     {
@@ -201,7 +203,7 @@ public sealed class DesktopZoneManager : IDisposable
     {
         foreach (var zone in Workspace.Zones.Where(zone => zone.IsVisible))
         {
-            if (zone.Tabs.Count == 0)
+            if (zone.Kind == ZoneKind.Standard && zone.Tabs.Count == 0)
             {
                 zone.Tabs.Add(new ZoneTabDefinition { Name = zone.Name });
             }

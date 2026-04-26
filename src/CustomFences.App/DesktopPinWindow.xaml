@@ -11,6 +11,7 @@
         AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False"
+        ShowActivated="False"
         Topmost="False"
         Icon="Assets/Brand/OrbitDock.ico"
         Loaded="Window_Loaded"

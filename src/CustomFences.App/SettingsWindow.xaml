@@ -197,6 +197,7 @@
                                 <CheckBox x:Name="CollapsedCheckBox" Content="Rolled up" />
                                 <CheckBox x:Name="AttachDesktopCheckBox" Content="Desktop attach" ToolTip="Best-effort shell attachment; disable if it misbehaves." />
                                 <CheckBox x:Name="CleanDesktopCheckBox" Content="Clean desktop" ToolTip="Hide the raw Windows desktop icon grid while OrbitDock is running." />
+                                <CheckBox x:Name="StayVisibleOnShowDesktopCheckBox" Content="Stay on desktop" ToolTip="Keep docks visible when Windows shows the desktop." />
                                 <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start with Windows" ToolTip="Adds or removes OrbitDock from your Windows startup apps." Click="StartWithWindows_Click" />
                                 <CheckBox x:Name="SoundEffectsCheckBox" Content="Sound effects" />
                                 <CheckBox x:Name="MusicDockCheckBox" Content="Music dock" />

@@ -14,6 +14,7 @@ public sealed class DesktopZoneManager : IDisposable
     private readonly List<DesktopPinWindow> _pinWindows = [];
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly DispatcherTimer _reloadTimer;
+    private readonly DispatcherTimer _desktopOverlayTimer;
     private SettingsWindow? _settingsWindow;
     private FileSystemWatcher? _workspaceWatcher;
     private bool _isPeekVisible;
@@ -30,6 +31,8 @@ public sealed class DesktopZoneManager : IDisposable
             _reloadTimer.Stop();
             Reload();
         };
+        _desktopOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        _desktopOverlayTimer.Tick += (_, _) => EnsureDesktopOverlaysVisible();
         Audio = new OrbitAudioService();
         Audio.MusicEnded += (_, _) => OnMusicEnded();
     }
@@ -46,6 +49,7 @@ public sealed class DesktopZoneManager : IDisposable
         ApplyCurrentDisplayVariant();
         OpenZoneWindows();
         OpenDesktopPins();
+        RefreshDesktopOverlayPersistence();
         StartWorkspaceWatcher();
     }
 
@@ -65,6 +69,7 @@ public sealed class DesktopZoneManager : IDisposable
             ApplyCurrentDisplayVariant();
             OpenZoneWindows();
             OpenDesktopPins();
+            RefreshDesktopOverlayPersistence();
             _settingsWindow?.RefreshFromWorkspace();
             CleanDesktopModeChanged?.Invoke(Workspace.Settings.HideDesktopIconsWhenRunning);
         }
@@ -165,6 +170,11 @@ public sealed class DesktopZoneManager : IDisposable
         {
             DockWindowLayer.SendBehindNormalWindows(window);
         }
+
+        foreach (var pinWindow in _pinWindows)
+        {
+            DockWindowLayer.SendBehindNormalWindows(pinWindow);
+        }
     }
 
     public void SaveAudioSettings()
@@ -176,6 +186,7 @@ public sealed class DesktopZoneManager : IDisposable
     public void Dispose()
     {
         _reloadTimer.Stop();
+        _desktopOverlayTimer.Stop();
         _workspaceWatcher?.Dispose();
         CloseZoneWindows();
         CloseDesktopPins();
@@ -281,6 +292,37 @@ public sealed class DesktopZoneManager : IDisposable
         if (File.Exists(_store.WorkspacePath))
         {
             _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
+        }
+    }
+
+    private void RefreshDesktopOverlayPersistence()
+    {
+        if (Workspace.Settings.StayVisibleOnShowDesktop)
+        {
+            EnsureDesktopOverlaysVisible();
+            _desktopOverlayTimer.Start();
+        }
+        else
+        {
+            _desktopOverlayTimer.Stop();
+        }
+    }
+
+    private void EnsureDesktopOverlaysVisible()
+    {
+        if (!Workspace.Settings.StayVisibleOnShowDesktop)
+        {
+            return;
+        }
+
+        foreach (var window in _windows.ToArray())
+        {
+            window.EnsureDesktopOverlayVisible();
+        }
+
+        foreach (var pinWindow in _pinWindows.ToArray())
+        {
+            pinWindow.EnsureDesktopOverlayVisible();
         }
     }
 

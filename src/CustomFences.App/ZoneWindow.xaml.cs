@@ -25,6 +25,7 @@ public partial class ZoneWindow : Window
     private readonly DesktopZoneManager _manager;
     private readonly ZoneViewModel _viewModel;
     private bool _isApplyingPlacement;
+    private bool _isDesktopAttached;
     private double _expandedHeight;
     private Point _dragStartPoint;
     private FileItemViewModel? _dragItem;
@@ -61,16 +62,35 @@ public partial class ZoneWindow : Window
     private void Window_SourceInitialized(object sender, EventArgs e)
     {
         DockWindowLayer.ApplyDesktopOverlayStyles(this);
-        if (_manager.Workspace.Settings.AttachWindowsToDesktop)
-        {
-            DesktopHost.TryAttach(this);
-        }
+        TryAttachToDesktop();
 
         _manager.ApplyDockLayering();
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
+        _manager.ApplyDockLayering();
+    }
+
+    public void EnsureDesktopOverlayVisible()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        DockWindowLayer.ApplyDesktopOverlayStyles(this);
+        TryAttachToDesktop();
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        if (!IsVisible)
+        {
+            Show();
+        }
+
         _manager.ApplyDockLayering();
     }
 
@@ -624,6 +644,16 @@ public partial class ZoneWindow : Window
         {
             _isApplyingPlacement = false;
         }
+    }
+
+    private void TryAttachToDesktop()
+    {
+        if (_isDesktopAttached || (!_manager.Workspace.Settings.StayVisibleOnShowDesktop && !_manager.Workspace.Settings.AttachWindowsToDesktop))
+        {
+            return;
+        }
+
+        _isDesktopAttached = DesktopHost.TryAttach(this);
     }
 
     private void RestoreReasonableSize(bool save)

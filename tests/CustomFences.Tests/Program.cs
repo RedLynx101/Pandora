@@ -93,6 +93,7 @@ static void SmartDesktopDefaults()
 {
     var workspace = WorkspaceFactory.CreateDefault();
     Assert(workspace.Settings.HideDesktopIconsWhenRunning, "Default workspace should enable clean desktop mode.");
+    Assert(workspace.Settings.StayVisibleOnShowDesktop, "Default workspace should keep dock overlays visible when showing the desktop.");
     Assert(workspace.Zones.Any(zone => zone.Tabs.Any(tab => tab.Source == ZoneTabSource.SmartDesktop)), "Expected smart desktop tabs.");
     Assert(workspace.Zones.Any(zone => zone.Name.Contains("Launchpad", StringComparison.OrdinalIgnoreCase)), "Expected a launchpad zone.");
 }

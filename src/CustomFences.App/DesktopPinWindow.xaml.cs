@@ -12,6 +12,7 @@ public partial class DesktopPinWindow : Window
     private readonly DesktopZoneManager _manager;
     private readonly DesktopPinDefinition _pin;
     private bool _isApplyingPlacement;
+    private bool _isDesktopAttached;
 
     public DesktopPinWindow(DesktopPinDefinition pin, DesktopZoneManager manager)
     {
@@ -37,16 +38,35 @@ public partial class DesktopPinWindow : Window
     private void Window_SourceInitialized(object sender, EventArgs e)
     {
         DockWindowLayer.ApplyDesktopOverlayStyles(this);
-        if (_manager.Workspace.Settings.AttachWindowsToDesktop)
-        {
-            DesktopHost.TryAttach(this);
-        }
+        TryAttachToDesktop();
 
         DockWindowLayer.SendBehindNormalWindows(this);
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
+        DockWindowLayer.SendBehindNormalWindows(this);
+    }
+
+    public void EnsureDesktopOverlayVisible()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        DockWindowLayer.ApplyDesktopOverlayStyles(this);
+        TryAttachToDesktop();
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        if (!IsVisible)
+        {
+            Show();
+        }
+
         DockWindowLayer.SendBehindNormalWindows(this);
     }
 
@@ -133,6 +153,16 @@ public partial class DesktopPinWindow : Window
         {
             _isApplyingPlacement = false;
         }
+    }
+
+    private void TryAttachToDesktop()
+    {
+        if (_isDesktopAttached || (!_manager.Workspace.Settings.StayVisibleOnShowDesktop && !_manager.Workspace.Settings.AttachWindowsToDesktop))
+        {
+            return;
+        }
+
+        _isDesktopAttached = DesktopHost.TryAttach(this);
     }
 
     private static void OpenPath(string path)

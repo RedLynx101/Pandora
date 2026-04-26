@@ -13,6 +13,7 @@ public sealed class Workspace
 public sealed class AppSettings
 {
     public bool AttachWindowsToDesktop { get; set; }
+    public bool StayVisibleOnShowDesktop { get; set; } = true;
     public bool HideDesktopIconsWhenRunning { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public string PeekHotkey { get; set; } = "Ctrl+Alt+Space";

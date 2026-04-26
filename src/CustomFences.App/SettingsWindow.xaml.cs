@@ -40,6 +40,7 @@ public partial class SettingsWindow : Window
 
             AttachDesktopCheckBox.IsChecked = _manager.Workspace.Settings.AttachWindowsToDesktop;
             CleanDesktopCheckBox.IsChecked = _manager.Workspace.Settings.HideDesktopIconsWhenRunning;
+            StayVisibleOnShowDesktopCheckBox.IsChecked = _manager.Workspace.Settings.StayVisibleOnShowDesktop;
             StartWithWindowsCheckBox.IsChecked = _manager.Workspace.Settings.StartWithWindows || StartupAppService.IsEnabled();
             SoundEffectsCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableSoundEffects;
             MusicDockCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableMusicDock;
@@ -138,6 +139,7 @@ public partial class SettingsWindow : Window
         ApplyFields(zone);
         _manager.Workspace.Settings.AttachWindowsToDesktop = AttachDesktopCheckBox.IsChecked == true;
         _manager.Workspace.Settings.HideDesktopIconsWhenRunning = CleanDesktopCheckBox.IsChecked == true;
+        _manager.Workspace.Settings.StayVisibleOnShowDesktop = StayVisibleOnShowDesktopCheckBox.IsChecked == true;
         var startupStatus = ApplyStartupField();
         ApplyAudioFields();
         _manager.Save();

@@ -13,6 +13,7 @@ public static class WorkspaceFactory
             Settings = new AppSettings
             {
                 AttachWindowsToDesktop = false,
+                StayVisibleOnShowDesktop = true,
                 HideDesktopIconsWhenRunning = true,
                 DefaultDropAction = DropAction.Copy,
                 EnableRuleAutomation = false

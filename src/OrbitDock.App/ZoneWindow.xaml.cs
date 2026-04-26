@@ -134,6 +134,12 @@ public partial class ZoneWindow : Window
             return;
         }
 
+        if (!_manager.IsCurrentDisplayVariantActive())
+        {
+            _manager.QueueDisplayVariantRefresh();
+            return;
+        }
+
         if (WindowState != WindowState.Normal || IsSnapSizedDock(Left, Top, Width, Height))
         {
             RestoreReasonableSize(save: true);

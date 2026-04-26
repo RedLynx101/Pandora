@@ -14,6 +14,8 @@ var tests = new List<(string Name, Action Body)>
     ("Dock membership overrides persist", DockMembershipPersistence),
     ("Desktop pins persist in active layout", DesktopPinPersistence),
     ("Display signatures and variants are stable", DisplayVariants),
+    ("Display variant keys ignore work-area-only changes", DisplayVariantKeysIgnoreWorkAreaChanges),
+    ("Legacy work-area display variants are reused", LegacyWorkAreaVariantReuse),
     ("Second-monitor dock bounds survive layout clamp", SecondMonitorDockBounds),
     ("Oversized dock bounds are repaired", OversizedDockBoundsRepair),
     ("Dock search matches name, extension, and path", DockSearch),
@@ -228,6 +230,84 @@ static void DisplayVariants()
     var state = variant.DockStates.First(state => state.DockId == workspace.Zones[0].Id);
     Assert(state.Bounds.X < 800 && state.Bounds.Y < 600, "Unknown display variant should clamp dock bounds.");
     Assert(WorkspaceLayoutService.EnsureActiveLayout(workspace).DisplayVariants.Count >= 2, "Using a monitor signature should create a reusable display variant.");
+}
+
+static void DisplayVariantKeysIgnoreWorkAreaChanges()
+{
+    var fullWorkArea = new DisplayDescriptor
+    {
+        DeviceName = @"\\.\DISPLAY1",
+        IsPrimary = true,
+        BoundsX = 0,
+        BoundsY = 0,
+        BoundsWidth = 1920,
+        BoundsHeight = 1080,
+        WorkAreaX = 0,
+        WorkAreaY = 0,
+        WorkAreaWidth = 1920,
+        WorkAreaHeight = 1080
+    };
+    var taskbarWorkArea = new DisplayDescriptor
+    {
+        DeviceName = @"\\.\DISPLAY1",
+        IsPrimary = true,
+        BoundsX = 0,
+        BoundsY = 0,
+        BoundsWidth = 1920,
+        BoundsHeight = 1080,
+        WorkAreaX = 0,
+        WorkAreaY = 0,
+        WorkAreaWidth = 1920,
+        WorkAreaHeight = 1020
+    };
+
+    var fullSignature = WorkspaceLayoutService.ComputeDisplaySignature([fullWorkArea]);
+    var taskbarSignature = WorkspaceLayoutService.ComputeDisplaySignature([taskbarWorkArea]);
+    Assert(fullSignature != taskbarSignature, "Signatures should still record work-area details.");
+    Assert(
+        WorkspaceLayoutService.ComputeDisplayVariantKey(fullSignature) == WorkspaceLayoutService.ComputeDisplayVariantKey(taskbarSignature),
+        "Variant key should stay stable when only the working area changes.");
+}
+
+static void LegacyWorkAreaVariantReuse()
+{
+    var workspace = WorkspaceFactory.CreateDefault();
+    var zone = workspace.Zones[0];
+    var layout = WorkspaceLayoutService.EnsureActiveLayout(workspace);
+    var oldDisplays = new[]
+    {
+        new DisplayDescriptor { DeviceName = @"\\.\DISPLAY1", IsPrimary = true, BoundsX = 0, BoundsY = 0, BoundsWidth = 1920, BoundsHeight = 1080, WorkAreaX = 0, WorkAreaY = 0, WorkAreaWidth = 1920, WorkAreaHeight = 1020 },
+        new DisplayDescriptor { DeviceName = @"\\.\DISPLAY5", IsPrimary = false, BoundsX = 1920, BoundsY = 0, BoundsWidth = 1920, BoundsHeight = 1080, WorkAreaX = 1920, WorkAreaY = 0, WorkAreaWidth = 1920, WorkAreaHeight = 1020 }
+    };
+    var newDisplays = new[]
+    {
+        new DisplayDescriptor { DeviceName = @"\\.\DISPLAY1", IsPrimary = true, BoundsX = 0, BoundsY = 0, BoundsWidth = 1920, BoundsHeight = 1080, WorkAreaX = 0, WorkAreaY = 0, WorkAreaWidth = 1920, WorkAreaHeight = 1080 },
+        new DisplayDescriptor { DeviceName = @"\\.\DISPLAY5", IsPrimary = false, BoundsX = 1920, BoundsY = 0, BoundsWidth = 1920, BoundsHeight = 1080, WorkAreaX = 1920, WorkAreaY = 0, WorkAreaWidth = 1920, WorkAreaHeight = 1080 }
+    };
+    var oldSignature = WorkspaceLayoutService.ComputeDisplaySignature(oldDisplays);
+    var newSignature = WorkspaceLayoutService.ComputeDisplaySignature(newDisplays);
+    var newKey = WorkspaceLayoutService.ComputeDisplayVariantKey(newSignature);
+
+    layout.DisplayVariants.Add(new DisplayLayoutVariant
+    {
+        Key = "display-old-workarea-key",
+        DisplaySignature = oldSignature,
+        IsDefault = false,
+        LastSeenUtc = DateTime.UtcNow.AddMinutes(-10),
+        DockStates =
+        [
+            new DockLayoutState
+            {
+                DockId = zone.Id,
+                Bounds = new ZoneBounds { X = 2200, Y = 80, Width = 390, Height = 320 }
+            }
+        ]
+    });
+
+    var variant = WorkspaceLayoutService.UseDisplayVariant(workspace, newKey, newSignature, newDisplays);
+    var state = variant.DockStates.First(state => state.DockId == zone.Id);
+    Assert(variant.Key == newKey, "Legacy work-area variant should be promoted to the stable display key.");
+    Assert(state.Bounds.X >= 1920, "Two-screen dock position should be reused instead of cloning a one-screen default.");
 }
 
 static void SecondMonitorDockBounds()

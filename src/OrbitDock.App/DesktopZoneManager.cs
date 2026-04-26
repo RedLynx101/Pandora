@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using OrbitDock.Core;
 
 namespace OrbitDock.App;
@@ -15,6 +16,7 @@ public sealed class DesktopZoneManager : IDisposable
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly DispatcherTimer _reloadTimer;
     private readonly DispatcherTimer _desktopOverlayTimer;
+    private readonly DispatcherTimer _displayChangeTimer;
     private SettingsWindow? _settingsWindow;
     private FileSystemWatcher? _workspaceWatcher;
     private bool _isPeekVisible;
@@ -34,6 +36,8 @@ public sealed class DesktopZoneManager : IDisposable
         };
         _desktopOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _desktopOverlayTimer.Tick += (_, _) => MaintainDesktopOverlays();
+        _displayChangeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        _displayChangeTimer.Tick += DisplayChangeTimer_Tick;
         Audio = new OrbitAudioService();
         AgentFeeds = AgentFeedStore.ForWorkspace(_store.WorkspacePath);
         Audio.MusicEnded += (_, _) => OnMusicEnded();
@@ -55,6 +59,7 @@ public sealed class DesktopZoneManager : IDisposable
         OpenDesktopPins();
         RefreshDesktopOverlayPersistence();
         StartWorkspaceWatcher();
+        SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
     }
 
     public void Reload()
@@ -86,6 +91,12 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void Save()
     {
+        if (!IsCurrentDisplayVariantActive())
+        {
+            QueueDisplayVariantRefresh();
+            return;
+        }
+
         WorkspaceLayoutService.CaptureAllZoneStates(Workspace);
         _store.Save(Workspace);
         if (File.Exists(_store.WorkspacePath))
@@ -188,10 +199,32 @@ public sealed class DesktopZoneManager : IDisposable
         _settingsWindow?.RefreshFromWorkspace();
     }
 
+    public bool IsCurrentDisplayVariantActive()
+    {
+        var activeKey = WorkspaceLayoutService.EnsureActiveLayout(Workspace).ActiveDisplayVariantKey;
+        return string.Equals(activeKey, GetCurrentDisplayVariantKey(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void QueueDisplayVariantRefresh()
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            if (_isReloading)
+            {
+                return;
+            }
+
+            _displayChangeTimer.Stop();
+            _displayChangeTimer.Start();
+        });
+    }
+
     public void Dispose()
     {
         _reloadTimer.Stop();
         _desktopOverlayTimer.Stop();
+        _displayChangeTimer.Stop();
+        SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
         _workspaceWatcher?.Dispose();
         CloseZoneWindows();
         CloseDesktopPins();
@@ -286,6 +319,22 @@ public sealed class DesktopZoneManager : IDisposable
         });
     }
 
+    private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        QueueDisplayVariantRefresh();
+    }
+
+    private void DisplayChangeTimer_Tick(object? sender, EventArgs e)
+    {
+        _displayChangeTimer.Stop();
+        if (_isReloading || IsCurrentDisplayVariantActive())
+        {
+            return;
+        }
+
+        Reload();
+    }
+
     private void ApplyCurrentDisplayVariant()
     {
         var signatureDisplays = DisplaySnapshotProvider.GetPhysicalDisplays();
@@ -299,6 +348,12 @@ public sealed class DesktopZoneManager : IDisposable
         {
             _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
         }
+    }
+
+    private static string GetCurrentDisplayVariantKey()
+    {
+        var signature = WorkspaceLayoutService.ComputeDisplaySignature(DisplaySnapshotProvider.GetPhysicalDisplays());
+        return WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
     }
 
     private void RefreshDesktopOverlayPersistence()

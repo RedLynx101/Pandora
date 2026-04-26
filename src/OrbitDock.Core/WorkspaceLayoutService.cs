@@ -113,13 +113,22 @@ public static class WorkspaceLayoutService
         EnsureDisplayVariants(layout, workspace.Zones);
         var normalizedKey = string.IsNullOrWhiteSpace(key) ? DefaultDisplayVariantKey : key.Trim();
         var variant = layout.DisplayVariants.FirstOrDefault(candidate =>
-            string.Equals(candidate.Key, normalizedKey, StringComparison.OrdinalIgnoreCase));
+            string.Equals(candidate.Key, normalizedKey, StringComparison.OrdinalIgnoreCase))
+            ?? layout.DisplayVariants
+                .Where(candidate => string.Equals(ComputeDisplayVariantKey(candidate.DisplaySignature), normalizedKey, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(candidate => candidate.LastSeenUtc)
+                .FirstOrDefault();
 
         if (variant is null)
         {
             var source = layout.DisplayVariants.First(candidate => candidate.IsDefault);
             variant = CloneDisplayVariant(source, normalizedKey, displaySignature, isDefault: false);
             layout.DisplayVariants.Add(variant);
+        }
+        else if (!string.Equals(variant.Key, normalizedKey, StringComparison.OrdinalIgnoreCase) &&
+                 layout.DisplayVariants.All(candidate => !string.Equals(candidate.Key, normalizedKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            variant.Key = normalizedKey;
         }
 
         variant.DisplaySignature = string.IsNullOrWhiteSpace(displaySignature) ? normalizedKey : displaySignature;
@@ -161,8 +170,22 @@ public static class WorkspaceLayoutService
             return DefaultDisplayVariantKey;
         }
 
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(displaySignature));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(ComputeDisplayIdentitySignature(displaySignature)));
         return "display-" + Convert.ToHexString(bytes, 0, 8).ToLowerInvariant();
+    }
+
+    private static string ComputeDisplayIdentitySignature(string displaySignature)
+    {
+        var parts = displaySignature
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part =>
+            {
+                var workAreaIndex = part.IndexOf("|w=", StringComparison.OrdinalIgnoreCase);
+                return workAreaIndex >= 0 ? part[..workAreaIndex] : part;
+            });
+
+        var identity = string.Join(";", parts);
+        return string.IsNullOrWhiteSpace(identity) ? displaySignature : identity;
     }
 
     public static void CaptureAllZoneStates(Workspace workspace)

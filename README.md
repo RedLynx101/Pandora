@@ -19,6 +19,17 @@ OrbitDock is a native Windows desktop organizer. It creates customizable desktop
 
 This project is independent. It is not affiliated with Stardock and does not copy Stardock assets, branding, or proprietary behavior. OrbitDock is built around a safer open-source posture: virtual organization first, explicit file mutations only, readable local config, and durable recovery scripts.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/MultiscreenOpen.png" alt="OrbitDock on a multi-monitor desktop with launchpad, play dock, orbit brief, and music dock expanded" width="100%">
+</p>
+
+<p align="center">
+  <img src="screenshots/MultiscreenClosed.png" alt="OrbitDock docks collapsed across a multi-monitor desktop" width="49%">
+  <img src="screenshots/Singlescreen.png" alt="OrbitDock on a single monitor layout with the music dock expanded" width="49%">
+</p>
+
 ## Highlights
 
 - Native WPF dock windows with translucent OrbitDock branding.
@@ -157,6 +168,7 @@ tests/
   OrbitDock.Tests/   Dependency-light console verification suite
 docs/                Architecture, safety, config, testing, audio, roadmap
 scripts/             Publish, start, stop, reset, shortcuts, CLI wrapper
+screenshots/         Public README screenshots
 ```
 
 ## Documentation

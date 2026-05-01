@@ -565,8 +565,8 @@ public partial class ZoneWindow : Window
 
         var result = MessageBox.Show(
             this,
-            $"Delete the real item from disk?\n\n{item.Path}",
-            "Delete real file",
+            $"Move the real item to the Recycle Bin?\n\n{item.Path}",
+            "Move real file to Recycle Bin",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
             MessageBoxResult.No);
@@ -579,18 +579,24 @@ public partial class ZoneWindow : Window
         {
             if (Directory.Exists(item.Path))
             {
-                Directory.Delete(item.Path, recursive: true);
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
+                    item.Path,
+                    Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
             }
             else if (File.Exists(item.Path))
             {
-                File.Delete(item.Path);
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                    item.Path,
+                    Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
             }
 
             _viewModel.RemoveFromDock(item.Path);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
-            MessageBox.Show(this, ex.Message, "Delete failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, ex.Message, "Recycle failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         ItemsList.SelectedItem = null;

@@ -53,7 +53,7 @@ OrbitDock starts as a portal-first organizer. It does not rearrange or delete yo
 - Smart-dock organization is virtual.
 - Explicit folder docks copy dropped files by default.
 - Remove-from-dock hides an item from that dock only.
-- Real deletion is a separate confirmed context-menu action.
+- Moving a real item to the Recycle Bin is a separate confirmed context-menu action.
 - Rule automation is disabled by default.
 - Missing folders, missing audio, unsupported files, and shell-integration failures are recoverable.
 - `scripts\show-desktop-icons.ps1` can restore the raw Windows desktop icon grid if needed.

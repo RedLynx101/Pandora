@@ -21,6 +21,7 @@ var tests = new List<(string Name, Action Body)>
     ("Dock search matches name, extension, and path", DockSearch),
     ("Music scanner handles playlists and unsupported files", MusicScanner),
     ("Agent feed store persists read and checklist state", AgentFeedStorePersistence),
+    ("Agent feed store enforces practical payload limits", AgentFeedLimits),
     ("Agent feed CLI publishes, validates, and updates state", AgentFeedCli),
     ("orbitdockctl validates a workspace", CliValidation)
 };
@@ -451,6 +452,84 @@ static void AgentFeedStorePersistence()
     Assert(store.CountOpenAttentionItems(loaded, state) == 0, "Completed checklist item should stop counting as open attention.");
 }
 
+static void AgentFeedLimits()
+{
+    var oversizedSummary = new AgentFeedDocument
+    {
+        FeedId = "morning-brief",
+        Title = "Morning Brief",
+        Summary = new string('x', AgentFeedStore.MaxSummaryLength + 1)
+    };
+    var errors = AgentFeedStore.Validate(oversizedSummary);
+    Assert(errors.Any(error => error.Contains("summary", StringComparison.OrdinalIgnoreCase)), "Oversized summary should fail validation.");
+
+    var tooManyItems = new AgentFeedDocument
+    {
+        FeedId = "morning-brief",
+        Title = "Morning Brief",
+        Sections =
+        [
+            new AgentFeedSection
+            {
+                Id = "tasks",
+                Title = "Tasks",
+                Items = Enumerable.Range(0, AgentFeedStore.MaxItems + 1)
+                    .Select(index => new AgentFeedItem { Id = $"item-{index}", Text = "Review item" })
+                    .ToList()
+            }
+        ]
+    };
+    errors = AgentFeedStore.Validate(tooManyItems);
+    Assert(errors.Any(error => error.Contains("total items", StringComparison.OrdinalIgnoreCase)), "Too many feed items should fail validation.");
+
+    var root = Path.Combine(Path.GetTempPath(), "OrbitDock.Tests", Guid.NewGuid().ToString("N"), "AgentFeeds");
+    Directory.CreateDirectory(root);
+    var store = new AgentFeedStore(root);
+    AssertThrows<InvalidOperationException>(
+        () => store.SetItemState("morning-brief", new string('x', AgentFeedStore.MaxIdentifierLength + 1), AgentFeedItemState.Done),
+        "Oversized local checklist item ids should be rejected.");
+
+    var hugeFeedPath = Path.Combine(root, "huge-feed.json");
+    using (var stream = File.Create(hugeFeedPath))
+    {
+        stream.SetLength(AgentFeedStore.MaxFeedFileBytes + 1L);
+    }
+
+    errors = store.ValidateFile(hugeFeedPath);
+    Assert(errors.Any(error => error.Contains("too large", StringComparison.OrdinalIgnoreCase)), "Oversized feed file should fail validation before parsing.");
+
+    var malformedFeedPath = Path.Combine(root, "malformed-but-bounded.json");
+    File.WriteAllText(malformedFeedPath, """
+        {
+          "feedId": "morning-brief",
+          "title": "Morning Brief",
+          "sections": [
+            null,
+            {
+              "id": "tasks",
+              "title": "Tasks",
+              "items": [
+                null,
+                {
+                  "id": "one",
+                  "text": "Review the day",
+                  "links": [null, { "label": "Open", "target": "https://example.com" }]
+                }
+              ]
+            }
+          ]
+        }
+        """);
+    var loaded = store.LoadFeedFile(malformedFeedPath);
+    Assert(loaded.Sections.Count == 1, "Malformed null sections should be filtered.");
+    Assert(loaded.Sections[0].Items.Count == 1, "Malformed null items should be filtered.");
+    Assert(loaded.Sections[0].Items[0].Links.Count == 1, "Malformed null links should be filtered.");
+
+    Directory.CreateDirectory(root);
+    File.WriteAllText(store.StatePath, """{ "schemaVersion": 1, "feeds": null }""");
+    Assert(store.LoadState().Feeds.Count == 0, "Malformed state feeds should not crash state loading.");
+}
+
 static void AgentFeedCli()
 {
     var directory = Path.Combine(Path.GetTempPath(), "OrbitDock.Tests", Guid.NewGuid().ToString("N"));
@@ -531,4 +610,19 @@ static void Assert(bool condition, string message)
     {
         throw new InvalidOperationException(message);
     }
+}
+
+static void AssertThrows<TException>(Action body, string message)
+    where TException : Exception
+{
+    try
+    {
+        body();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
 }

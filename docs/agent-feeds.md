@@ -24,6 +24,8 @@ OrbitDock keeps read state and local checklist completion in:
 
 Agents should prefer the CLI. The store writes atomically with a lock file so concurrent local agents do not corrupt feed state.
 
+Feed files are local-only but still treated as untrusted agent input. OrbitDock rejects oversized feed files, very long text fields, and feeds with excessive sections or items so a broken automation cannot freeze the desktop surface with an accidentally huge payload.
+
 ## CLI
 
 ```powershell

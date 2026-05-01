@@ -247,7 +247,7 @@
                         <MenuItem Header="Pin to Desktop" Click="PinToDesktop_Click" />
                         <MenuItem Header="Reveal in Explorer" Click="RevealItem_Click" />
                         <Separator />
-                        <MenuItem Header="Delete Real File..." Click="DeleteRealFile_Click" />
+                        <MenuItem Header="Move Real File to Recycle Bin..." Click="DeleteRealFile_Click" />
                         <Separator />
                         <MenuItem Header="Refresh" Click="Refresh_Click" />
                     </ContextMenu>

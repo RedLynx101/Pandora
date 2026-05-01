@@ -21,7 +21,7 @@ OrbitDock is designed to avoid destructive defaults:
 
 - Smart-dock organization is virtual.
 - Folder docks copy by default.
-- Real deletion requires confirmation.
+- Moving a real item to the Recycle Bin requires confirmation.
 - Rule automation is disabled until an executor and dry-run flow are implemented.
 - Workspace writes are atomic and protected by a local lock file.
 - No network service is exposed for agent control.

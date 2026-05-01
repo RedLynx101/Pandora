@@ -375,6 +375,11 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 else if (Directory.Exists(source))
                 {
                     var destination = GetUniqueDestination(SelectedFolderPath, Path.GetFileName(source));
+                    if (IsSameOrSubPath(destination, source))
+                    {
+                        throw new IOException("Cannot copy or move a folder into itself.");
+                    }
+
                     if (requestedAction == DropAction.Move)
                     {
                         Directory.Move(source, destination);
@@ -1060,6 +1065,11 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
     {
+        if (IsSameOrSubPath(destinationDirectory, sourceDirectory))
+        {
+            throw new IOException("Cannot copy a folder into itself.");
+        }
+
         Directory.CreateDirectory(destinationDirectory);
         foreach (var file in Directory.EnumerateFiles(sourceDirectory))
         {
@@ -1070,6 +1080,20 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         {
             CopyDirectory(directory, Path.Combine(destinationDirectory, Path.GetFileName(directory)));
         }
+    }
+
+    private static bool IsSameOrSubPath(string candidatePath, string parentPath)
+    {
+        var candidate = NormalizeDirectoryForComparison(candidatePath);
+        var parent = NormalizeDirectoryForComparison(parentPath);
+        return string.Equals(candidate, parent, StringComparison.OrdinalIgnoreCase) ||
+               candidate.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeDirectoryForComparison(string path)
+    {
+        return Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
     private static SolidColorBrush CreateBrush(string color, double opacity)

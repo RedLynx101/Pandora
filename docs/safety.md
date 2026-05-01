@@ -8,7 +8,7 @@ OrbitDock should earn trust before it touches a user's desktop layout.
 - Explicit folder dock drag-and-drop copies files instead of moving them.
 - Deleting a zone removes only zone metadata, not files.
 - Removing an item from a dock hides it from that dock only.
-- Real delete is a separate context-menu action with confirmation.
+- Moving a real item to the Recycle Bin is a separate context-menu action with confirmation.
 - Rule automation is disabled.
 - Clean desktop mode hides the raw Windows icon grid while the app is running and restores it on normal exit.
 - Desktop pins are OrbitDock overlay items stored in the active layout; they do not alter raw Windows desktop icon positions.

@@ -121,7 +121,7 @@ static int HandleAgentFeed(AgentFeedStore store, List<string> args)
 
             if (!string.IsNullOrWhiteSpace(markdownFile))
             {
-                document.Markdown = File.ReadAllText(markdownFile);
+                document.Markdown = ReadTextFileBounded(markdownFile, AgentFeedStore.MaxMarkdownLength, "Markdown file");
                 document.Sections.Add(new AgentFeedSection
                 {
                     Id = "markdown",
@@ -465,7 +465,7 @@ static string SerializeFeed(AgentFeedDocument document)
 
 static List<AgentFeedItem> ReadChecklistItems(string path)
 {
-    var text = File.ReadAllText(path);
+    var text = ReadTextFileBounded(path, AgentFeedStore.MaxFeedFileBytes, "Checklist file");
     if (string.IsNullOrWhiteSpace(text))
     {
         return [];
@@ -511,6 +511,17 @@ static List<AgentFeedItem> ReadChecklistItems(string path)
         })
         .Where(item => !string.IsNullOrWhiteSpace(item.Text))
         .ToList();
+}
+
+static string ReadTextFileBounded(string path, long maxBytes, string label)
+{
+    var info = new FileInfo(path);
+    if (info.Exists && info.Length > maxBytes)
+    {
+        throw new InvalidOperationException($"{label} is too large. Limit is {maxBytes} bytes.");
+    }
+
+    return File.ReadAllText(path);
 }
 
 static string? TakeOption(List<string> args, string name)

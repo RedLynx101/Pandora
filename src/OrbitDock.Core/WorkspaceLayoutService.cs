@@ -341,7 +341,7 @@ public static class WorkspaceLayoutService
             zone = new ZoneDefinition
             {
                 Id = "music",
-                Name = "Orbit Radio",
+                Name = "Radio",
                 Kind = ZoneKind.Music,
                 IsVisible = false,
                 Bounds = new ZoneBounds { X = 980, Y = 640, Width = 420, Height = 300 },
@@ -397,6 +397,30 @@ public static class WorkspaceLayoutService
             EnsureDockState(variant.DockStates, zone);
         }
 
+        return zone;
+    }
+
+    public static ZoneDefinition EnsureProjectsDock(Workspace workspace)
+    {
+        var zone = workspace.Zones.FirstOrDefault(candidate => candidate.Kind == ZoneKind.Projects);
+        if (zone is null)
+        {
+            // Avoid taking ownership of a pre-existing unrelated dock with this ID.
+            var id = "projects";
+            while (workspace.Zones.Any(candidate => string.Equals(candidate.Id, id, StringComparison.OrdinalIgnoreCase)))
+                id = "projects-" + Guid.NewGuid().ToString("N")[..8];
+            zone = new ZoneDefinition
+            {
+                Id = id, Name = "Projects", Kind = ZoneKind.Projects,
+                IsVisible = true, IsCollapsed = true,
+                Bounds = new ZoneBounds { X = 80, Y = 100, Width = 540, Height = 660 },
+                Appearance = new ZoneAppearance { AccentColor = "#9F8CFF", BackgroundColor = "#090E16" },
+                Tabs = []
+            };
+            workspace.Zones.Add(zone);
+        }
+        var layout = EnsureActiveLayout(workspace);
+        foreach (var variant in layout.DisplayVariants) EnsureDockState(variant.DockStates, zone);
         return zone;
     }
 

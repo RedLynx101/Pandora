@@ -20,10 +20,30 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore OrbitDock.sln
+        run: dotnet restore Pandora.sln
 
       - name: Build
-        run: dotnet build OrbitDock.sln --configuration Release --no-restore
+        run: dotnet build Pandora.sln --configuration Release --no-restore
 
       - name: Test
         run: dotnet run --project tests\OrbitDock.Tests\OrbitDock.Tests.csproj --configuration Release --no-build
+
+      - name: Verify WPF controls in isolation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP) -or -not [IO.Path]::IsPathFullyQualified($env:RUNNER_TEMP)) {
+            throw 'RUNNER_TEMP must be an explicit absolute directory.'
+          }
+          $evidenceRoot = Join-Path $env:RUNNER_TEMP 'pandora-wpf-evidence'
+          dotnet run --project tests\OrbitDock.App.Tests\OrbitDock.App.Tests.csproj --configuration Release --no-build -- --output $evidenceRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload isolated WPF evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pandora-wpf-evidence
+          path: ${{ runner.temp }}/pandora-wpf-evidence
+          if-no-files-found: warn
+          retention-days: 7

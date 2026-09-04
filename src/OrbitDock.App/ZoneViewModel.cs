@@ -39,6 +39,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         SelectedTab = zone.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, activeTabId, StringComparison.OrdinalIgnoreCase))
             ?? zone.Tabs.FirstOrDefault();
         Refresh();
+        ThemeService.ThemeChanged += OnThemeChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -53,11 +54,13 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public string Name => Zone.Name;
     public double IconSize => Zone.Appearance.IconSize;
     public double ItemWidth => Math.Max(78, Zone.Appearance.IconSize + 42);
-    public double HeaderHeight => Tabs.Count > 1 ? 58 : 48;
-    public System.Windows.Media.Brush AccentBrush => CreateBrush(Zone.Appearance.AccentColor, 1);
-    public System.Windows.Media.Brush HeaderBrush => CreateBrush(Zone.Appearance.AccentColor, 0.40);
-    public System.Windows.Media.Brush BackgroundBrush => CreateBrush(Zone.Appearance.BackgroundColor, Zone.Appearance.Opacity);
-    public System.Windows.Media.Brush BorderBrush => CreateBrush(Zone.Appearance.AccentColor, 0.62);
+    public double HeaderHeight => Tabs.Count > 1 ? 54 : 44;
+    public System.Windows.Media.Brush AccentBrush => ThemeService.GetDockAccent(Zone.Appearance);
+    public System.Windows.Media.Brush HeaderBrush => ThemeResource("Pandora.SurfaceBrush");
+    public System.Windows.Media.Brush BackgroundBrush => ThemeService.GetDockBackground(Zone.Appearance);
+    public System.Windows.Media.Brush BorderBrush => ThemeResource("Pandora.BorderBrush");
+    public ImageSource? BrandImage => BrandIdentity.Image(_manager.Workspace.Settings.IconStyle, 32);
+    public Brush ItemTextBrush => ThemeService.GetDockText(Zone.Appearance);
     public CornerRadius CornerRadius => new(Zone.Appearance.CornerRadius);
 
     public ZoneTabDefinition? SelectedTab
@@ -83,6 +86,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             : PathExpander.Expand(SelectedTab.Path);
     public bool IsMusicDock => Zone.Kind == ZoneKind.Music;
     public bool IsAgentFeedDock => Zone.Kind == ZoneKind.AgentFeed;
+    public bool IsProjectsDock => Zone.Kind == ZoneKind.Projects;
     public bool IsSmartDock => SelectedTab?.Source == ZoneTabSource.SmartDesktop;
     public string DockId => Zone.Id;
     public string? SelectedTabId => SelectedTab?.Id;
@@ -274,6 +278,12 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         StopWatchers();
         Items.Clear();
         _allItems.Clear();
+
+        if (IsProjectsDock)
+        {
+            StatusMessage = "Metis snapshots · read-only";
+            return;
+        }
 
         if (IsMusicDock)
         {
@@ -528,8 +538,22 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        ThemeService.ThemeChanged -= OnThemeChanged;
         StopWatchers();
     }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(AccentBrush));
+        OnPropertyChanged(nameof(HeaderBrush));
+        OnPropertyChanged(nameof(BackgroundBrush));
+        OnPropertyChanged(nameof(BorderBrush));
+        OnPropertyChanged(nameof(BrandImage));
+        OnPropertyChanged(nameof(ItemTextBrush));
+    }
+
+    private static Brush ThemeResource(string key) =>
+        System.Windows.Application.Current?.TryFindResource(key) as Brush ?? Brushes.Transparent;
 
     private void RefreshSmartDesktop()
     {

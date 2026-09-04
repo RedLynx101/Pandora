@@ -1,6 +1,6 @@
 # Safety
 
-OrbitDock should earn trust before it touches a user's desktop layout.
+Pandora should earn trust before it touches a user's desktop layout.
 
 ## Current Defaults
 
@@ -11,7 +11,7 @@ OrbitDock should earn trust before it touches a user's desktop layout.
 - Moving a real item to the Recycle Bin is a separate context-menu action with confirmation.
 - Rule automation is disabled.
 - Clean desktop mode hides the raw Windows icon grid while the app is running and restores it on normal exit.
-- Desktop pins are OrbitDock overlay items stored in the active layout; they do not alter raw Windows desktop icon positions.
+- Desktop pins are Pandora overlay items stored in the active layout; they do not alter raw Windows desktop icon positions.
 - Audio is local-only and opt-in; missing sound files or unsupported music files are ignored.
 - `scripts/show-desktop-icons.ps1` is provided as a manual restore fallback.
 - Shell attachment is best effort and can be disabled.
@@ -38,10 +38,14 @@ OrbitDock should earn trust before it touches a user's desktop layout.
 
 ## Future Risk Gates
 
+The Projects dock is read-only. Dashboard source text is untrusted data, not instructions. Local read state does not approve a request, verify a phase, or execute an agent action. Unavailable or invalid sources must stay visible as unavailable/invalid, not be misreported as healthy or complete.
+
+Shortcut migration only replaces exact recognized app targets and backs them up first. The repair script preserves existing startup approval bytes and does not enable startup for a previously unregistered app. Unrelated shortcuts, startup commands, and legacy data folders are not cleaned up by name alone.
+
 Before adding these features, require dry-run preview and tests:
 
 - Automated file sorting.
-- Desktop icon capture/hide/restore.
-- Startup registration.
-- Layout restore after monitor changes.
-- Shortcut creation.
+- New desktop icon capture or physical rearrangement behavior.
+- New startup registration mechanisms.
+- More aggressive layout restore after monitor changes.
+- Broader shortcut migration or cleanup.

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <title>Pandora — Aster</title>
+  <desc>A central silver guiding star framed by two blue-violet orbital arcs on a translucent midnight tile. Alternate Pandora icon.</desc>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#111A2E" fill-opacity="0.96"/>
+  <rect x="16.75" y="16.75" width="222.5" height="222.5" rx="55.25" stroke="#7386B7" stroke-opacity="0.38" stroke-width="1.5"/>
+  <path d="M57 145C43 114 63 69 103 55C135 44 167 57 185 79" stroke="#7183C8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M199 111C213 142 193 187 153 201C121 212 89 199 71 177" stroke="#A5B5F4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M128 72C135 109 147 121 184 128C147 135 135 147 128 184C121 147 109 135 72 128C109 121 121 109 128 72Z" fill="#F3F5FF"/>
+</svg>

@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $project = Join-Path $root "src\OrbitDock.App\OrbitDock.App.csproj"
 $cliProject = Join-Path $root "src\OrbitDock.Cli\OrbitDock.Cli.csproj"
-$output = Join-Path $root "artifacts\OrbitDock-$Runtime"
+$output = Join-Path $root "artifacts\Pandora-$Runtime"
 $selfContainedValue = if ($SelfContained) { "true" } else { "false" }
 
 dotnet publish $project `
@@ -18,7 +18,7 @@ dotnet publish $project `
     --self-contained:$selfContainedValue `
     -p:PublishSingleFile=false
 if ($LASTEXITCODE -ne 0) {
-    throw "App publish failed with exit code $LASTEXITCODE. Stop OrbitDock before publishing if files are locked."
+    throw "App publish failed with exit code $LASTEXITCODE. Stop Pandora before publishing if files are locked."
 }
 
 dotnet publish $cliProject `
@@ -31,4 +31,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "CLI publish failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Published OrbitDock to $output"
+Write-Host "Published Pandora to $output"

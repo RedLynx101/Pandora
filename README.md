@@ -1,198 +1,140 @@
-# OrbitDock
+# Pandora
 
 <p align="center">
-  <img src="src/OrbitDock.App/Assets/Brand/OrbitDock-128.png" alt="OrbitDock logo" width="96" height="96">
+  <img src="src/OrbitDock.App/Assets/Brand/Pandora-128.png" alt="Pandora aperture icon" width="96" height="96">
 </p>
 
-<p align="center">
-  A safe, open-source Windows desktop organizer with sleek docks, clean layouts, local music, and agent-accessible control.
-</p>
+A native Windows desktop organizer for your files, tools, music, and long-running projects. Pandora pairs quiet celestial glass with local, readable data. No cloud account or agent-control server is required.
 
-<p align="center">
-  <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-56D6FF">
-  <img alt=".NET" src="https://img.shields.io/badge/.NET-8.0-7DDCFF">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-8BE9C7">
-  <img alt="Status" src="https://img.shields.io/badge/status-alpha-F8C56B">
-</p>
+Pandora is the new name for OrbitDock. Existing workspaces, layouts, music folders, feed IDs, and automation entrypoints remain compatible; see [migration](#upgrading-from-orbitdock).
 
-OrbitDock is a native Windows desktop organizer. It creates customizable desktop docks that group app shortcuts, mirror folders, roll up out of the way, remember different monitor layouts, and stay behind normal app windows.
+## What it does
 
-This project is independent. It is not affiliated with Stardock and does not copy Stardock assets, branding, or proprietary behavior. OrbitDock is built around a safer open-source posture: virtual organization first, explicit file mutations only, readable local config, and durable recovery scripts.
+- Desktop docks for app shortcuts, virtual categories, and folder portals.
+- Named layouts with monitor-specific positions, roll-up state, tabs, ordering, and desktop pins.
+- Lunar Glass, Midnight, and Limestone themes, system-following appearance, adjustable glass opacity, and reduced motion.
+- Categorized settings, consistent menus, and three icon options.
+- A read-only **Projects** dock for multiple Metis plans: current phase, owners, verified progress, attention, and source freshness.
+- Local music and optional sounds, plus the Silk Current browser visualizer.
+- Agent feed docks for briefs and checklists, separate from project verification.
+- Local CLI, atomic workspace writes, tray controls, and recovery scripts.
 
-## Screenshots
+## Appearance
 
-<p align="center">
-  <img src="screenshots/MultiscreenOpen.png" alt="OrbitDock on a multi-monitor desktop with launchpad, play dock, orbit brief, and music dock expanded" width="100%">
-</p>
+The default is **Lunar Glass**: midnight glass, silver text, and a restrained lavender accent. **Midnight** increases separation for dark desktops; **Limestone** provides a warm, light workspace. System mode follows the Windows app theme. High contrast uses Windows colors and opaque surfaces.
 
-<p align="center">
-  <img src="screenshots/MultiscreenClosed.png" alt="OrbitDock docks collapsed across a multi-monitor desktop" width="49%">
-  <img src="screenshots/Singlescreen.png" alt="OrbitDock on a single monitor layout with the music dock expanded" width="49%">
-</p>
+![Pandora in Lunar Glass](screenshots/pandora-lunar-glass.png)
+![Pandora in Limestone](screenshots/pandora-limestone.png)
 
-## Highlights
+These are offscreen renders of the actual WPF settings controls, not desktop screenshots. See [testing](docs/testing.md) for live desktop/compositor checks.
 
-- Native WPF dock windows with translucent OrbitDock branding.
-- Smart desktop categories for apps, dev tools, creative apps, games, utilities, folders, and files.
-- Folder portals that mirror real folders from the desktop.
-- Clean desktop mode that hides the raw Windows icon grid while OrbitDock is running.
-- OrbitDock-managed desktop pins for items that should remain visible.
-- Named layout profiles with dock positions, collapsed state, active tabs, item ordering, dock membership, and desktop pins.
-- Screen-combination-aware layout variants for one-monitor and multi-monitor setups.
-- Per-dock search, roll-up/collapse, bottom expansion, tabs, and themed scrollbars.
-- Optional local sound effects and an optional music dock backed by `%USERPROFILE%\Music\OrbitDock`.
-- Agent feed docks for local agents to publish briefs, checklists, unread badges, and status summaries.
-- Tray menu, startup registration, `Ctrl+Alt+Space` layer reset, settings UI, and repair/center actions for docks.
-- `orbitdockctl` CLI for local agents and scripts.
-- Atomic workspace writes with a lock file.
+See [visual direction](docs/visual-direction.md) and [icon options](docs/pandora-icons.md).
 
-## Safety Defaults
+## Requirements and quick start
 
-OrbitDock starts as a portal-first organizer. It does not rearrange or delete your real desktop items by default.
-
-- Smart-dock organization is virtual.
-- Explicit folder docks copy dropped files by default.
-- Remove-from-dock hides an item from that dock only.
-- Moving a real item to the Recycle Bin is a separate confirmed context-menu action.
-- Rule automation is disabled by default.
-- Missing folders, missing audio, unsupported files, and shell-integration failures are recoverable.
-- `scripts\show-desktop-icons.ps1` can restore the raw Windows desktop icon grid if needed.
-
-See [docs/safety.md](docs/safety.md) for the full safety model.
-
-## Requirements
-
-- Windows 10 or 11
-- .NET 8 SDK with the Windows Desktop runtime
-
-## Quick Start
+Windows 10 or 11 and the .NET 8 SDK with Windows Desktop support:
 
 ```powershell
-dotnet restore
-dotnet build OrbitDock.sln
-dotnet run --project src\OrbitDock.App
+dotnet restore Pandora.sln
+dotnet build Pandora.sln
+.\scripts\start-pandora.ps1 -NoBuild
 ```
 
-Run the verification suite:
+Run core verification:
 
 ```powershell
 dotnet run --project tests\OrbitDock.Tests
 ```
 
-## Desktop Test Build
-
-For normal local testing, publish a framework-dependent Windows build and launch it from `artifacts`:
+Publish and launch a local build:
 
 ```powershell
 .\scripts\publish-portable.ps1
-.\scripts\start-orbitdock.ps1 -FromPublish
+.\scripts\start-pandora.ps1 -FromPublish
+.\scripts\start-pandora.ps1 -Settings
+.\scripts\stop-pandora.ps1
 ```
 
-Open settings immediately:
+Published executables are `artifacts\Pandora-win-x64\Pandora.App.exe` and `Pandora.Cli.exe`. Publishing does not install the app or enable startup.
 
-```powershell
-.\scripts\start-orbitdock.ps1 -FromPublish -Settings
-```
-
-Stop OrbitDock:
-
-```powershell
-.\scripts\stop-orbitdock.ps1
-```
-
-Create desktop shortcuts for the published test build:
+Create desktop shortcuts, or repair an existing startup registration:
 
 ```powershell
 .\scripts\install-test-shortcut.ps1 -SettingsShortcut
-```
-
-Repair desktop shortcuts and the current-user Startup shortcut after moving the repo:
-
-```powershell
 .\scripts\install-test-shortcut.ps1 -SettingsShortcut -StartupShortcut
 ```
 
-## Configuration
+The startup switch preserves the existing Windows enabled/disabled state; it does not opt you into startup. Enable that explicitly in Pandora settings. Recognized replaced shortcuts are backed up under `artifacts\shortcut-backups`; unrelated shortcut targets are left alone.
 
-OrbitDock stores a human-readable workspace at:
+## Metis projects
 
-```text
-%APPDATA%\OrbitDock\workspace.json
-```
+Use **Add dashboard** in the Projects dock to register local Metis dashboard HTML files. Pandora extracts the embedded `codex-director-dashboard/v1` JSON document, without executing the HTML or modifying the source plan.
 
-If present, legacy `%APPDATA%\CustomFences\workspace.json` is imported once.
+![Pandora Projects with synthetic example plans](screenshots/pandora-projects.png)
 
-Important defaults:
+The project view separates implementation from verification and source freshness from agent liveness. Phase widths follow item counts. Named primary sessions and explicitly declared subagent budgets describe responsibility and planned capacity, not a count of live workers.
 
-- `defaultDropAction`: `copy`
-- `enableRuleAutomation`: `false`
-- `hideDesktopIconsWhenRunning`: `true`
-- `attachWindowsToDesktop`: `false` by default for reliability
-- `enableSoundEffects`: `false`
-- `enableMusicDock`: `false`
+Pandora is a display companion, not a director. Source plans remain authoritative. Local reading or acknowledgement never approves work, verifies a phase, grants permissions, or sends instructions to agents. Existing agent-feed checklists remain independent.
 
-OrbitDock-managed virtual shortcut folders, including the default AI tab under
-`%APPDATA%\OrbitDock\VirtualTabs\AI`, are repaired on app startup/reload. This
-keeps Store-app icon paths current after apps such as Claude, Codex, ChatGPT,
-or Manus update their versioned `WindowsApps` install folders.
+See [Metis projects](docs/metis-projects.md) for the source format and integration boundaries.
 
-See [docs/configuration.md](docs/configuration.md) for the schema and layout model.
-
-## Agent Control
-
-OrbitDock is local-agent friendly without exposing a network service. Agents should use `orbitdockctl` and the shared workspace JSON:
+## Local agent control
 
 ```powershell
-.\scripts\orbitdockctl.ps1 workspace validate
-.\scripts\orbitdockctl.ps1 layout list
-.\scripts\orbitdockctl.ps1 layout variants
-.\scripts\orbitdockctl.ps1 dock set-bounds build 980 455 420 360
-.\scripts\orbitdockctl.ps1 dock set-expansion build bottom
-.\scripts\orbitdockctl.ps1 item pin "$env:USERPROFILE\Desktop\Visual Studio Code.lnk" --dock build
-.\scripts\orbitdockctl.ps1 desktop-pin add "$env:USERPROFILE\Desktop\Steam.lnk" --x 120 --y 220
-.\scripts\orbitdockctl.ps1 audio music on
-.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
+.\scripts\pandoractl.ps1 workspace validate
+.\scripts\pandoractl.ps1 workspace backup
+.\scripts\pandoractl.ps1 layout list
+.\scripts\pandoractl.ps1 dock set-bounds build 980 455 420 360
+.\scripts\pandoractl.ps1 audio music on
+.\scripts\pandoractl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
 ```
 
-The running app watches the workspace file and reloads safely after CLI changes.
-Agent feed docks also watch `%APPDATA%\OrbitDock\AgentFeeds` so local agent updates appear without restarting OrbitDock.
+The running app watches workspace and feed changes. Agents should use the CLI for writes, not rewrite a live workspace without its locking and validation rules. See [agent control](docs/agent-control.md) and [agent feeds](docs/agent-feeds.md).
 
-## Repository Layout
+## Upgrading from OrbitDock
+
+The product and new executable names are Pandora. A deliberate compatibility layer avoids splitting your existing data:
+
+| Kept stable | Reason |
+| --- | --- |
+| `%APPDATA%\OrbitDock\workspace.json` | Existing settings and layouts |
+| `%APPDATA%\OrbitDock\AgentFeeds` and existing feed IDs | Existing automation and local read state |
+| `%APPDATA%\OrbitDock\VirtualTabs` | Managed shortcut locations |
+| `%USERPROFILE%\Music\OrbitDock` and configured audio paths | Existing playlists and files |
+| `OrbitDock.sln`, source project folders, namespaces | Existing developer tooling and serialized compatibility |
+| `start-orbitdock.ps1`, `stop-orbitdock.ps1`, `orbitdockctl.ps1` | Forwarders to the canonical Pandora scripts |
+
+Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Existing `Graphite` theme settings resolve to Lunar Glass; intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
+
+Do not rename or delete the compatibility folders manually. Back up your workspace before testing upgrades. The shortcut installer recognizes exact application paths from this checkout; if a shortcut points elsewhere, it refuses to replace it. No legacy artifact directory is recursively deleted.
+
+## Safety
+
+Smart-dock organization is virtual. Folder portals copy dropped files by default. Removing a dock or hiding an item does not delete its underlying files; moving a real file to the Recycle Bin is a separate confirmed action. Rule automation stays disabled.
+
+Clean desktop mode hides the Windows icon grid while Pandora runs and restores it on normal exit. If recovery is needed:
+
+```powershell
+.\scripts\show-desktop-icons.ps1
+```
+
+Missing folders, audio files, and shell integration should produce recoverable status, not destructive fallback behavior. See [safety](docs/safety.md).
+
+## Repository map
 
 ```text
-src/
-  OrbitDock.App/     WPF desktop app, tray, settings, shell integration, audio
-  OrbitDock.Core/    Workspace schema, layout service, rules, scanners, storage
-  OrbitDock.Cli/     Local CLI for agents and scripts
-tests/
-  OrbitDock.Tests/   Dependency-light console verification suite
-docs/                Architecture, safety, config, testing, audio, roadmap
-scripts/             Publish, start, stop, reset, shortcuts, CLI wrapper
-screenshots/         Public README screenshots
+src/OrbitDock.App/   WPF app, settings, tray, shell integration, audio, Projects
+src/OrbitDock.Core/  Models, migration, layouts, scanners, local storage
+src/OrbitDock.Cli/   Local CLI
+tests/OrbitDock.Tests/  Dependency-light console verification
+docs/               Architecture, configuration, safety, testing, integration
+scripts/            Publish, start/stop, shortcuts, recovery, CLI
+tools/              Optional Silk Current visualizer
+screenshots/        Product screenshots
 ```
 
-## Documentation
+Further reading: [architecture](docs/architecture.md), [configuration](docs/configuration.md), [desktop testing](docs/testing.md), [audio](docs/audio.md), [roadmap](docs/roadmap.md).
 
-- [Product brief](docs/product-brief.md)
-- [Architecture](docs/architecture.md)
-- [Configuration](docs/configuration.md)
-- [Agent control](docs/agent-control.md)
-- [Agent feeds](docs/agent-feeds.md)
-- [Audio](docs/audio.md)
-- [Safety](docs/safety.md)
-- [Desktop testing](docs/testing.md)
-- [Roadmap](docs/roadmap.md)
-- [Visual direction](docs/visual-direction.md)
-- [Research notes](docs/research-notes.md)
+Pandora is alpha software. Windows shell recovery, mixed-DPI behavior, and monitor changes require continued real-world testing. This project is independent and is not affiliated with Stardock or other similarly named products.
 
-## Project Status
-
-OrbitDock is alpha software. It is usable for local desktop testing, but Windows shell behavior, multi-monitor transitions, mixed-DPI setups, and Explorer restart recovery still need broader real-world testing.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Keep changes small, testable, and conservative around filesystem and shell behavior.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Security: [SECURITY.md](SECURITY.md). License: [MIT](LICENSE).

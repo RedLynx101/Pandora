@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public sealed class Workspace
 {
-    public int SchemaVersion { get; set; } = 4;
+    public int SchemaVersion { get; set; } = 5;
     public AppSettings Settings { get; set; } = new();
     public List<ZoneDefinition> Zones { get; set; } = [];
     public List<RuleDefinition> Rules { get; set; } = [];
@@ -17,7 +17,10 @@ public sealed class AppSettings
     public bool HideDesktopIconsWhenRunning { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public string PeekHotkey { get; set; } = "Ctrl+Alt+Space";
-    public string Theme { get; set; } = "Graphite";
+    public string Theme { get; set; } = "LunarGlass";
+    public double GlassOpacity { get; set; } = 0.88;
+    public bool ReduceMotion { get; set; }
+    public string IconStyle { get; set; } = "Aperture";
     public DropAction DefaultDropAction { get; set; } = DropAction.Copy;
     public bool EnableRuleAutomation { get; set; }
     public AudioSettings Audio { get; set; } = new();
@@ -208,7 +211,8 @@ public enum ZoneKind
 {
     Standard,
     Music,
-    AgentFeed
+    AgentFeed,
+    Projects
 }
 
 public enum AgentFeedDisplayMode

@@ -1,6 +1,6 @@
-# OrbitDock Audio
+# Pandora Audio
 
-OrbitDock audio is optional and local-only. Sound effects and the music dock are disabled by default.
+Pandora audio is optional and local-only. Sound effects and the music dock are disabled by default.
 
 ## Settings
 
@@ -21,9 +21,9 @@ Workspace defaults:
 Use settings or the CLI:
 
 ```powershell
-.\scripts\orbitdockctl.ps1 audio sfx on
-.\scripts\orbitdockctl.ps1 audio music on
-.\scripts\orbitdockctl.ps1 audio set-music-folder "$env:USERPROFILE\Music\OrbitDock"
+.\scripts\pandoractl.ps1 audio sfx on
+.\scripts\pandoractl.ps1 audio music on
+.\scripts\pandoractl.ps1 audio set-music-folder "$env:USERPROFILE\Music\OrbitDock"
 ```
 
 ## Music Folder
@@ -37,6 +37,21 @@ The music dock scans `%USERPROFILE%\Music\OrbitDock` by default.
 - Unsupported files are ignored.
 
 The music dock stores selected playlist, selected track, shuffle, repeat, volume, and collapsed state per layout display variant.
+
+## Silk Current Visualizer
+
+The music dock includes a small visualizer button in its header. It launches the
+static Silk Current visualizer from `tools/SilkCurrentVisualizer` through a
+localhost-only PowerShell server:
+
+```powershell
+.\tools\SilkCurrentVisualizer\start-visualizer.ps1
+```
+
+Silk Current analyzes audio in the browser with the Web Audio API. To listen to
+system playback, click `Listen` in the page, choose a screen or browser tab in
+Edge/Chrome, and enable audio sharing in the browser picker. No audio leaves the
+browser tab.
 
 ## Sound Effects
 
@@ -57,10 +72,10 @@ Suggested filenames:
 
 ## Suno Prompt Packages
 
-**Name:** OrbitDock Drift Loop  
+**Name:** Pandora Drift Loop
 **Style of Music:** light space ambient, soft warm pads, subtle pulsing arpeggio, minimal percussion, seamless loop, 70 bpm, no lyrics, unobtrusive desktop focus music.
 
-**Name:** OrbitDock Deep Focus  
+**Name:** Pandora Deep Focus
 **Style of Music:** airy sci-fi ambient, gentle analog synth bed, slow evolving harmonics, faint starfield texture, no drums, seamless loop, no lyrics.
 
 **Name:** Dock Bloom  

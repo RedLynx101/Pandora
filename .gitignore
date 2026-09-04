@@ -4,6 +4,8 @@ obj/
 .vscode/
 TestResults/
 artifacts/
+tools/**/output/
+tools/**/.server.pid
 *.user
 *.suo
 *.tmp

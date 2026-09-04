@@ -6,18 +6,21 @@ Workspace path:
 %APPDATA%\OrbitDock\workspace.json
 ```
 
-If `%APPDATA%\OrbitDock\workspace.json` does not exist, OrbitDock imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to the current schema.
+If `%APPDATA%\OrbitDock\workspace.json` does not exist, Pandora imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to the current schema.
 
 Starter workspace shape:
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 5,
   "settings": {
     "attachWindowsToDesktop": false,
     "startWithWindows": false,
     "peekHotkey": "Ctrl+Alt+Space",
-    "theme": "Graphite",
+    "theme": "LunarGlass",
+    "glassOpacity": 0.88,
+    "reduceMotion": false,
+    "iconStyle": "Aperture",
     "defaultDropAction": "copy",
     "enableRuleAutomation": false,
     "audio": {
@@ -50,6 +53,18 @@ Starter workspace shape:
 }
 ```
 
+## Appearance
+
+Settings offer `LunarGlass` (default), `Midnight`, `Limestone`, and `System`. System follows the Windows app theme. The legacy `Graphite` value resolves to Lunar Glass. Saved custom dock colors remain custom; selecting a theme does not erase them.
+
+`glassOpacity` is a 0.55–1.0 surface-opacity preference, not window/text opacity. `reduceMotion` suppresses optional motion. Windows high contrast overrides the palette and forces opaque surfaces; Windows reduced-animation preferences are respected.
+
+`iconStyle` selects `Aperture`, `Selene`, or `Aster` for product surfaces. The shipped executable uses Aperture; desktop shortcuts can be refreshed with `install-test-shortcut.ps1 -IconStyle Selene`.
+
+## Compatibility
+
+Pandora deliberately retains `%APPDATA%\OrbitDock`, the existing music root, managed VirtualTabs, and feed IDs. This is not an incomplete migration: it keeps existing tools and user data pointing to a single workspace. New script integrations should use `pandoractl.ps1`; `orbitdockctl.ps1` remains a forwarder.
+
 ## Zone Fields
 
 - `id`: Stable identifier used by rules.
@@ -69,9 +84,9 @@ Starter workspace shape:
 - `itemOverrides`: virtual dock membership, per-dock hidden state, and saved item order.
 - `hideDesktopIconsWhenRunning`: clean desktop setting for that layout.
 
-Use settings or `orbitdockctl layout switch <name>` to change profiles.
+Use settings or `pandoractl layout switch <name>` to change profiles.
 
-OrbitDock automatically creates a display variant when it sees a new monitor combination. Unknown monitor combinations clone the profile's default variant and clamp docks into the visible work area.
+Pandora automatically creates a display variant when it sees a new monitor combination. Unknown monitor combinations clone the profile's default variant and clamp docks into the visible work area.
 
 ## Paths
 

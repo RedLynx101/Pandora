@@ -2,12 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:OrbitDock.App"
-        Title="OrbitDock Zone"
+        Title="Pandora Dock"
         Width="360"
         Height="300"
         MinWidth="230"
         MinHeight="76"
-        Icon="Assets/Brand/OrbitDock.ico"
+        Foreground="{DynamicResource Pandora.TextBrush}"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
         AllowsTransparency="True"
@@ -56,10 +56,10 @@
                     <Border Width="30"
                             Height="30"
                             CornerRadius="10"
-                            Background="#22FFFFFF"
+                            Background="{DynamicResource Pandora.HoverBrush}"
                             VerticalAlignment="Center"
                             Margin="0,0,10,0">
-                        <Image Source="Assets/Brand/OrbitDock-32.png"
+                        <Image Source="{Binding BrandImage}"
                                Width="22"
                                Height="22"
                                HorizontalAlignment="Center"
@@ -70,7 +70,7 @@
                         <StackPanel x:Name="DockTitlePanel">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding Name}"
-                                           Foreground="#F7FAFF"
+                                           Foreground="{DynamicResource Pandora.TextBrush}"
                                            FontFamily="Segoe UI Semibold"
                                            FontSize="15"
                                            TextTrimming="CharacterEllipsis" />
@@ -78,7 +78,7 @@
                                         Margin="8,0,0,0"
                                         Padding="7,1"
                                         CornerRadius="8"
-                                        Background="#CC8BE9C7"
+                                        Background="{DynamicResource Pandora.AccentBrush}"
                                         VerticalAlignment="Center">
                                     <Border.Style>
                                         <Style TargetType="Border">
@@ -91,7 +91,7 @@
                                         </Style>
                                     </Border.Style>
                                     <TextBlock Text="{Binding AgentFeedBadgeText}"
-                                               Foreground="#061016"
+                                               Foreground="{DynamicResource Pandora.AccentTextBrush}"
                                                FontFamily="Segoe UI Semibold"
                                                FontSize="10" />
                                 </Border>
@@ -103,10 +103,10 @@
                                  Height="26"
                                  Margin="0,0,10,0"
                                  Padding="9,3"
-                                 Background="#1EFFFFFF"
-                                 Foreground="#F7FAFF"
-                                 BorderBrush="#557DDCFF"
-                                 CaretBrush="#F7FAFF"
+                                 Background="{DynamicResource Pandora.SurfaceBrush}"
+                                 Foreground="{DynamicResource Pandora.TextBrush}"
+                                 BorderBrush="{DynamicResource Pandora.BorderBrush}"
+                                 CaretBrush="{DynamicResource Pandora.TextBrush}"
                                  FontFamily="Segoe UI"
                                  FontSize="12"
                                  TextChanged="SearchBox_TextChanged"
@@ -133,28 +133,17 @@
                                     ToolTip="Next"
                                     Margin="6,0,0,0"
                                     Click="MusicNext_Click" />
-                            <Button Style="{StaticResource IconButton}"
-                                    Content="&#xE74F;"
-                                    ToolTip="Mute"
-                                    Margin="6,0,0,0"
-                                    Click="MusicMute_Click" />
                         </StackPanel>
                         <Button x:Name="SearchButton"
                                 Style="{StaticResource IconButton}"
                                 Content="&#xE721;"
                                 ToolTip="Search this dock"
                                 Click="Search_Click" />
-                        <Button Style="{StaticResource IconButton}"
-                                Content="&#xE72C;"
-                                ToolTip="Refresh"
+                        <Button x:Name="MoreButton" Style="{StaticResource IconButton}"
+                                Content="&#xE712;"
+                                ToolTip="Dock actions"
                                 Margin="6,0,0,0"
-                                Click="Refresh_Click" />
-                        <Button x:Name="OpenExplorerButton"
-                                Style="{StaticResource IconButton}"
-                                Content="&#xE8B7;"
-                                ToolTip="Open in Explorer"
-                                Margin="6,0,0,0"
-                                Click="OpenFolder_Click" />
+                                Click="More_Click" />
                         <Button x:Name="CollapseButton"
                                 Style="{StaticResource IconButton}"
                                 Content="&#xE96E;"
@@ -166,6 +155,7 @@
             </Border>
 
             <Grid Grid.Row="1" x:Name="ContentHost">
+            <ContentControl x:Name="ProjectsHost" Visibility="Collapsed" Background="{DynamicResource Pandora.SurfaceBrush}" />
             <ListBox
                      x:Name="ItemsList"
                      ItemsSource="{Binding Items}"
@@ -193,6 +183,7 @@
                         <Setter Property="Padding" Value="0" />
                         <Setter Property="Margin" Value="4" />
                         <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Foreground" Value="{Binding DataContext.ItemTextBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="Template">
                             <Setter.Value>
@@ -205,10 +196,12 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemChrome" Property="Background" Value="#24FFFFFF" />
+                                            <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource Pandora.HoverBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" />
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemChrome" Property="Background" Value="#22FFFFFF" />
+                                            <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource Pandora.SelectionBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -230,7 +223,7 @@
                                    SnapsToDevicePixels="True" />
                             <TextBlock Grid.Row="1"
                                        Text="{Binding DisplayName}"
-                                       Foreground="#E8EEF8"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                                        FontFamily="Segoe UI"
                                        FontSize="11"
                                        TextAlignment="Center"
@@ -255,6 +248,7 @@
             </ListBox>
 
             <Grid x:Name="MusicPanel"
+                  Background="{DynamicResource Pandora.SurfaceBrush}"
                   Visibility="Collapsed"
                   Margin="14,12,14,8">
                 <Grid.RowDefinitions>
@@ -270,12 +264,12 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="{Binding NowPlayingText}"
-                                   Foreground="#F7FAFF"
+                                   Foreground="{DynamicResource Pandora.TextBrush}"
                                    FontFamily="Segoe UI Semibold"
                                    FontSize="14"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="Orbit Radio"
-                                   Foreground="#90A6BA"
+                                   Foreground="{DynamicResource Pandora.TextBrush}"
                                    FontSize="11"
                                    Margin="0,2,0,0" />
                     </StackPanel>
@@ -284,25 +278,25 @@
                               ItemsSource="{Binding MusicPlaylists}"
                               SelectedItem="{Binding SelectedMusicPlaylist, Mode=TwoWay}"
                               DisplayMemberPath="Name"
-                              Background="#151B25"
-                              Foreground="#F7FAFF"
-                              BorderBrush="#33465B" />
+                              Background="{DynamicResource Pandora.SurfaceBrush}"
+                              Foreground="{DynamicResource Pandora.TextBrush}"
+                              BorderBrush="{DynamicResource Pandora.BorderBrush}" />
                 </Grid>
 
                 <ListBox Grid.Row="1"
                          x:Name="MusicTracksList"
                          ItemsSource="{Binding MusicTracks}"
                          SelectedItem="{Binding SelectedMusicTrack, Mode=TwoWay}"
-                         Background="#14000000"
+                         Background="{DynamicResource Pandora.SurfaceBrush}"
                          BorderThickness="0"
-                         Foreground="#F7FAFF"
+                         Foreground="{DynamicResource Pandora.TextBrush}"
                          Margin="0,12,0,10"
                          MouseDoubleClick="MusicTracksList_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type local:MusicTrackViewModel}">
                             <TextBlock Text="{Binding Title}"
                                        Padding="9,5"
-                                       Foreground="#E8EEF8"
+                                       Foreground="{DynamicResource Pandora.TextBrush}"
                                        TextTrimming="CharacterEllipsis" />
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -317,7 +311,7 @@
                     </Grid.ColumnDefinitions>
                     <CheckBox x:Name="ShuffleCheckBox"
                               Content="Shuffle"
-                              Foreground="#DCE8F5"
+                              Foreground="{DynamicResource Pandora.TextBrush}"
                               IsChecked="{Binding IsMusicShuffle, Mode=TwoWay}"
                               VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1"
@@ -333,14 +327,15 @@
                     <Button Grid.Column="3"
                             Content="Open Music Folder"
                             Padding="10,5"
-                            Background="#202A38"
-                            Foreground="#F7FAFF"
-                            BorderBrush="#39475B"
+                            Background="{DynamicResource Pandora.SurfaceBrush}"
+                            Foreground="{DynamicResource Pandora.TextBrush}"
+                            BorderBrush="{DynamicResource Pandora.BorderBrush}"
                             Click="OpenMusicFolder_Click" />
                 </Grid>
             </Grid>
 
             <Grid x:Name="AgentFeedPanel"
+                  Background="{DynamicResource Pandora.SurfaceBrush}"
                   Visibility="Collapsed"
                   Margin="14,12,14,8">
                 <Grid.RowDefinitions>
@@ -356,23 +351,23 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="{Binding AgentFeedTitle}"
-                                   Foreground="#F7FAFF"
+                                   Foreground="{DynamicResource Pandora.TextBrush}"
                                    FontFamily="Segoe UI Semibold"
                                    FontSize="15"
                                    TextTrimming="CharacterEllipsis" />
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <Border Padding="7,2"
                                     CornerRadius="8"
-                                    Background="#228BE9C7"
-                                    BorderBrush="#668BE9C7"
+                                    Background="{DynamicResource Pandora.HoverBrush}"
+                                    BorderBrush="{DynamicResource Pandora.BorderBrush}"
                                     BorderThickness="1">
                                 <TextBlock Text="{Binding AgentFeedStatusText}"
-                                           Foreground="#DFFDF4"
+                                           Foreground="{DynamicResource Pandora.TextBrush}"
                                            FontSize="10"
                                            FontFamily="Segoe UI Semibold" />
                             </Border>
                             <TextBlock Text="{Binding AgentFeedSourceLine}"
-                                       Foreground="#8EA3B8"
+                                       Foreground="{DynamicResource Pandora.MutedBrush}"
                                        FontSize="11"
                                        Margin="8,2,0,0"
                                        TextTrimming="CharacterEllipsis" />
@@ -391,11 +386,11 @@
                         Margin="0,12,0,10"
                         Padding="11,9"
                         CornerRadius="8"
-                        Background="#1AFFFFFF"
-                        BorderBrush="#338BE9C7"
+                        Background="{DynamicResource Pandora.ElevatedBrush}"
+                        BorderBrush="{DynamicResource Pandora.BorderBrush}"
                         BorderThickness="1">
                     <TextBlock Text="{Binding AgentFeedSummary}"
-                               Foreground="#EAF3FF"
+                               Foreground="{DynamicResource Pandora.TextBrush}"
                                FontSize="12"
                                TextWrapping="Wrap" />
                 </Border>
@@ -409,16 +404,16 @@
                                 <Border Margin="0,0,0,10"
                                         Padding="11,9"
                                         CornerRadius="8"
-                                        Background="#12000000"
-                                        BorderBrush="#263C4F"
+                                        Background="{DynamicResource Pandora.SurfaceBrush}"
+                                        BorderBrush="{DynamicResource Pandora.BorderBrush}"
                                         BorderThickness="1">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Title}"
-                                                   Foreground="#F7FAFF"
+                                                   Foreground="{DynamicResource Pandora.TextBrush}"
                                                    FontFamily="Segoe UI Semibold"
                                                    FontSize="12" />
                                         <TextBlock Text="{Binding Text}"
-                                                   Foreground="#C8D7E8"
+                                                   Foreground="{DynamicResource Pandora.MutedBrush}"
                                                    FontSize="11"
                                                    TextWrapping="Wrap"
                                                    Margin="0,6,0,0" />
@@ -426,15 +421,15 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type local:AgentFeedChecklistItemViewModel}">
                                                     <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                                              Foreground="#EAF3FF"
+                                                              Foreground="{DynamicResource Pandora.TextBrush}"
                                                               Margin="0,0,0,7">
                                                         <StackPanel>
                                                             <TextBlock Text="{Binding Text}"
-                                                                       Foreground="#EAF3FF"
+                                                                       Foreground="{DynamicResource Pandora.TextBrush}"
                                                                        FontSize="12"
                                                                        TextWrapping="Wrap" />
                                                             <TextBlock Text="{Binding Detail}"
-                                                                       Foreground="#8EA3B8"
+                                                                       Foreground="{DynamicResource Pandora.MutedBrush}"
                                                                        FontSize="10"
                                                                        TextWrapping="Wrap" />
                                                         </StackPanel>
@@ -447,11 +442,11 @@
                                                 <DataTemplate DataType="{x:Type local:AgentFeedTextItemViewModel}">
                                                     <StackPanel Margin="0,0,0,7">
                                                         <TextBlock Text="{Binding Text}"
-                                                                   Foreground="#EAF3FF"
+                                                                   Foreground="{DynamicResource Pandora.TextBrush}"
                                                                    FontSize="12"
                                                                    TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding Detail}"
-                                                                   Foreground="#8EA3B8"
+                                                                   Foreground="{DynamicResource Pandora.MutedBrush}"
                                                                    FontSize="10"
                                                                    TextWrapping="Wrap" />
                                                     </StackPanel>
@@ -467,10 +462,10 @@
             </Grid>
             </Grid>
 
-            <Border x:Name="StatusBorder" Grid.Row="2" Background="#14000000" CornerRadius="0,0,17,17">
+            <Border x:Name="StatusBorder" Grid.Row="2" Background="{DynamicResource Pandora.SurfaceBrush}" CornerRadius="0,0,17,17">
                 <DockPanel Margin="12,0">
                     <TextBlock Text="{Binding StatusMessage}"
-                               Foreground="#AFC0D4"
+                               Foreground="{DynamicResource Pandora.MutedBrush}"
                                FontSize="11"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />

@@ -1,44 +1,29 @@
 # Roadmap
 
-## Phase 1: Foundation
+This separates current capabilities from future work. It is not a release-verification ledger; use the [testing checklist](testing.md) to record actual coverage.
 
-- Native WPF zones.
-- Folder portals.
-- Settings UI.
-- Tray menu.
-- Peek hotkey.
-- Human-readable workspace JSON.
-- Core rule matching tests.
+## Current direction
 
-## Phase 2: Customization
+- Native desktop docks, folder portals, virtual organization, and named monitor-aware layouts.
+- Pandora branding, selectable celestial themes, consistent settings and menus, and icon alternatives.
+- Local music, optional sounds, and the Silk Current visualizer.
+- Local agent feeds and a read-only Metis project portfolio.
+- Readable workspace storage, canonical Pandora scripts, and compatibility with existing OrbitDock data.
 
-- Add color picker instead of raw hex input.
-- Add tab editing in settings.
-- Add sort and view controls per zone.
-- Add per-zone drop action.
-- Add import/export workspace command.
-- Add optional startup registration.
+## Next release-quality work
 
-## Phase 3: Rule Automation
+- Broader Windows 10/11, mixed-DPI, multi-monitor, and Explorer-restart coverage.
+- Keyboard and high-contrast review against real desktop setups.
+- First-run onboarding and clearer recoverable-error guidance.
+- Reproducible portable release packaging and eventually signed builds.
+- Repository presentation, public examples with synthetic data, and contribution guidance. Review licensing/provenance before adding third-party assets.
 
-- Implement dry-run planner.
-- Add rule preview UI.
-- Support extension, name, regex, age, source folder, and file size rules.
-- Add undo log for every mutation.
-- Enable scheduled or watcher-based execution only after preview confidence.
+## Potential extensions, separately designed
 
-## Phase 4: Desktop Integration
+- Dry-run rule planner and preview UI before enabling automatic filesystem mutations.
+- An undo/recovery log before broader file automation.
+- More import/export and workspace-diff tooling.
+- Explicitly scoped project acknowledgements or agent actions only after an authority and conflict model is approved. Read-only integration must remain useful without them.
+- Localization-ready resources and deeper per-dock appearance controls.
 
-- Improve desktop-host attachment across Windows 10/11 and multi-monitor setups.
-- Track monitor identities and per-monitor layouts.
-- Add DPI test matrix.
-- Add Explorer restart recovery.
-- Add optional desktop icon capture only after backup/restore is robust.
-
-## Phase 5: Polish
-
-- Add installer/portable release workflow.
-- Add app icon and signed builds.
-- Add first-run onboarding.
-- Add accessibility pass for keyboard navigation and high contrast.
-- Add localization-ready resource files.
+Do not rename compatibility storage roots or add cloud dependencies solely for branding. No automated sorting, publishing, or agent dispatch is implied by this roadmap.

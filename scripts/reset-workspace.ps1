@@ -6,8 +6,7 @@ $ErrorActionPreference = "Stop"
 $workspace = Join-Path $env:APPDATA "OrbitDock\workspace.json"
 $legacyWorkspace = Join-Path $env:APPDATA "CustomFences\workspace.json"
 
-Get-Process OrbitDock.App -ErrorAction SilentlyContinue | Stop-Process
-& (Join-Path $PSScriptRoot "show-desktop-icons.ps1") | Write-Host
+& (Join-Path $PSScriptRoot "stop-pandora.ps1")
 
 if (-not (Test-Path $workspace)) {
     Write-Host "No workspace file exists yet."

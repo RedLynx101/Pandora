@@ -182,7 +182,9 @@ public static class DockWindowLayer
     private static bool IsOrbitDockOverlay(IntPtr handle, long extendedStyle)
     {
         return (extendedStyle & WsExToolWindow) != 0 &&
-               (string.Equals(GetWindowTitle(handle), "OrbitDock Zone", StringComparison.OrdinalIgnoreCase) ||
+               (string.Equals(GetWindowTitle(handle), "Pandora Dock", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(GetWindowTitle(handle), "Pandora Desktop Pin", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(GetWindowTitle(handle), "OrbitDock Zone", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(GetWindowTitle(handle), "OrbitDock Desktop Pin", StringComparison.OrdinalIgnoreCase));
     }
 

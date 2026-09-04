@@ -1,6 +1,6 @@
 # Agent Feeds
 
-Agent feed docks let local agents publish compact OrbitDock panels without giving OrbitDock access to Gmail, Google Calendar, or other external systems. Agents do the work elsewhere, then write a local feed through `orbitdockctl`.
+Agent feed docks let local agents publish compact Pandora panels without giving Pandora access to Gmail, Google Calendar, or other external systems. Agents do the work elsewhere, then write a local feed through `pandoractl`.
 
 ## Storage
 
@@ -16,7 +16,7 @@ Each feed is one JSON file:
 %APPDATA%\OrbitDock\AgentFeeds\morning-brief.json
 ```
 
-OrbitDock keeps read state and local checklist completion in:
+Pandora keeps read state and local checklist completion in:
 
 ```text
 %APPDATA%\OrbitDock\AgentFeeds\state.json
@@ -24,20 +24,20 @@ OrbitDock keeps read state and local checklist completion in:
 
 Agents should prefer the CLI. The store writes atomically with a lock file so concurrent local agents do not corrupt feed state.
 
-Feed files are local-only but still treated as untrusted agent input. OrbitDock rejects oversized feed files, very long text fields, and feeds with excessive sections or items so a broken automation cannot freeze the desktop surface with an accidentally huge payload.
+Feed files are local-only but still treated as untrusted agent input. Pandora rejects oversized feed files, very long text fields, and feeds with excessive sections or items so a broken automation cannot freeze the desktop surface with an accidentally huge payload.
 
 ## CLI
 
 ```powershell
-.\scripts\orbitdockctl.ps1 agent-feed list
-.\scripts\orbitdockctl.ps1 agent-feed show morning-brief
-.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
-.\scripts\orbitdockctl.ps1 agent-feed write morning-brief --file .\morning-brief.feed.json
-.\scripts\orbitdockctl.ps1 agent-feed mark-read morning-brief
-.\scripts\orbitdockctl.ps1 agent-feed mark-unread morning-brief
-.\scripts\orbitdockctl.ps1 agent-feed complete morning-brief email-1
-.\scripts\orbitdockctl.ps1 agent-feed reopen morning-brief email-1
-.\scripts\orbitdockctl.ps1 agent-feed validate .\morning-brief.feed.json
+.\scripts\pandoractl.ps1 agent-feed list
+.\scripts\pandoractl.ps1 agent-feed show morning-brief
+.\scripts\pandoractl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
+.\scripts\pandoractl.ps1 agent-feed write morning-brief --file .\morning-brief.feed.json
+.\scripts\pandoractl.ps1 agent-feed mark-read morning-brief
+.\scripts\pandoractl.ps1 agent-feed mark-unread morning-brief
+.\scripts\pandoractl.ps1 agent-feed complete morning-brief email-1
+.\scripts\pandoractl.ps1 agent-feed reopen morning-brief email-1
+.\scripts\pandoractl.ps1 agent-feed validate .\morning-brief.feed.json
 ```
 
 `publish` is convenient for simple agent output. `write` is better when an agent can produce the full schema.
@@ -93,7 +93,7 @@ Valid `status` values are `quiet`, `attention`, `actionNeeded`, and `error`.
 
 Valid section `kind` values are `summary`, `checklist`, `agenda`, `items`, and `markdown`.
 
-Checklist item `state` can be `open`, `done`, or `dismissed`. OrbitDock checkbox changes are local only; they do not change Gmail, Google Calendar, or any external system.
+Checklist item `state` can be `open`, `done`, or `dismissed`. Pandora checkbox changes are local only; they do not change Gmail, Google Calendar, or any external system.
 
 ## Morning Brief Pattern
 
@@ -104,10 +104,10 @@ $checklist = @(
   "Review high-priority Needs Review item from Gmail",
   "Check the 2:00 PM calendar commitment"
 ) | ConvertTo-Json
-$checklistPath = Join-Path $env:TEMP "orbitdock-morning-brief-checklist.json"
+$checklistPath = Join-Path $env:TEMP "pandora-morning-brief-checklist.json"
 $checklist | Set-Content -LiteralPath $checklistPath
 
-.\scripts\orbitdockctl.ps1 agent-feed publish morning-brief `
+.\scripts\pandoractl.ps1 agent-feed publish morning-brief `
   --title "Morning Brief" `
   --summary "Two items need attention before the afternoon." `
   --checklist-file $checklistPath `
@@ -117,7 +117,7 @@ $checklist | Set-Content -LiteralPath $checklistPath
 For richer output, have the automation write the full JSON document and call:
 
 ```powershell
-.\scripts\orbitdockctl.ps1 agent-feed write morning-brief --file .\morning-brief.feed.json
+.\scripts\pandoractl.ps1 agent-feed write morning-brief --file .\morning-brief.feed.json
 ```
 
-OrbitDock will show an unread badge when the revision changes, plus a count of open attention items.
+Pandora will show an unread badge when the revision changes, plus a count of open attention items.

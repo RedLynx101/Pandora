@@ -17,12 +17,20 @@ public partial class SettingsWindow : Window
     private bool _isPseudoMaximized;
     private bool _isCoercingMaximize;
     private Rect _restoreBounds;
+    private bool _initialStartupSelection;
 
     public SettingsWindow(DesktopZoneManager manager)
     {
-        InitializeComponent();
         _manager = manager;
+        InitializeComponent();
         RefreshFromWorkspace();
+        SettingsNavigation.SelectedIndex = 0;
+        VersionText.Text = $"Version {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · Windows desktop";
+        Closed += (_, _) =>
+        {
+            UpdateBrandImage(_manager.Workspace.Settings.IconStyle);
+            ThemeService.Apply(_manager.Workspace.Settings);
+        };
     }
 
     public void RefreshFromWorkspace()
@@ -30,6 +38,7 @@ public partial class SettingsWindow : Window
         _isRefreshing = true;
         try
         {
+            var selectedDockId = (ZonesList.SelectedItem as ZoneDefinition)?.Id;
             ZonesList.ItemsSource = null;
             ZonesList.ItemsSource = _manager.Workspace.Zones;
             LayoutsComboBox.ItemsSource = null;
@@ -37,15 +46,14 @@ public partial class SettingsWindow : Window
             LayoutsComboBox.SelectedItem = _manager.Workspace.Layouts.FirstOrDefault(layout =>
                 string.Equals(layout.Name, _manager.Workspace.ActiveLayoutName, StringComparison.OrdinalIgnoreCase));
             LayoutNameTextBox.Text = _manager.Workspace.ActiveLayoutName;
-            if (ZonesList.SelectedIndex < 0 && _manager.Workspace.Zones.Count > 0)
-            {
-                ZonesList.SelectedIndex = 0;
-            }
+            ZonesList.SelectedItem = _manager.Workspace.Zones.FirstOrDefault(zone => zone.Id == selectedDockId)
+                ?? _manager.Workspace.Zones.FirstOrDefault();
 
             AttachDesktopCheckBox.IsChecked = _manager.Workspace.Settings.AttachWindowsToDesktop;
             CleanDesktopCheckBox.IsChecked = _manager.Workspace.Settings.HideDesktopIconsWhenRunning;
             StayVisibleOnShowDesktopCheckBox.IsChecked = _manager.Workspace.Settings.StayVisibleOnShowDesktop;
-            StartWithWindowsCheckBox.IsChecked = _manager.Workspace.Settings.StartWithWindows || StartupAppService.IsEnabled();
+            _initialStartupSelection = StartupAppService.IsEnabled();
+            StartWithWindowsCheckBox.IsChecked = _initialStartupSelection;
             SoundEffectsCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableSoundEffects;
             MusicDockCheckBox.IsChecked = _manager.Workspace.Settings.Audio.EnableMusicDock;
             SoundEffectsVolumeTextBox.Text = _manager.Workspace.Settings.Audio.SoundEffectsVolume.ToString("0.00");
@@ -53,12 +61,142 @@ public partial class SettingsWindow : Window
             ExpansionEdgeComboBox.ItemsSource = Enum.GetValues(typeof(DockExpansionEdge));
             DeleteLayoutButton.IsEnabled = _manager.Workspace.Layouts.Count > 1;
             PopulateFields(ZonesList.SelectedItem as ZoneDefinition);
+            LoadAppearanceFields();
         }
         finally
         {
             _isRefreshing = false;
         }
     }
+
+    private void SettingsNavigation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AppearancePanel is null || SettingsNavigation.SelectedItem is not ListBoxItem item) return;
+        var selected = item.Tag?.ToString() ?? "Appearance";
+        foreach (var panel in new[] { AppearancePanel, DesktopPanel, DocksPanel, LayoutsPanel, AudioPanel, AboutPanel })
+            panel.Visibility = panel.Name == selected + "Panel" ? Visibility.Visible : Visibility.Collapsed;
+        PageTitle.Text = selected;
+        PageDescription.Text = selected switch
+        {
+            "Desktop" => "Control how Pandora fits into Windows.",
+            "Docks" => "Choose a dock, edit its details, then save that dock.",
+            "Layouts" => "Keep useful arrangements for different work and displays.",
+            "Audio" => "Manage local music and interface sounds.",
+            "About" => "Local-first desktop tools. Compatible with your existing workspace.",
+            _ => "Choose a surface that fits your desktop. Preview before applying."
+        };
+        SettingsScrollViewer.ScrollToTop();
+    }
+
+    private void LoadAppearanceFields()
+    {
+        var settings = _manager.Workspace.Settings;
+        SelectTag(ThemeComboBox, ThemeService.NormalizeTheme(settings.Theme));
+        SelectTag(IconStyleComboBox, settings.IconStyle);
+        UpdateBrandImage(settings.IconStyle);
+        GlassOpacitySlider.Value = double.IsFinite(settings.GlassOpacity) ? Math.Clamp(settings.GlassOpacity * 100, 55, 100) : 88;
+        GlassOpacityText.Text = $"{GlassOpacitySlider.Value:0}%";
+        ReduceMotionCheckBox.IsChecked = settings.ReduceMotion;
+        AccessibilityText.Text = ThemeService.IsHighContrast
+            ? "Windows high contrast is active. System colors and opaque backgrounds override theme previews."
+            : "Windows high contrast and reduced-animation preferences are always respected.";
+    }
+
+    private static void SelectTag(ComboBox comboBox, string? tag)
+    {
+        comboBox.SelectedItem = comboBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+            string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) ?? comboBox.Items[0];
+    }
+
+    private static string SelectedTag(ComboBox comboBox, string fallback) =>
+        (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? fallback;
+
+    private void PreviewAppearance()
+    {
+        if (_isRefreshing || GlassOpacitySlider is null || ReduceMotionCheckBox is null || ThemeComboBox.SelectedItem is null) return;
+        ThemeService.Apply(SelectedTag(ThemeComboBox, "LunarGlass"), GlassOpacitySlider.Value / 100, ReduceMotionCheckBox.IsChecked == true);
+        StatusText.Text = "Appearance preview · Apply to keep, or revert.";
+    }
+
+    private void Appearance_SelectionChanged(object sender, SelectionChangedEventArgs e) => PreviewAppearance();
+    private void IconStyle_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshing || BrandImage is null || IconStyleComboBox.SelectedItem is null) return;
+        UpdateBrandImage(SelectedTag(IconStyleComboBox, "Aperture"));
+        if (StatusText is not null) StatusText.Text = "Icon preview · Apply appearance to keep.";
+    }
+    private void UpdateBrandImage(string? style)
+    {
+        var image = BrandIdentity.Image(style);
+        if (image is null) return;
+        BrandImage.Source = image;
+        Icon = image;
+    }
+    private void AppearancePreference_Click(object sender, RoutedEventArgs e) => PreviewAppearance();
+    private void GlassOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (GlassOpacityText is not null) GlassOpacityText.Text = $"{e.NewValue:0}%";
+        PreviewAppearance();
+    }
+    private void ThemePreview_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button) SelectTag(ThemeComboBox, button.Tag?.ToString());
+    }
+    private void RevertTheme_Click(object sender, RoutedEventArgs e)
+    {
+        _isRefreshing = true;
+        try { LoadAppearanceFields(); }
+        finally { _isRefreshing = false; }
+        ThemeService.Apply(_manager.Workspace.Settings);
+        StatusText.Text = "Restored saved appearance.";
+    }
+    private void SaveAppearance_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _manager.Workspace.Settings;
+        var oldTheme = settings.Theme;
+        var oldOpacity = settings.GlassOpacity;
+        var oldMotion = settings.ReduceMotion;
+        var oldIcon = settings.IconStyle;
+        settings.Theme = SelectedTag(ThemeComboBox, "LunarGlass");
+        settings.GlassOpacity = GlassOpacitySlider.Value / 100;
+        settings.ReduceMotion = ReduceMotionCheckBox.IsChecked == true;
+        settings.IconStyle = SelectedTag(IconStyleComboBox, "Aperture");
+        try
+        {
+            _manager.SaveAppearanceSettings();
+            ThemeService.Apply(settings);
+            StatusText.Text = "Appearance saved. Existing custom dock values are unchanged.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            settings.Theme = oldTheme;
+            settings.GlassOpacity = oldOpacity;
+            settings.ReduceMotion = oldMotion;
+            settings.IconStyle = oldIcon;
+            UpdateBrandImage(oldIcon);
+            ThemeService.Apply(settings);
+            StatusText.Text = $"Appearance was not saved: {ex.Message}";
+        }
+    }
+    private void SaveDesktop_Click(object sender, RoutedEventArgs e)
+    {
+        _manager.Workspace.Settings.AttachWindowsToDesktop = AttachDesktopCheckBox.IsChecked == true;
+        _manager.Workspace.Settings.HideDesktopIconsWhenRunning = CleanDesktopCheckBox.IsChecked == true;
+        _manager.Workspace.Settings.StayVisibleOnShowDesktop = StayVisibleOnShowDesktopCheckBox.IsChecked == true;
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = "Desktop settings saved.";
+    }
+    private void SaveAudio_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyAudioFields();
+        _manager.Save();
+        _manager.Reload();
+        StatusText.Text = "Audio settings saved.";
+    }
+    private void OpenWorkspaceFolder_Click(object sender, RoutedEventArgs e) => OpenPath(Path.GetDirectoryName(_manager.WorkspacePath) ?? _manager.WorkspacePath);
+    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => TogglePseudoMaximized();
 
     private void LayoutsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -138,7 +276,7 @@ public partial class SettingsWindow : Window
 
         var result = MessageBox.Show(
             this,
-            $"Delete layout '{name}'?\n\nThis removes only the saved OrbitDock layout. Files and shortcuts are not touched.",
+            $"Delete layout '{name}'?\n\nThis removes only the saved Pandora layout. Files and shortcuts are not touched.",
             "Delete layout",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -177,16 +315,9 @@ public partial class SettingsWindow : Window
         }
 
         ApplyFields(zone);
-        _manager.Workspace.Settings.AttachWindowsToDesktop = AttachDesktopCheckBox.IsChecked == true;
-        _manager.Workspace.Settings.HideDesktopIconsWhenRunning = CleanDesktopCheckBox.IsChecked == true;
-        _manager.Workspace.Settings.StayVisibleOnShowDesktop = StayVisibleOnShowDesktopCheckBox.IsChecked == true;
-        var startupStatus = ApplyStartupField();
-        ApplyAudioFields();
         _manager.Save();
         _manager.Reload();
-        StatusText.Text = string.IsNullOrWhiteSpace(startupStatus)
-            ? "Saved and reloaded."
-            : $"Saved and reloaded. {startupStatus}";
+        StatusText.Text = "Dock saved and reloaded.";
     }
 
     private void AddZone_Click(object sender, RoutedEventArgs e)
@@ -195,7 +326,7 @@ public partial class SettingsWindow : Window
         var zone = new ZoneDefinition
         {
             Id = Guid.NewGuid().ToString("N"),
-            Name = "New Zone",
+            Name = "New Dock",
             Bounds = new ZoneBounds { X = 150, Y = 150, Width = 360, Height = 300 },
             Appearance = new ZoneAppearance { AccentColor = "#4FB3FF" },
             Tabs =
@@ -203,7 +334,7 @@ public partial class SettingsWindow : Window
                 new ZoneTabDefinition
                 {
                     Id = Guid.NewGuid().ToString("N"),
-                    Name = "New Zone",
+                    Name = "New Dock",
                     Path = PathExpander.CompressUserPath(documents)
                 }
             ]
@@ -212,8 +343,8 @@ public partial class SettingsWindow : Window
         _manager.Workspace.Zones.Add(zone);
         _manager.Save();
         _manager.Reload();
-        ZonesList.SelectedItem = zone;
-        StatusText.Text = "Added zone.";
+        ZonesList.SelectedItem = _manager.Workspace.Zones.FirstOrDefault(candidate => candidate.Id == zone.Id);
+        StatusText.Text = "Added dock.";
     }
 
     private void DuplicateZone_Click(object sender, RoutedEventArgs e)
@@ -249,6 +380,12 @@ public partial class SettingsWindow : Window
                 TabStyle = source.Appearance.TabStyle
             },
             Sort = source.Sort,
+            AgentFeed = new AgentFeedDockSettings
+            {
+                FeedIds = source.AgentFeed.FeedIds.ToList(),
+                DisplayMode = source.AgentFeed.DisplayMode,
+                MarkReadOnExpand = source.AgentFeed.MarkReadOnExpand
+            },
             Tabs = source.Tabs.Select(tab => new ZoneTabDefinition
             {
                 Id = Guid.NewGuid().ToString("N"),
@@ -263,7 +400,8 @@ public partial class SettingsWindow : Window
         _manager.Workspace.Zones.Add(clone);
         _manager.Save();
         _manager.Reload();
-        StatusText.Text = "Duplicated zone.";
+        ZonesList.SelectedItem = _manager.Workspace.Zones.FirstOrDefault(candidate => candidate.Id == clone.Id);
+        StatusText.Text = "Duplicated dock.";
     }
 
     private void DeleteZone_Click(object sender, RoutedEventArgs e)
@@ -273,10 +411,14 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (MessageBox.Show(this, $"Remove '{zone.Name}' from this workspace?\n\nOnly dock metadata is removed. Source files are not deleted.",
+                "Remove dock", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+
         _manager.Workspace.Zones.Remove(zone);
         _manager.Save();
         _manager.Reload();
-        StatusText.Text = "Deleted zone metadata. Files were not touched.";
+        StatusText.Text = "Removed dock metadata. Files were not touched.";
     }
 
     private void OpenWorkspace_Click(object sender, RoutedEventArgs e)
@@ -523,7 +665,12 @@ public partial class SettingsWindow : Window
 
         var primaryTab = zone.Tabs.FirstOrDefault();
         NameTextBox.Text = zone.Name;
-        if (primaryTab?.Source == ZoneTabSource.SmartDesktop)
+        if (zone.Kind != ZoneKind.Standard)
+        {
+            PathTextBox.Text = zone.Kind == ZoneKind.Music ? "Managed in Audio settings" : "Managed by the dock's source settings";
+            PathTextBox.IsReadOnly = true;
+        }
+        else if (primaryTab?.Source == ZoneTabSource.SmartDesktop)
         {
             PathTextBox.Text = $"Smart desktop: {primaryTab.DesktopGroup}";
             PathTextBox.IsReadOnly = true;
@@ -544,7 +691,7 @@ public partial class SettingsWindow : Window
 
     private void ApplyFields(ZoneDefinition zone)
     {
-        zone.Name = string.IsNullOrWhiteSpace(NameTextBox.Text) ? "Untitled Zone" : NameTextBox.Text.Trim();
+        zone.Name = string.IsNullOrWhiteSpace(NameTextBox.Text) ? "Untitled Dock" : NameTextBox.Text.Trim();
         zone.IsVisible = VisibleCheckBox.IsChecked == true;
         zone.IsLocked = LockedCheckBox.IsChecked == true;
         zone.IsCollapsed = CollapsedCheckBox.IsChecked == true;
@@ -556,6 +703,8 @@ public partial class SettingsWindow : Window
         {
             WorkspaceLayoutService.SetExpansionEdge(_manager.Workspace, zone.Id, edge);
         }
+
+        if (zone.Kind != ZoneKind.Standard) return;
 
         var primaryTab = zone.Tabs.FirstOrDefault();
         if (primaryTab is null)
@@ -590,17 +739,20 @@ public partial class SettingsWindow : Window
     private string ApplyStartupField()
     {
         var enabled = StartWithWindowsCheckBox.IsChecked == true;
+        if (enabled == _initialStartupSelection) return string.Empty;
         var wasEnabled = StartupAppService.IsEnabled();
-        _manager.Workspace.Settings.StartWithWindows = enabled;
         try
         {
-            StartupAppService.SetEnabled(enabled);
+            StartupAppService.SetEnabled(enabled, _manager.Workspace.Settings.IconStyle);
+            _manager.Workspace.Settings.StartWithWindows = enabled;
+            _initialStartupSelection = enabled;
             return enabled == wasEnabled
                 ? string.Empty
                 : enabled ? "Startup app enabled." : "Startup app disabled.";
         }
         catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or IOException or System.Runtime.InteropServices.COMException)
         {
+            StartWithWindowsCheckBox.IsChecked = _initialStartupSelection;
             return $"Startup setting could not be updated: {ex.Message}";
         }
     }
@@ -618,7 +770,15 @@ public partial class SettingsWindow : Window
             trimmed = "#" + trimmed;
         }
 
-        return trimmed.Length is 7 or 9 ? trimmed : fallback;
+        try
+        {
+            _ = System.Windows.Media.ColorConverter.ConvertFromString(trimmed);
+            return trimmed.Length is 7 or 9 ? trimmed : fallback;
+        }
+        catch (Exception ex) when (ex is FormatException or NotSupportedException)
+        {
+            return fallback;
+        }
     }
 
     private static DisplayDescriptor ChooseCenterDisplay(IReadOnlyList<DisplayDescriptor> displays, ZoneBounds bounds)
@@ -666,7 +826,7 @@ public partial class SettingsWindow : Window
 
     private static double TryReadDouble(string value, double fallback, double min, double max)
     {
-        return double.TryParse(value, out var parsed)
+        return double.TryParse(value, out var parsed) && double.IsFinite(parsed)
             ? Math.Clamp(parsed, min, max)
             : fallback;
     }

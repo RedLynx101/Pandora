@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-OrbitDock is currently alpha software. Security fixes are accepted against the default branch.
+Pandora is currently alpha software. Security fixes are accepted against the default branch.
 
 ## Reporting a Vulnerability
 
 Please open a private report with enough detail to reproduce the issue, including:
 
-- OrbitDock version or commit.
+- Pandora version or commit.
 - Windows version.
 - Steps to reproduce.
 - Whether the issue can move, delete, expose, or corrupt user files.
@@ -17,7 +17,7 @@ Do not include secrets, access tokens, private documents, or full desktop captur
 
 ## Security Posture
 
-OrbitDock is designed to avoid destructive defaults:
+Pandora is designed to avoid destructive defaults:
 
 - Smart-dock organization is virtual.
 - Folder docks copy by default.

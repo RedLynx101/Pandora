@@ -27,15 +27,24 @@ public partial class ZoneWindow : Window
     private double _expandedHeight;
     private Point _dragStartPoint;
     private FileItemViewModel? _dragItem;
+    private ProjectsControl? _projectsControl;
 
     public ZoneWindow(ZoneViewModel viewModel, DesktopZoneManager manager)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _manager = manager;
+        Icon = BrandIdentity.Image(manager.Workspace.Settings.IconStyle);
         DataContext = viewModel;
         _expandedHeight = Math.Max(viewModel.Zone.Bounds.Height, MinimumExpandedHeight);
         _manager.MusicEnded += Manager_MusicEnded;
+        ThemeService.ThemeChanged += RefreshTheme;
+        if (viewModel.IsProjectsDock)
+        {
+            _projectsControl = new ProjectsControl(Path.Combine(Path.GetDirectoryName(manager.WorkspacePath)!, "projects.json"));
+            ProjectsHost.Content = _projectsControl;
+            MinWidth = 420;
+        }
     }
 
     public bool IsCollapsed => _viewModel.Zone.IsCollapsed;
@@ -231,8 +240,13 @@ public partial class ZoneWindow : Window
         _manager.ApplyDockLayering();
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e)
+    private async void Refresh_Click(object sender, RoutedEventArgs e)
     {
+        if (_projectsControl is not null)
+        {
+            await _projectsControl.RefreshAsync();
+            return;
+        }
         _viewModel.Refresh();
         _manager.Audio.PlaySoundEffect(_manager.Workspace, "refresh");
     }
@@ -248,6 +262,27 @@ public partial class ZoneWindow : Window
         _manager.Audio.PlaySoundEffect(_manager.Workspace, "item-open");
     }
 
+    private void More_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = MoreButton, Placement = PlacementMode.Bottom };
+        void Add(string title, RoutedEventHandler handler)
+        {
+            var item = new MenuItem { Header = title };
+            item.Click += handler;
+            menu.Items.Add(item);
+        }
+        Add("_Refresh", Refresh_Click);
+        if (_viewModel.IsMusicDock)
+        {
+            Add("_Mute", MusicMute_Click);
+            Add("Open _visualizer", MusicVisualizer_Click);
+        }
+        else if (!_viewModel.IsAgentFeedDock && !_viewModel.IsProjectsDock) Add("Open in _Explorer", OpenFolder_Click);
+        menu.Items.Add(new Separator());
+        Add("Pandora _settings…", (_, _) => _manager.ShowSettings());
+        menu.IsOpen = true;
+    }
+
     private void Collapse_Click(object sender, RoutedEventArgs e)
     {
         ToggleCollapsed();
@@ -255,6 +290,7 @@ public partial class ZoneWindow : Window
 
     private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
     {
+        if (_viewModel.IsProjectsDock) { e.Effects = DragDropEffects.None; e.Handled = true; return; }
         e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(OrbitDockItemFormat)
             ? DragDropEffects.Copy
             : DragDropEffects.None;
@@ -281,6 +317,12 @@ public partial class ZoneWindow : Window
 
     private void HandleDrop(System.Windows.DragEventArgs e, int targetIndex)
     {
+        if (_viewModel.IsProjectsDock)
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetDataPresent(OrbitDockItemFormat))
         {
             var path = e.Data.GetData(OrbitDockItemFormat) as string;
@@ -528,6 +570,17 @@ public partial class ZoneWindow : Window
         _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-mute");
     }
 
+    private void MusicVisualizer_Click(object sender, RoutedEventArgs e)
+    {
+        if (MusicVisualizerLauncher.TryLaunch(out var error))
+        {
+            _manager.Audio.PlaySoundEffect(_manager.Workspace, "music-play");
+            return;
+        }
+
+        MessageBox.Show(this, error, "Visualizer unavailable", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void MusicTracksList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         _viewModel.PlaySelectedTrack();
@@ -604,9 +657,17 @@ public partial class ZoneWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        ThemeService.ThemeChanged -= RefreshTheme;
+        _projectsControl?.Dispose();
         _manager.MusicEnded -= Manager_MusicEnded;
         _viewModel.Dispose();
         base.OnClosed(e);
+    }
+
+    private void RefreshTheme(object? sender, EventArgs e)
+    {
+        Icon = BrandIdentity.Image(_manager.Workspace.Settings.IconStyle);
+        RenderTabs();
     }
 
     private void ApplyPlacement()
@@ -641,7 +702,7 @@ public partial class ZoneWindow : Window
                 Margin = new Thickness(0, 0, 5, 0),
                 MinWidth = 44,
                 MaxWidth = 110,
-                Foreground = Brushes.White,
+                Foreground = System.Windows.Application.Current.FindResource("Pandora.TextBrush") as Brush,
                 Background = tab == _viewModel.SelectedTab ? _viewModel.AccentBrush : Brushes.Transparent,
                 Style = (Style)FindResource("DockTabButton")
             };
@@ -939,7 +1000,8 @@ public partial class ZoneWindow : Window
             return;
         }
 
-        ItemsList.Visibility = _viewModel.IsMusicDock || _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
+        ItemsList.Visibility = _viewModel.IsMusicDock || _viewModel.IsAgentFeedDock || _viewModel.IsProjectsDock ? Visibility.Collapsed : Visibility.Visible;
+        ProjectsHost.Visibility = _viewModel.IsProjectsDock ? Visibility.Visible : Visibility.Collapsed;
         MusicPanel.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
         AgentFeedPanel.Visibility = _viewModel.IsAgentFeedDock ? Visibility.Visible : Visibility.Collapsed;
         AgentFeedSelector.Visibility = _viewModel.AgentFeeds.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -948,8 +1010,7 @@ public partial class ZoneWindow : Window
     private void RenderMusicControls()
     {
         MusicHeaderControls.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
-        SearchButton.Visibility = _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
-        OpenExplorerButton.Visibility = _viewModel.IsMusicDock || _viewModel.IsAgentFeedDock ? Visibility.Collapsed : Visibility.Visible;
+        SearchButton.Visibility = _viewModel.IsAgentFeedDock || _viewModel.IsProjectsDock ? Visibility.Collapsed : Visibility.Visible;
         RepeatComboBox.ItemsSource = Enum.GetValues(typeof(MusicRepeatMode));
         RepeatComboBox.SelectedItem = _viewModel.MusicRepeat;
     }

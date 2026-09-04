@@ -9,6 +9,7 @@ var tests = new List<(string Name, Action Body)>
     ("WorkspaceStore round-trips default workspace", WorkspaceRoundTrip),
     ("Default workspace includes smart desktop docks", SmartDesktopDefaults),
     ("WorkspaceStore migrates v1 workspace into a named layout", WorkspaceMigration),
+    ("Pandora migration preserves settings, custom labels and IDs", PandoraMigration),
     ("Layout switching restores dock state", LayoutSwitching),
     ("Item order overrides persist", ItemOrderPersistence),
     ("Dock membership overrides persist", DockMembershipPersistence),
@@ -25,6 +26,8 @@ var tests = new List<(string Name, Action Body)>
     ("Agent feed CLI publishes, validates, and updates state", AgentFeedCli),
     ("orbitdockctl validates a workspace", CliValidation)
 };
+
+tests.Add(("Metis reader, registry, and read-only portfolio boundaries", MetisTests.Run));
 
 var failed = 0;
 foreach (var test in tests)
@@ -48,6 +51,36 @@ static void PathExpansion()
     var expanded = PathExpander.Expand("%USERPROFILE%\\Desktop");
     Assert(Directory.Exists(Path.GetPathRoot(expanded)!), "Expanded path should have a valid root.");
     Assert(!expanded.Contains("%USERPROFILE%", StringComparison.OrdinalIgnoreCase), "Environment token should be expanded.");
+}
+
+static void PandoraMigration()
+{
+    var workspace = WorkspaceFactory.CreateDefault();
+    workspace.SchemaVersion = 4;
+    var launchpad = workspace.Zones.First(zone => zone.Id == "launchpad");
+    launchpad.Name = "My launch tools";
+    launchpad.Appearance.BackgroundColor = "#123456";
+    workspace.Settings.Audio.MusicRootPath = @"C:\My Music";
+    workspace.Settings.Theme = "Midnight";
+    workspace.Settings.IconStyle = "Selene";
+    workspace.Settings.GlassOpacity = 0.93;
+    workspace.Settings.ReduceMotion = true;
+    workspace.Zones.RemoveAll(zone => zone.Kind == ZoneKind.Projects);
+    workspace.Zones.Add(new ZoneDefinition { Id = "projects", Name = "Personal files", Kind = ZoneKind.Standard });
+    WorkspaceMigrator.MigrateToCurrent(workspace);
+    Assert(workspace.SchemaVersion == 5, "Pandora schema should be v5.");
+    Assert(workspace.Zones.Count(zone => zone.Kind == ZoneKind.Projects) == 1, "Projects dock should be added once.");
+    Assert(workspace.Zones.Single(zone => zone.Kind == ZoneKind.Projects).Id != "projects", "An existing unrelated ID must not be taken over.");
+    Assert(launchpad.Name == "My launch tools" && launchpad.Appearance.BackgroundColor == "#123456", "Custom dock identity/appearance must survive.");
+    Assert(workspace.Settings.Audio.MusicRootPath == @"C:\My Music", "Saved music path must survive branding.");
+    WorkspaceMigrator.MigrateToCurrent(workspace);
+    Assert(workspace.Zones.Count(zone => zone.Kind == ZoneKind.Projects) == 1, "Repeated migration must be idempotent.");
+    var testRoot = Path.Combine(Path.GetTempPath(), "Pandora.Tests", Guid.NewGuid().ToString("N"));
+    var store = new WorkspaceStore(Path.Combine(testRoot, "workspace.json"));
+    store.Save(workspace);
+    var loaded = store.LoadOrCreate();
+    Assert(loaded.Settings.Theme == "Midnight" && loaded.Settings.IconStyle == "Selene", "Theme/icon must persist.");
+    Assert(loaded.Settings.ReduceMotion && Math.Abs(loaded.Settings.GlassOpacity - 0.93) < 0.00001, "Accessibility/opacity must persist.");
 }
 
 static void ExtensionRule()
@@ -138,7 +171,7 @@ static void WorkspaceMigration()
     var dockStates = workspace.Layouts.Single().DisplayVariants.Single().DockStates;
     Assert(dockStates.Any(state => state.DockId == "legacy"), "Migration should capture legacy dock state.");
     Assert(dockStates.Any(state => state.DockId == "orbit-brief"), "Migration should add agent feed dock state.");
-    Assert(Directory.EnumerateFiles(directory, "*.migrated-v4.bak").Any(), "Migration should back up old JSON.");
+    Assert(Directory.EnumerateFiles(directory, $"*.migrated-v{WorkspaceMigrator.CurrentSchemaVersion}.bak").Any(), "Migration should back up old JSON.");
 }
 
 static void LayoutSwitching()

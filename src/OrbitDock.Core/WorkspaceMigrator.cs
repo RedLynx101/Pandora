@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public static class WorkspaceMigrator
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     public static bool MigrateToCurrent(Workspace workspace)
     {
@@ -81,6 +81,20 @@ public static class WorkspaceMigrator
         }
 
         WorkspaceLayoutService.EnsureAgentFeedDock(workspace);
+        WorkspaceLayoutService.EnsureProjectsDock(workspace);
+
+        // Rename only known factory labels. User-authored dock names and persisted IDs stay intact.
+        foreach (var zone in workspace.Zones)
+        {
+            var name = zone.Name switch
+            {
+                "Orbit Launchpad" => "Pandora Launchpad",
+                "Orbit Brief" => "Brief",
+                "Orbit Radio" => "Radio",
+                _ => zone.Name
+            };
+            if (name != zone.Name) { zone.Name = name; changed = true; }
+        }
 
         var activeBefore = workspace.ActiveLayoutName;
         var variantBefore = WorkspaceLayoutService.EnsureActiveLayout(workspace).ActiveDisplayVariantKey;

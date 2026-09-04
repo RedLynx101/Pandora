@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Silk Current Visualizer</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="stage" id="stage" data-mode="silk">
+    <canvas id="visualizer" aria-label="Audio reactive visualizer"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="toolbar" aria-label="Silk Current controls">
+      <section class="identity" aria-live="polite">
+        <p class="eyebrow">OrbitDock Visualizer</p>
+        <h1>Silk Current</h1>
+        <p class="status" id="status">Waiting for system audio</p>
+      </section>
+
+      <section class="controls">
+        <button class="listen" id="listenButton" type="button">
+          <span class="listen-dot" aria-hidden="true"></span>
+          <span>Listen</span>
+        </button>
+
+        <button class="icon-button" id="freezeButton" type="button" aria-label="Freeze motion" title="Freeze motion">
+          <span aria-hidden="true">II</span>
+        </button>
+
+        <button class="icon-button" id="fullscreenButton" type="button" aria-label="Full screen" title="Full screen">
+          <span aria-hidden="true">&#x26F6;</span>
+        </button>
+
+        <label class="gain-control">
+          <span>Gain</span>
+          <input id="sensitivity" type="range" min="0.55" max="2.4" value="1.08" step="0.01">
+        </label>
+
+        <div class="segmented" aria-label="Visualizer mode">
+          <button type="button" class="mode-button is-active" data-mode="silk">Silk</button>
+          <button type="button" class="mode-button" data-mode="ember">Ember</button>
+          <button type="button" class="mode-button" data-mode="rain">Rain</button>
+        </div>
+      </section>
+    </header>
+
+    <aside class="meter" aria-hidden="true">
+      <span class="meter-bar" id="bassMeter"></span>
+      <span class="meter-bar" id="midMeter"></span>
+      <span class="meter-bar" id="trebleMeter"></span>
+    </aside>
+  </main>
+
+  <script type="module" src="./src/visualizer.js"></script>
+</body>
+</html>

@@ -28,6 +28,7 @@ public sealed class DesktopZoneManager : IDisposable
     {
         _store = store;
         Workspace = _store.LoadOrCreate();
+        ThemeService.Initialize(Workspace.Settings);
         _reloadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _reloadTimer.Tick += (_, _) =>
         {
@@ -75,6 +76,7 @@ public sealed class DesktopZoneManager : IDisposable
         try
         {
             Workspace = _store.LoadOrCreate();
+            ThemeService.Apply(Workspace.Settings);
             ManagedShortcutRepairService.RepairWorkspaceVirtualShortcuts(Workspace);
             ApplyCurrentDisplayVariant();
             OpenZoneWindows();
@@ -165,6 +167,15 @@ public sealed class DesktopZoneManager : IDisposable
         _settingsWindow.Activate();
     }
 
+    public void ShowProjects()
+    {
+        var zone = WorkspaceLayoutService.EnsureProjectsDock(Workspace);
+        zone.IsVisible = true;
+        zone.IsCollapsed = false;
+        Save();
+        Reload();
+    }
+
     public void TogglePeek()
     {
         _isPeekVisible = !_isPeekVisible;
@@ -197,6 +208,13 @@ public sealed class DesktopZoneManager : IDisposable
     {
         Save();
         _settingsWindow?.RefreshFromWorkspace();
+    }
+
+    /// <summary>Persist appearance without capturing live dock placement or reopening windows.</summary>
+    public void SaveAppearanceSettings()
+    {
+        _store.Save(Workspace);
+        if (File.Exists(_store.WorkspacePath)) _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
     }
 
     public bool IsCurrentDisplayVariantActive()

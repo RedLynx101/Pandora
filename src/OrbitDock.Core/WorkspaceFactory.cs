@@ -22,7 +22,7 @@ public static class WorkspaceFactory
             [
                 CreateSmartZone(
                     "launchpad",
-                    "Orbit Launchpad",
+                    "Pandora Launchpad",
                     "#56D6FF",
                     980,
                     70,
@@ -170,7 +170,7 @@ public static class WorkspaceFactory
         return new ZoneDefinition
         {
             Id = "music",
-            Name = "Orbit Radio",
+            Name = "Radio",
             Kind = ZoneKind.Music,
             IsVisible = false,
             Bounds = new ZoneBounds { X = 980, Y = 640, Width = 420, Height = 300 },
@@ -191,7 +191,7 @@ public static class WorkspaceFactory
         return new ZoneDefinition
         {
             Id = "orbit-brief",
-            Name = "Orbit Brief",
+            Name = "Brief",
             Kind = ZoneKind.AgentFeed,
             IsVisible = true,
             IsCollapsed = true,

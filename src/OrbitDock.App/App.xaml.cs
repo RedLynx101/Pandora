@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using OrbitDock.Core;
 using Forms = System.Windows.Forms;
 
@@ -56,6 +58,7 @@ public partial class App : System.Windows.Application
         ApplyDesktopIconMode();
 
         _trayIcon = CreateTrayIcon(store);
+        ThemeService.ThemeChanged += RefreshTrayIcon;
         _hotkeyWindow = new HotkeyWindow(() => Dispatcher.Invoke(() => _manager.TogglePeek()));
 
         if (e.Args.Any(arg => string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase)))
@@ -70,6 +73,7 @@ public partial class App : System.Windows.Application
         _showSettingsSignal?.Set();
         _signalThread?.Join(1000);
         _hotkeyWindow?.Dispose();
+        ThemeService.ThemeChanged -= RefreshTrayIcon;
         _trayIcon?.Dispose();
         _manager?.Dispose();
         RestoreDesktopIcons();
@@ -97,7 +101,7 @@ public partial class App : System.Windows.Application
         })
         {
             IsBackground = true,
-            Name = "OrbitDock single-instance listener"
+            Name = "Pandora single-instance listener"
         };
         _signalThread.Start();
     }
@@ -117,26 +121,64 @@ public partial class App : System.Windows.Application
 
     private Forms.NotifyIcon CreateTrayIcon(WorkspaceStore store)
     {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Settings", null, (_, _) => Dispatcher.Invoke(() => _manager?.ShowSettings()));
-        menu.Items.Add("Set Docks Behind Windows", null, (_, _) => Dispatcher.Invoke(() => _manager?.TogglePeek()));
-        menu.Items.Add("Hide Desktop Icons", null, (_, _) => Dispatcher.Invoke(HideDesktopIcons));
-        menu.Items.Add("Show Desktop Icons", null, (_, _) => Dispatcher.Invoke(RestoreDesktopIcons));
-        menu.Items.Add("Reload Workspace", null, (_, _) => Dispatcher.Invoke(() => _manager?.Reload()));
-        menu.Items.Add("Open Workspace JSON", null, (_, _) => OpenPath(store.WorkspacePath));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(Shutdown));
-
         var trayIcon = new Forms.NotifyIcon
         {
-            Icon = LoadTrayIcon() ?? System.Drawing.SystemIcons.Application,
-            Text = "OrbitDock",
-            ContextMenuStrip = menu,
+            Icon = LoadTrayIcon(_manager?.Workspace.Settings.IconStyle) ?? System.Drawing.SystemIcons.Application,
+            Text = "Pandora",
             Visible = true
         };
 
         trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(() => _manager?.ShowSettings());
+        trayIcon.MouseUp += (_, e) =>
+        {
+            if (e.Button != Forms.MouseButtons.Right) return;
+            Dispatcher.Invoke(() =>
+            {
+                var menu = new ContextMenu { Placement = PlacementMode.MousePoint, MinWidth = 235 };
+                menu.Items.Add(new MenuItem { Header = "Pandora", IsEnabled = false });
+                menu.Items.Add(ActionItem("_Projects", () => _manager?.ShowProjects()));
+                menu.Items.Add(ActionItem("_Settings…", () => _manager?.ShowSettings()));
+                menu.Items.Add(new Separator());
+                menu.Items.Add(ActionItem("Restore dock _layer", () => _manager?.TogglePeek()));
+                menu.Items.Add(ActionItem("_Reload workspace", () => _manager?.Reload()));
+                var desktop = new MenuItem { Header = "Desktop _icons" };
+                desktop.Items.Add(ActionItem("Show", () => SetDesktopIconPreference(false)));
+                desktop.Items.Add(ActionItem("Hide while Pandora runs", () => SetDesktopIconPreference(true)));
+                menu.Items.Add(desktop);
+                var advanced = new MenuItem { Header = "_Advanced" };
+                advanced.Items.Add(ActionItem("Open workspace JSON", () => OpenPath(store.WorkspacePath)));
+                menu.Items.Add(advanced);
+                menu.Items.Add(new Separator());
+                menu.Items.Add(ActionItem("E_xit Pandora", Shutdown));
+                menu.IsOpen = true;
+            });
+        };
         return trayIcon;
+    }
+
+    private static MenuItem ActionItem(string text, Action action)
+    {
+        var item = new MenuItem { Header = text };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    private void SetDesktopIconPreference(bool hide)
+    {
+        if (_manager is null) return;
+        _manager.Workspace.Settings.HideDesktopIconsWhenRunning = hide;
+        _manager.Save();
+        if (hide) HideDesktopIcons(); else RestoreDesktopIcons();
+    }
+
+    private void RefreshTrayIcon(object? sender, EventArgs e)
+    {
+        if (_trayIcon is null) return;
+        var next = LoadTrayIcon(_manager?.Workspace.Settings.IconStyle);
+        if (next is null) return;
+        var previous = _trayIcon.Icon;
+        _trayIcon.Icon = next;
+        previous?.Dispose();
     }
 
     private void ApplyDesktopIconMode()
@@ -149,14 +191,14 @@ public partial class App : System.Windows.Application
 
     private void RepairStartupRegistration()
     {
-        if (_manager?.Workspace.Settings.StartWithWindows != true || StartupAppService.IsEnabled())
+        if (_manager?.Workspace.Settings.StartWithWindows != true || StartupAppService.IsRegistered())
         {
             return;
         }
 
         try
         {
-            StartupAppService.SetEnabled(true);
+            StartupAppService.SetEnabled(true, _manager.Workspace.Settings.IconStyle);
         }
         catch
         {
@@ -175,11 +217,11 @@ public partial class App : System.Windows.Application
         _desktopIconsHidden = false;
     }
 
-    private static System.Drawing.Icon? LoadTrayIcon()
+    private static System.Drawing.Icon? LoadTrayIcon(string? style)
     {
         try
         {
-            var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "OrbitDock.ico");
+            var iconPath = BrandIdentity.IconPath(style);
             return File.Exists(iconPath) ? new System.Drawing.Icon(iconPath) : null;
         }
         catch

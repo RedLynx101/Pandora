@@ -94,7 +94,7 @@ static int HandleAgentFeed(AgentFeedStore store, List<string> args)
             {
                 FeedId = feedId,
                 Title = title,
-                SourceAgent = TakeOption(args, "--source") ?? "orbitdockctl",
+                SourceAgent = TakeOption(args, "--source") ?? "pandoractl",
                 Status = status,
                 UpdatedUtc = DateTime.UtcNow,
                 Revision = DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
@@ -602,13 +602,13 @@ static int Unknown(string message)
 
 static void PrintUsage()
 {
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] layout list|save <name>|switch <name>|duplicate <from> <to>|delete <name>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] layout variants|use-variant <display-signature|default>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] dock list|show <dock>|hide <dock>|set-bounds <dock> <x> <y> <w> <h>|set-expansion <dock> top|bottom");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] item pin <path> --dock <dock>|unpin <path> --dock <dock>|move <path> --from <dock> --to <dock>|order <dock> <path...>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] desktop-pin add <path> --x <x> --y <y>|remove <path-or-id>|list");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] audio sfx on|off|music on|off|set-music-folder <path>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] agent-feed list|show <feed>|write <feed> --file <json>|publish <feed> --title <text> --summary <text> [--markdown-file <path>] [--checklist-file <json>] [--status quiet|attention|actionNeeded|error]");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] agent-feed clear <feed>|mark-read <feed>|mark-unread <feed>|complete <feed> <item>|reopen <feed> <item>|validate <file>");
-    Console.Error.WriteLine("orbitdockctl [--workspace <path>] workspace validate|backup");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] layout list|save <name>|switch <name>|duplicate <from> <to>|delete <name>");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] layout variants|use-variant <display-signature|default>");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] dock list|show <dock>|hide <dock>|set-bounds <dock> <x> <y> <w> <h>|set-expansion <dock> top|bottom");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] item pin <path> --dock <dock>|unpin <path> --dock <dock>|move <path> --from <dock> --to <dock>|order <dock> <path...>");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] desktop-pin add <path> --x <x> --y <y>|remove <path-or-id>|list");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] audio sfx on|off|music on|off|set-music-folder <path>");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] agent-feed list|show <feed>|write <feed> --file <json>|publish <feed> --title <text> --summary <text> [--markdown-file <path>] [--checklist-file <json>] [--status quiet|attention|actionNeeded|error]");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] agent-feed clear <feed>|mark-read <feed>|mark-unread <feed>|complete <feed> <item>|reopen <feed> <item>|validate <file>");
+    Console.Error.WriteLine("pandoractl [--workspace <path>] workspace validate|backup");
 }

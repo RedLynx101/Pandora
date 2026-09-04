@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <title>Pandora — Selene</title>
+  <desc>A sculpted silver crescent and four-point star on a translucent midnight tile. Alternate Pandora icon.</desc>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#111A2E" fill-opacity="0.96"/>
+  <rect x="16.75" y="16.75" width="222.5" height="222.5" rx="55.25" stroke="#7386B7" stroke-opacity="0.38" stroke-width="1.5"/>
+  <path d="M157 47C103 44 61 85 61 133C61 177 96 211 140 211C153 211 166 208 178 201C132 196 102 165 102 127C102 92 125 61 157 47Z" fill="#E9EEFF"/>
+  <path d="M140 211C153 211 166 208 178 201C154 198 134 188 121 174C123 188 129 202 140 211Z" fill="#98A9EC"/>
+  <path d="M169 78C174 99 180 105 201 110C180 115 174 121 169 142C164 121 158 115 137 110C158 105 164 99 169 78Z" fill="#B8C5FF"/>
+</svg>

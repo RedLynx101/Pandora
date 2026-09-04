@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <title>Pandora — Aperture</title>
+  <desc>A silver star emerging from an open blue-violet vessel, on a translucent midnight tile. Default Pandora app icon.</desc>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#111A2E" fill-opacity="0.96"/>
+  <rect x="16.75" y="16.75" width="222.5" height="222.5" rx="55.25" stroke="#7386B7" stroke-opacity="0.38" stroke-width="1.5"/>
+  <path d="M59 125V175L128 206L197 175V125" stroke="#98A9EC" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M128 155V205" stroke="#7183C8" stroke-width="9" stroke-linecap="round"/>
+  <path d="M59 125L128 155L197 125" stroke="#E9EEFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M128 47C132 69 139 76 159 80C139 84 132 91 128 113C124 91 117 84 97 80C117 76 124 69 128 47Z" fill="#F3F5FF"/>
+</svg>

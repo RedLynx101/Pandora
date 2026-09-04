@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrbitDock.Cli", "src\OrbitD
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrbitDock.Core", "src\OrbitDock.Core\OrbitDock.Core.csproj", "{93AF7698-ACBE-4711-846C-EEE8DAE69126}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.App.Tests", "tests\OrbitDock.App.Tests\OrbitDock.App.Tests.csproj", "{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,6 +26,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -42,6 +48,7 @@ Global
 		{93AF7698-ACBE-4711-846C-EEE8DAE69126}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{4419E09E-E863-4D8C-B7A4-CC23367C9FA1} = {9042CBFC-FFEE-4434-9123-324184DC5EA8}
 		{F36B2C06-4E0C-4887-948D-D2E6886DB9AA} = {65F47F2A-E5A9-44B4-BA64-036EB9F7578E}
 		{EC2D16A6-4028-4B03-80A9-33DC96A87837} = {9042CBFC-FFEE-4434-9123-324184DC5EA8}
 		{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46} = {65F47F2A-E5A9-44B4-BA64-036EB9F7578E}

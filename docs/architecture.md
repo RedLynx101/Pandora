@@ -10,6 +10,7 @@
   - Music library scanning
   - Path expansion/compression
   - Rule matching
+  - Metis document reading and local project registry
 - `src/OrbitDock.App`
   - WPF zone windows
   - Settings window
@@ -17,6 +18,7 @@
   - Global hotkey
   - Desktop shell attachment
   - File/folder portal UI
+  - Shared theme resources and read-only Projects UI
 - `src/OrbitDock.Cli`
   - Local-agent command surface backed by the same workspace schema
 - `tests/OrbitDock.Tests`
@@ -26,16 +28,28 @@
 
 1. `App` enforces single-instance startup.
 2. `WorkspaceStore.ForCurrentUser()` loads or creates `%APPDATA%\OrbitDock\workspace.json` and imports the legacy CustomFences path once if needed.
-3. `WorkspaceMigrator` upgrades v1 data into schema v2 with a `Main` layout profile.
+3. `WorkspaceMigrator` upgrades earlier data to the current schema while retaining layout profiles and compatibility paths.
 4. `DesktopZoneManager` computes the current display signature, applies the matching layout variant, creates a `ZoneWindow` for each visible dock, and creates `DesktopPinWindow` overlays for active desktop pins.
 5. Each `ZoneWindow` owns a `ZoneViewModel` that enumerates the active folder or smart desktop tab, applies virtual item overrides, and watches underlying folders with `FileSystemWatcher`.
 6. If enabled, `DesktopHost.TryAttach` attempts to parent the zone to the Windows desktop shell surface.
 7. If shell attachment fails, zones remain normal borderless WPF windows that are sent behind normal app windows.
-8. Tray menu, workspace file watching, settings, optional audio, `orbitdockctl`, and `Ctrl+Alt+Space` operate through `DesktopZoneManager`.
+8. Tray menu, workspace file watching, settings, optional audio, `pandoractl`, and `Ctrl+Alt+Space` operate through `DesktopZoneManager`.
 
 ## Persistence
 
 Workspace writes use a temporary file, a sibling `.lock` file, and `File.Replace` where possible, which prevents partial writes from corrupting an existing config. The WPF app watches the workspace and reloads after external CLI changes.
+
+The product name is Pandora; `OrbitDock` source folders, namespaces, storage roots, and single-instance signal names remain deliberate compatibility identifiers. Canonical binaries are `Pandora.App.exe` and `Pandora.Cli.exe`. `Pandora.sln` and the legacy solution reference the same projects.
+
+## Appearance
+
+`ThemeService` supplies shared dynamic resources for app surfaces. It resolves Lunar Glass, Midnight, Limestone, and the Windows-following System preference, and handles high contrast and reduced motion. Theme selection does not rewrite deliberate per-dock color overrides. `BrandIdentity` resolves the selected product icon independently from the workspace storage identity.
+
+## Project portfolio boundary
+
+`ProjectRegistryStore` holds explicitly registered local dashboard paths; `MetisReader` reads the supported versioned JSON without running HTML. `ProjectPortfolioService` turns those sources into read-only project summaries for `ProjectsControl`.
+
+Each project retains its own source plan, revision, director, and evidence. Pandora does not combine them into a mutable master plan or give a local checkbox authority to accept work. Source freshness, file-read success, and actual agent liveness are separate facts. See [Metis projects](metis-projects.md) for the data contract.
 
 ## Shell Attachment
 

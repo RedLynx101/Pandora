@@ -19,6 +19,7 @@ public partial class DesktopPinWindow : Window
         InitializeComponent();
         _pin = pin;
         _manager = manager;
+        Icon = BrandIdentity.Image(manager.Workspace.Settings.IconStyle);
         PinIcon.Source = FileIconService.GetIcon(pin.Path);
         PinIcon.Width = Math.Clamp(pin.IconSize, 24, 128);
         PinIcon.Height = Math.Clamp(pin.IconSize, 24, 128);

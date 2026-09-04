@@ -1,0 +1,44 @@
+{
+  "schema": "codex-director-dashboard/v1",
+  "mode": "active-plan",
+  "dashboardId": "pandora-verification",
+  "projectId": "pandora-fixture",
+  "directorSessionId": "director",
+  "templateMode": false,
+  "project": { "name": "Pandora fixture", "root": null },
+  "task": { "id": "fixture-task", "title": "Refine the celestial workspace", "summary": "Synthetic verification data; not a live user project.", "currentPhaseId": "build", "nextManagerAction": "Review the two manager handoffs against the phase contract." },
+  "plan": { "id": "fixture-plan", "status": "active", "revision": 4, "source": "fixture/ACTIVE_PLAN.md", "updatedAt": "2026-09-04T18:00:00Z" },
+  "phases": [
+    { "id": "foundation", "title": "Foundation", "description": "Establish a grounded interface contract.", "status": "verified", "accountableOwnerSessionId": "director", "assignedSessionId": "manager-a", "integrationOwnerSessionId": "director", "executionMode": "single-lane", "planRevision": 4,
+      "workPackages": [{ "id": "contract", "title": "Approve interface contract", "ownerSessionId": "manager-a", "status": "verified", "dependsOn": [] }],
+      "criteria": [{ "title": "Contract is evidenced", "status": "verified", "evidence": "fixture/evidence/contract.md" }]
+    },
+    { "id": "build", "title": "Parallel implementation", "description": "Two independently owned delivery packages.", "status": "active", "accountableOwnerSessionId": "director", "assignedSessionId": null, "integrationOwnerSessionId": "manager-a", "executionMode": "parallel-fan-in", "planRevision": 4,
+      "workPackages": [
+        { "id": "appearance", "title": "Appearance and settings", "ownerSessionId": "manager-a", "status": "implemented", "dependsOn": ["foundation"] },
+        { "id": "projects", "title": "Read-only project adapter", "ownerSessionId": "manager-b", "status": "active", "dependsOn": ["foundation"] }
+      ],
+      "criteria": [
+        { "title": "Themes preserve contrast", "status": "verified", "evidence": "fixture/evidence/contrast.json" },
+        { "title": "Project input validates", "status": "active", "evidence": null }
+      ]
+    },
+    { "id": "accept", "title": "Acceptance", "description": "Director-owned final acceptance remains distinct from implementation.", "status": "pending", "accountableOwnerSessionId": "director", "assignedSessionId": null, "integrationOwnerSessionId": null, "executionMode": "sequential-relay", "planRevision": 4,
+      "workPackages": [
+        { "id": "integration", "title": "Integrated checks", "ownerSessionId": "director", "status": "pending", "dependsOn": ["appearance", "projects"] },
+        { "id": "review", "title": "Human review packet", "ownerSessionId": null, "status": "pending", "dependsOn": ["integration"] },
+        { "id": "close", "title": "Archive accepted evidence", "ownerSessionId": "director", "status": "pending", "dependsOn": ["review"] }
+      ],
+      "criteria": [{ "title": "Review packet complete", "status": "pending", "evidence": null }]
+    }
+  ],
+  "sessions": [{ "id": "director", "name": "Metis", "role": "director", "status": "active", "assignment": "Grounding and phase acceptance", "subagentBudget": null, "children": [
+    { "id": "manager-a", "name": "Selene", "role": "manager", "status": "implemented", "assignment": "Appearance and settings", "subagentBudget": 2, "children": [] },
+    { "id": "manager-b", "name": "Aster", "role": "manager", "status": "active", "assignment": "Project visibility", "subagentBudget": 3, "children": [] }
+  ] }],
+  "blockers": [{ "title": "Review needed", "detail": "Fixture-only attention item; no real approval is requested.", "owner": "director" }],
+  "dependencies": [],
+  "waits": [{ "target": "manager-b", "wakeCondition": "Bounded handoff with evidence", "since": "2026-09-04T17:45:00Z", "livenessWindowMinutes": 120 }],
+  "activity": [{ "timestamp": "2026-09-04T18:00:00Z", "status": "implemented", "title": "Appearance ready for acceptance", "detail": "Manager tests are not director approval.", "evidence": "fixture/evidence/appearance.md" }],
+  "verifiedHistory": [{ "timestamp": "2026-09-04T17:00:00Z", "count": 1 }, { "timestamp": "2026-09-04T18:00:00Z", "count": 2 }]
+}

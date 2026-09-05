@@ -1,6 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Content Include="..\..\tools\SilkCurrentVisualizer\index.html;..\..\tools\SilkCurrentVisualizer\styles.css;..\..\tools\SilkCurrentVisualizer\start-visualizer.ps1">
+      <Link>tools\SilkCurrentVisualizer\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\tools\SilkCurrentVisualizer\src\visualizer.js">
+      <Link>tools\SilkCurrentVisualizer\src\visualizer.js</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <ProjectReference Include="..\OrbitDock.Core\OrbitDock.Core.csproj" />
   </ItemGroup>
 

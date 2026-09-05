@@ -45,6 +45,8 @@ Rolled-up docks retain their expanded size separately from the visible header. M
 
 See [visual direction](docs/visual-direction.md) and [icon options](docs/pandora-icons.md).
 
+See the [quality-pass record](docs/quality-pass.md) for persistence/recovery changes, safety regressions, and verification limits.
+
 ## Requirements and quick start
 
 Windows 10 or 11 and the .NET 8 SDK with Windows Desktop support:

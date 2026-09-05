@@ -6,6 +6,7 @@ public static class WorkspaceMigrator
 
     public static bool MigrateToCurrent(Workspace workspace)
     {
+        WorkspaceValidation.ThrowIfInvalid(workspace);
         var changed = false;
 
         if (workspace.SchemaVersion < CurrentSchemaVersion)
@@ -13,7 +14,11 @@ public static class WorkspaceMigrator
             changed = true;
         }
 
-        workspace.Settings.Audio ??= new AudioSettings();
+        if (workspace.Settings.Audio is null)
+        {
+            workspace.Settings.Audio = new AudioSettings();
+            changed = true;
+        }
 
         if (string.IsNullOrWhiteSpace(workspace.Settings.DockBarSize))
         {
@@ -88,6 +93,7 @@ public static class WorkspaceMigrator
             }
         }
 
+        var zoneCountBefore = workspace.Zones.Count;
         if (workspace.Settings.Audio.EnableMusicDock)
         {
             WorkspaceLayoutService.EnsureMusicDock(workspace);
@@ -95,6 +101,7 @@ public static class WorkspaceMigrator
 
         WorkspaceLayoutService.EnsureAgentFeedDock(workspace);
         WorkspaceLayoutService.EnsureProjectsDock(workspace);
+        if (workspace.Zones.Count != zoneCountBefore) changed = true;
 
         // Rename only known factory labels. User-authored dock names and persisted IDs stay intact.
         foreach (var zone in workspace.Zones)

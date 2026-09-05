@@ -27,6 +27,7 @@ public partial class ZoneWindow : Window
     private Point _dragStartPoint;
     private FileItemViewModel? _dragItem;
     private ProjectsControl? _projectsControl;
+    private bool _isClosed;
 
     public ZoneWindow(ZoneViewModel viewModel, DesktopZoneManager manager)
     {
@@ -91,7 +92,7 @@ public partial class ZoneWindow : Window
 
     public bool MaintainDesktopOverlay(bool restoreHiddenWindow, bool refreshLayering)
     {
-        if (!IsLoaded)
+        if (!IsLoaded || _isClosed)
         {
             return false;
         }
@@ -275,6 +276,9 @@ public partial class ZoneWindow : Window
         Add("_Refresh", Refresh_Click);
         if (_viewModel.IsMusicDock)
         {
+            Add("_Previous track", MusicPrevious_Click);
+            Add(_viewModel.IsMusicPlaying ? "_Pause" : "_Play", MusicPlayPause_Click);
+            Add("_Next track", MusicNext_Click);
             Add("_Mute", MusicMute_Click);
             Add("Open _visualizer", MusicVisualizer_Click);
         }
@@ -318,6 +322,7 @@ public partial class ZoneWindow : Window
 
     private void HandleDrop(System.Windows.DragEventArgs e, int targetIndex)
     {
+        e.Effects = DragDropEffects.None;
         if (_viewModel.IsProjectsDock)
         {
             e.Effects = DragDropEffects.None;
@@ -329,13 +334,9 @@ public partial class ZoneWindow : Window
             var path = e.Data.GetData(OrbitDockItemFormat) as string;
             var sourceDock = e.Data.GetData(OrbitDockSourceDockFormat) as string;
             var sourceTab = e.Data.GetData(OrbitDockSourceTabFormat) as string;
-            if (!string.IsNullOrWhiteSpace(path) && _viewModel.MoveItemHere(path, sourceDock, sourceTab, targetIndex))
+            var pinId = e.Data.GetData(OrbitDockDesktopPinFormat) as string;
+            if (!string.IsNullOrWhiteSpace(path) && TryMoveDroppedItem(path, sourceDock, sourceTab, pinId, targetIndex))
             {
-                if (e.Data.GetData(OrbitDockDesktopPinFormat) is string pinId && !string.IsNullOrWhiteSpace(pinId))
-                {
-                    _manager.RemoveDesktopPin(pinId);
-                }
-
                 e.Effects = DragDropEffects.Move;
                 _manager.ApplyDockLayering();
             }
@@ -354,16 +355,24 @@ public partial class ZoneWindow : Window
         {
             foreach (var file in files.Reverse())
             {
-                _viewModel.MoveItemHere(file, null, null, targetIndex);
+                if (_viewModel.MoveItemHere(file, null, null, targetIndex)) e.Effects = DragDropEffects.Copy;
             }
         }
         else
         {
-            _viewModel.AddDroppedFiles(files, _manager.Workspace.Settings.DefaultDropAction);
-            _manager.Save();
+            var action = _manager.Workspace.Settings.DefaultDropAction;
+            if (_viewModel.AddDroppedFiles(files, action) > 0)
+                e.Effects = action == DropAction.Move ? DragDropEffects.Move : DragDropEffects.Copy;
         }
 
         e.Handled = true;
+    }
+
+    private bool TryMoveDroppedItem(string path, string? sourceDock, string? sourceTab, string? pinId, int targetIndex)
+    {
+        if (!_viewModel.MoveItemHere(path, sourceDock, sourceTab, targetIndex)) return false;
+        if (!string.IsNullOrWhiteSpace(pinId)) _manager.RemoveDesktopPin(pinId);
+        return true;
     }
 
     private void ItemsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -658,6 +667,7 @@ public partial class ZoneWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _isClosed = true;
         ThemeService.ThemeChanged -= RefreshTheme;
         _projectsControl?.Dispose();
         _manager.MusicEnded -= Manager_MusicEnded;
@@ -695,6 +705,7 @@ public partial class ZoneWindow : Window
         BrandTile.CornerRadius = new CornerRadius(profile.Id == "Halo" ? 16 : profile.Id == "Meridian" ? 3 : 10);
         BrandTile.Width = BrandTile.Height = _viewModel.BarMetrics.BrandSize;
         ApplyExpansionEdgeLayout();
+        UpdateMusicHeaderOverflow();
     }
 
     private Brush ResourceBrush(string key) => TryFindResource(key) as Brush ?? Brushes.Transparent;
@@ -1019,10 +1030,28 @@ public partial class ZoneWindow : Window
 
     private void RenderMusicControls()
     {
-        MusicHeaderControls.Visibility = _viewModel.IsMusicDock ? Visibility.Visible : Visibility.Collapsed;
+        UpdateMusicHeaderOverflow();
         SearchButton.Visibility = _viewModel.IsAgentFeedDock || _viewModel.IsProjectsDock ? Visibility.Collapsed : Visibility.Visible;
         RepeatComboBox.ItemsSource = Enum.GetValues(typeof(MusicRepeatMode));
         RepeatComboBox.SelectedItem = _viewModel.MusicRepeat;
+    }
+
+    private void HeaderBorder_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateMusicHeaderOverflow();
+
+    private void UpdateMusicHeaderOverflow()
+    {
+        // The existing actions menu retains every transport action when the title bar is narrow.
+        if (_viewModel is null || MusicHeaderControls is null) return;
+        var profile = _viewModel.ThemeProfile;
+        var metrics = _viewModel.BarMetrics;
+        var width = HeaderBorder.ActualWidth > 0 ? HeaderBorder.ActualWidth : Width - Frame.BorderThickness.Left - Frame.BorderThickness.Right;
+        var required = metrics.BrandSize + 10 + profile.HeaderPadding.Left + profile.HeaderPadding.Right +
+            metrics.ControlSize * 6 + 30 + (profile.SeparatedHeader ? 10 : 0) + 48;
+        MusicHeaderControls.Visibility = _viewModel.IsMusicDock && width >= required ? Visibility.Visible : Visibility.Collapsed;
+        // Drop decorative branding before squeezing the title below a readable word.
+        var minimumWithBrand = metrics.BrandSize + 10 + profile.HeaderPadding.Left + profile.HeaderPadding.Right +
+            metrics.ControlSize * 3 + 12 + (profile.SeparatedHeader ? 10 : 0) + 56;
+        BrandTile.Visibility = width >= minimumWithBrand ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void AgentFeedSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)

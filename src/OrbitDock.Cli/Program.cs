@@ -2,15 +2,14 @@ using OrbitDock.Core;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-var arguments = args.ToList();
-var workspacePath = TakeOption(arguments, "--workspace");
-var store = string.IsNullOrWhiteSpace(workspacePath)
-    ? WorkspaceStore.ForCurrentUser()
-    : new WorkspaceStore(workspacePath);
-var agentFeeds = AgentFeedStore.ForWorkspace(store.WorkspacePath);
-
 try
 {
+    var arguments = args.ToList();
+    var workspacePath = TakeOption(arguments, "--workspace");
+    var store = string.IsNullOrWhiteSpace(workspacePath)
+        ? WorkspaceStore.ForCurrentUser()
+        : new WorkspaceStore(workspacePath);
+    var agentFeeds = AgentFeedStore.ForWorkspace(store.WorkspacePath);
     if (arguments.Count == 0)
     {
         PrintUsage();
@@ -31,7 +30,7 @@ try
         _ => Unknown($"Unknown command group: {group}")
     };
 }
-catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or JsonException)
+catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException)
 {
     Console.Error.WriteLine(ex.Message);
     return 1;
@@ -85,7 +84,7 @@ static int HandleAgentFeed(AgentFeedStore store, List<string> args)
             var markdownFile = TakeOption(args, "--markdown-file");
             var checklistFile = TakeOption(args, "--checklist-file");
             var statusText = TakeOption(args, "--status") ?? "quiet";
-            if (!Enum.TryParse<AgentFeedStatus>(statusText, ignoreCase: true, out var status))
+            if (!Enum.TryParse<AgentFeedStatus>(statusText, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new InvalidOperationException("Status must be quiet, attention, actionNeeded, or error.");
             }
@@ -97,7 +96,7 @@ static int HandleAgentFeed(AgentFeedStore store, List<string> args)
                 SourceAgent = TakeOption(args, "--source") ?? "pandoractl",
                 Status = status,
                 UpdatedUtc = DateTime.UtcNow,
-                Revision = DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
+                Revision = DateTime.UtcNow.ToString("O") + "-" + Guid.NewGuid().ToString("N")[..8],
                 Summary = summary
             };
             document.Sections.Add(new AgentFeedSection
@@ -426,7 +425,7 @@ static int HandleWorkspace(WorkspaceStore store, List<string> args)
     {
         case "validate":
         {
-            var workspace = store.LoadOrCreate();
+            var workspace = store.LoadReadOnly();
             var errors = WorkspaceLayoutService.Validate(workspace);
             if (errors.Count == 0)
             {
@@ -465,63 +464,24 @@ static string SerializeFeed(AgentFeedDocument document)
 
 static List<AgentFeedItem> ReadChecklistItems(string path)
 {
-    var text = ReadTextFileBounded(path, AgentFeedStore.MaxFeedFileBytes, "Checklist file");
-    if (string.IsNullOrWhiteSpace(text))
-    {
-        return [];
-    }
-
-    try
-    {
-        using var document = JsonDocument.Parse(text);
-        if (document.RootElement.ValueKind == JsonValueKind.Array)
-        {
-            if (document.RootElement.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
-            {
-                return document.RootElement.EnumerateArray()
-                    .Select((item, index) => new AgentFeedItem
-                    {
-                        Id = $"item-{index + 1}",
-                        Text = item.GetString() ?? string.Empty,
-                        Priority = AgentFeedPriority.P2
-                    })
-                    .Where(item => !string.IsNullOrWhiteSpace(item.Text))
-                    .ToList();
-            }
-
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-            };
-            return JsonSerializer.Deserialize<List<AgentFeedItem>>(text, options) ?? [];
-        }
-    }
-    catch (JsonException)
-    {
-        // Fall through to line-based parsing for simple agent output.
-    }
-
-    return text.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        .Select((line, index) => new AgentFeedItem
-        {
-            Id = $"item-{index + 1}",
-            Text = line.TrimStart('-', '*', ' '),
-            Priority = AgentFeedPriority.P2
-        })
-        .Where(item => !string.IsNullOrWhiteSpace(item.Text))
-        .ToList();
+    return ChecklistParser.Parse(ReadTextFileBounded(path, AgentFeedStore.MaxFeedFileBytes, "Checklist file"));
 }
 
 static string ReadTextFileBounded(string path, long maxBytes, string label)
 {
-    var info = new FileInfo(path);
-    if (info.Exists && info.Length > maxBytes)
+    using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+    using var buffer = new MemoryStream();
+    var chunk = new byte[16 * 1024];
+    int count;
+    while ((count = stream.Read(chunk)) > 0)
     {
-        throw new InvalidOperationException($"{label} is too large. Limit is {maxBytes} bytes.");
+        if (buffer.Length + count > maxBytes)
+            throw new InvalidOperationException($"{label} is too large. Limit is {maxBytes} bytes.");
+        buffer.Write(chunk, 0, count);
     }
-
-    return File.ReadAllText(path);
+    buffer.Position = 0;
+    using var reader = new StreamReader(buffer, detectEncodingFromByteOrderMarks: true);
+    return reader.ReadToEnd();
 }
 
 static string? TakeOption(List<string> args, string name)
@@ -561,7 +521,7 @@ static string RequireArg(IReadOnlyList<string> args, int index, string name)
 static double ReadDouble(IReadOnlyList<string> args, int index, string name)
 {
     var value = RequireArg(args, index, name);
-    return double.TryParse(value, out var parsed)
+    return double.TryParse(value, out var parsed) && double.IsFinite(parsed)
         ? parsed
         : throw new InvalidOperationException($"Invalid {name}: {value}");
 }
@@ -569,7 +529,7 @@ static double ReadDouble(IReadOnlyList<string> args, int index, string name)
 static double ReadOptionDouble(List<string> args, string name)
 {
     var value = RequireOption(args, name);
-    return double.TryParse(value, out var parsed)
+    return double.TryParse(value, out var parsed) && double.IsFinite(parsed)
         ? parsed
         : throw new InvalidOperationException($"Invalid {name}: {value}");
 }

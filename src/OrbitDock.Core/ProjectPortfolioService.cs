@@ -109,7 +109,13 @@ public sealed class ProjectPortfolioService : IDisposable
             if (_disposed) return;
             foreach (var watcher in _watchers) watcher.Dispose();
             _watchers.Clear();
-            var paths = registrations.Select(r => r.Path).Append(_store.RegistryPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { _store.RegistryPath };
+            foreach (var registration in registrations)
+            {
+                try { paths.Add(ProjectPath.Validate(registration.Path, requireExists: false)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                { /* A disallowed source must not create a watcher through its new target. */ }
+            }
             foreach (var directory in paths.Select(Path.GetDirectoryName).Where(d => d is not null && Directory.Exists(d)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 try

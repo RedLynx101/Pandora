@@ -28,6 +28,12 @@ jobs:
       - name: Test
         run: dotnet run --project tests\OrbitDock.Tests\OrbitDock.Tests.csproj --configuration Release --no-build
 
+      - name: Test visualizer lifecycle without media permissions
+        run: node --test tools/SilkCurrentVisualizer/tests/visualizer.test.cjs
+
+      - name: Test loopback-only visualizer server
+        run: .\tools\SilkCurrentVisualizer\tests\server.test.ps1
+
       - name: Verify WPF controls in isolation
         shell: pwsh
         run: |

@@ -13,7 +13,7 @@
 
     <header class="toolbar" aria-label="Silk Current controls">
       <section class="identity" aria-live="polite">
-        <p class="eyebrow">OrbitDock Visualizer</p>
+        <p class="eyebrow">Pandora Visualizer</p>
         <h1>Silk Current</h1>
         <p class="status" id="status">Waiting for system audio</p>
       </section>
@@ -24,7 +24,7 @@
           <span>Listen</span>
         </button>
 
-        <button class="icon-button" id="freezeButton" type="button" aria-label="Freeze motion" title="Freeze motion">
+        <button class="icon-button" id="freezeButton" type="button" aria-label="Freeze motion" aria-pressed="false" title="Freeze motion">
           <span aria-hidden="true">II</span>
         </button>
 
@@ -38,9 +38,9 @@
         </label>
 
         <div class="segmented" aria-label="Visualizer mode">
-          <button type="button" class="mode-button is-active" data-mode="silk">Silk</button>
-          <button type="button" class="mode-button" data-mode="ember">Ember</button>
-          <button type="button" class="mode-button" data-mode="rain">Rain</button>
+          <button type="button" class="mode-button is-active" data-mode="silk" aria-pressed="true">Silk</button>
+          <button type="button" class="mode-button" data-mode="ember" aria-pressed="false">Ember</button>
+          <button type="button" class="mode-button" data-mode="rain" aria-pressed="false">Rain</button>
         </div>
       </section>
     </header>

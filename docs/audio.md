@@ -55,6 +55,10 @@ browser tab.
 
 ## Sound Effects
 
+Music refresh preserves remembered playlist/track selection without writing during construction. Scanning skips inaccessible or linked subtrees and retains healthy tracks. Narrow bars keep transport actions in **Dock actions**; decorative header branding yields space to the dock name.
+
+Silk Current is included with portable builds. The loopback server serves only its three static assets and accepts GET/HEAD, not project files or launcher scripts. Cancel/Stop and closing the page release acquired capture tracks, including an audio context still starting. Freeze preserves the frame until resumed. Audio remains browser-local; actual system-audio availability depends on the browser and sharing selection.
+
 Sound effects are looked up by name in `%APPDATA%\OrbitDock\Audio\Sfx`. Missing files are ignored.
 
 Suggested filenames:

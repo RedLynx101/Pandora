@@ -10,11 +10,12 @@ public static class MetisReader
 {
     public const int MaxHtmlBytes = 4 * 1024 * 1024;
     public const int MaxStateCharacters = 2 * 1024 * 1024;
+    public const int MaxIdentifierLength = 256;
     public const string SupportedSchema = "codex-director-dashboard/v1";
     private const long MaxSafeInteger = 9_007_199_254_740_991;
     private static readonly Regex Script = new(@"<script\b(?<attributes>[^>]{0,8192})>(?<content>[\s\S]*?)</script\s*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
     private static readonly Regex Attribute = new("(?<name>[^\\s=<>/'\"]+)\\s*=\\s*(?:\"(?<double>[^\"]*)\"|'(?<single>[^']*)'|(?<bare>[^\\s>]+))", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-    private static readonly Regex Identifier = new(@"^[A-Za-z0-9][A-Za-z0-9._:-]*$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+    private static readonly Regex Identifier = new(@"\A[A-Za-z0-9][A-Za-z0-9._:-]*\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
     private static readonly Regex Timestamp = new(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
     private static readonly HashSet<string> Statuses = ["pending", "active", "blocked", "implemented", "verified"];
 
@@ -120,7 +121,7 @@ public static class MetisReader
             edges.Add(package.Id, package.DependsOn.ToArray());
         }
         CheckCycles(edges);
-        var currentPhaseId = NullableText(task, "currentPhaseId");
+        var currentPhaseId = NullableId(task, "currentPhaseId");
         if (currentPhaseId is not null && !phaseIds.Contains(currentPhaseId)) Fail("Current phase does not resolve.");
         var waits = OptionalArray(root, "waits").Select(w => new MetisWait(Id(w, "target"), Text(w, "wakeCondition"), Time(w, "since"), Integer(w, "livenessWindowMinutes", 1))).ToList();
         foreach (var wait in waits) SessionReference(wait.Target);
@@ -211,14 +212,16 @@ public static class MetisReader
     private static string Id(JsonElement obj, string key)
     {
         var value = Text(obj, key, true);
-        if (!Identifier.IsMatch(value)) Fail(key + " is not a valid ID.");
+        if (!IsValidIdentifier(value)) Fail(key + $" must be a valid ID of at most {MaxIdentifierLength} characters.");
         return value;
     }
+    internal static bool IsValidIdentifier(string? value) =>
+        value is { Length: > 0 and <= MaxIdentifierLength } && Identifier.IsMatch(value);
     private static string? NullableId(JsonElement obj, string key) => Required(obj, key).ValueKind == JsonValueKind.Null ? null : Id(obj, key);
     private static string[] IdArray(JsonElement obj, string key)
     {
         var values = Array(obj, key).Select(v => v.ValueKind == JsonValueKind.String ? v.GetString()! : "").ToArray();
-        if (values.Any(v => !Identifier.IsMatch(v)) || values.Distinct(StringComparer.Ordinal).Count() != values.Length) Fail(key + " must contain unique IDs.");
+        if (values.Any(v => !IsValidIdentifier(v)) || values.Distinct(StringComparer.Ordinal).Count() != values.Length) Fail(key + $" must contain unique IDs of at most {MaxIdentifierLength} characters.");
         return values;
     }
     private static string Status(JsonElement obj)

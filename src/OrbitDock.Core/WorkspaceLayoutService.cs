@@ -317,15 +317,10 @@ public static class WorkspaceLayoutService
 
     public static int RepairOversizedDockBounds(Workspace workspace, IReadOnlyList<DisplayDescriptor> displays)
     {
-        var changed = 0;
-        var layout = EnsureActiveLayout(workspace);
-        foreach (var variant in layout.DisplayVariants)
-        {
-            if (ClampVariantToDisplays(variant, displays))
-            {
-                changed++;
-            }
-        }
+        // The supplied displays describe only the current configuration. Other
+        // variants may belong to unplugged monitors and must retain their bounds.
+        var variant = EnsureActiveDisplayVariant(workspace);
+        var changed = ClampVariantToDisplays(variant, displays) ? 1 : 0;
 
         ApplyActiveLayoutToZones(workspace);
         return changed;

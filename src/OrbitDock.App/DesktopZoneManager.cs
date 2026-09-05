@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using OrbitDock.Core;
@@ -21,6 +22,7 @@ public sealed class DesktopZoneManager : IDisposable
     private FileSystemWatcher? _workspaceWatcher;
     private bool _isPeekVisible;
     private bool _isReloading;
+    private bool _disposed;
     private bool _wasDesktopExposed;
     private DateTime _lastLocalWriteUtc = DateTime.MinValue;
 
@@ -46,16 +48,18 @@ public sealed class DesktopZoneManager : IDisposable
 
     public event Action<bool>? CleanDesktopModeChanged;
     public event Action? MusicEnded;
+    public event Action<string>? StorageError;
 
     public Workspace Workspace { get; private set; }
     public string WorkspacePath => _store.WorkspacePath;
     public OrbitAudioService Audio { get; }
     public AgentFeedStore AgentFeeds { get; }
+    public string? LastStorageError { get; private set; }
+    public DateTime LastSuccessfulSaveUtc => _lastLocalWriteUtc;
 
     public void Start()
     {
-        ManagedShortcutRepairService.RepairWorkspaceVirtualShortcuts(Workspace);
-        ApplyCurrentDisplayVariant();
+        ApplyCurrentDisplayVariant(Workspace);
         OpenZoneWindows();
         OpenDesktopPins();
         RefreshDesktopOverlayPersistence();
@@ -65,25 +69,48 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void Reload()
     {
-        if (_isReloading)
+        ReloadCore(_store.LoadReadOnly, ApplyCurrentDisplayVariant,
+            () => { CloseZoneWindows(); CloseDesktopPins(); },
+            () =>
+            {
+                ThemeService.Apply(Workspace.Settings);
+                OpenZoneWindows();
+                OpenDesktopPins();
+                RefreshDesktopOverlayPersistence();
+                _settingsWindow?.RefreshFromWorkspace();
+                CleanDesktopModeChanged?.Invoke(Workspace.Settings.HideDesktopIconsWhenRunning);
+            });
+    }
+
+    // Keep replacement preparation separate from window teardown. The callbacks
+    // also allow lifecycle checks without creating HWNDs or changing the shell.
+    private bool ReloadCore(Func<Workspace> read, Action<Workspace> prepare, Action close, Action open)
+    {
+        if (_isReloading || _disposed)
         {
-            return;
+            return false;
         }
 
         _isReloading = true;
-        CloseZoneWindows();
-        CloseDesktopPins();
         try
         {
-            Workspace = _store.LoadOrCreate();
-            ThemeService.Apply(Workspace.Settings);
-            ManagedShortcutRepairService.RepairWorkspaceVirtualShortcuts(Workspace);
-            ApplyCurrentDisplayVariant();
-            OpenZoneWindows();
-            OpenDesktopPins();
-            RefreshDesktopOverlayPersistence();
-            _settingsWindow?.RefreshFromWorkspace();
-            CleanDesktopModeChanged?.Invoke(Workspace.Settings.HideDesktopIconsWhenRunning);
+            Workspace replacement;
+            try
+            {
+                replacement = read();
+                prepare(replacement);
+            }
+            catch (Exception ex) when (IsExpectedStorageFailure(ex))
+            {
+                ReportStorageError("Workspace reload was not applied. Your existing docks remain open. " + ex.Message);
+                return false;
+            }
+
+            close();
+            Workspace = replacement;
+            open();
+            LastStorageError = null;
+            return true;
         }
         finally
         {
@@ -96,15 +123,11 @@ public sealed class DesktopZoneManager : IDisposable
         if (!IsCurrentDisplayVariantActive())
         {
             QueueDisplayVariantRefresh();
-            return;
+            throw new IOException("The display layout changed before saving. Wait for the dock layout to refresh, then review and retry your change.");
         }
 
         WorkspaceLayoutService.CaptureAllZoneStates(Workspace);
-        _store.Save(Workspace);
-        if (File.Exists(_store.WorkspacePath))
-        {
-            _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
-        }
+        PersistWorkspace(Workspace);
     }
 
     public void ReloadDesktopPins()
@@ -213,8 +236,26 @@ public sealed class DesktopZoneManager : IDisposable
     /// <summary>Persist appearance without capturing live dock placement or reopening windows.</summary>
     public void SaveAppearanceSettings()
     {
-        _store.Save(Workspace);
-        if (File.Exists(_store.WorkspacePath)) _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
+        PersistWorkspace(Workspace);
+    }
+
+    private void PersistWorkspace(Workspace workspace)
+    {
+        // Failed/conflicting writes must reach the caller so editors can roll
+        // back. Only the successfully saved object gets a new store fingerprint.
+        _store.Save(workspace);
+        _lastLocalWriteUtc = DateTime.UtcNow;
+        LastStorageError = null;
+    }
+
+    internal static bool IsExpectedStorageFailure(Exception error) =>
+        error is IOException or UnauthorizedAccessException or JsonException;
+
+    internal void ReportStorageError(string message)
+    {
+        if (string.Equals(LastStorageError, message, StringComparison.Ordinal)) return;
+        LastStorageError = message;
+        StorageError?.Invoke(message);
     }
 
     public bool IsCurrentDisplayVariantActive()
@@ -225,9 +266,10 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void QueueDisplayVariantRefresh()
     {
+        if (_disposed) return;
         _dispatcher.BeginInvoke(() =>
         {
-            if (_isReloading)
+            if (_isReloading || _disposed)
             {
                 return;
             }
@@ -239,6 +281,8 @@ public sealed class DesktopZoneManager : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _reloadTimer.Stop();
         _desktopOverlayTimer.Stop();
         _displayChangeTimer.Stop();
@@ -313,23 +357,31 @@ public sealed class DesktopZoneManager : IDisposable
         };
         _workspaceWatcher.Changed += WorkspaceFileChanged;
         _workspaceWatcher.Created += WorkspaceFileChanged;
+        _workspaceWatcher.Deleted += WorkspaceFileChanged;
         _workspaceWatcher.Renamed += WorkspaceFileChanged;
         _workspaceWatcher.EnableRaisingEvents = true;
     }
 
     private void WorkspaceFileChanged(object sender, FileSystemEventArgs e)
     {
+        if (_disposed) return;
         _dispatcher.BeginInvoke(() =>
         {
-            if (_isReloading || !File.Exists(_store.WorkspacePath))
+            if (_isReloading || _disposed)
             {
                 return;
             }
 
-            var writeTime = File.GetLastWriteTimeUtc(_store.WorkspacePath);
-            if (writeTime <= _lastLocalWriteUtc.AddMilliseconds(250))
+            try
             {
-                return;
+                // Timestamp windows can discard a real external edit immediately
+                // after our save. Ignore only the exact content we already own.
+                if (_store.IsCurrent(Workspace)) return;
+            }
+            catch (Exception ex) when (IsExpectedStorageFailure(ex))
+            {
+                // The debounced reload below owns validation and the single
+                // recoverable error message if this read failure persists.
             }
 
             _reloadTimer.Stop();
@@ -353,19 +405,15 @@ public sealed class DesktopZoneManager : IDisposable
         Reload();
     }
 
-    private void ApplyCurrentDisplayVariant()
+    private void ApplyCurrentDisplayVariant(Workspace workspace)
     {
         var signatureDisplays = DisplaySnapshotProvider.GetPhysicalDisplays();
         var displays = DisplaySnapshotProvider.GetDisplays();
         var signature = WorkspaceLayoutService.ComputeDisplaySignature(signatureDisplays);
         var key = WorkspaceLayoutService.ComputeDisplayVariantKey(signature);
-        WorkspaceLayoutService.UseDisplayVariant(Workspace, key, signature, displays);
-        WorkspaceLayoutService.CaptureAllZoneStates(Workspace);
-        _store.Save(Workspace);
-        if (File.Exists(_store.WorkspacePath))
-        {
-            _lastLocalWriteUtc = File.GetLastWriteTimeUtc(_store.WorkspacePath);
-        }
+        WorkspaceLayoutService.UseDisplayVariant(workspace, key, signature, displays);
+        WorkspaceLayoutService.CaptureAllZoneStates(workspace);
+        PersistWorkspace(workspace);
     }
 
     private static string GetCurrentDisplayVariantKey()

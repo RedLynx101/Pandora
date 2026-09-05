@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$Serve,
-    [int]$Port = 8787
+    [ValidateRange(1024, 65512)][int]$Port = 8787
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,7 +74,9 @@ function Send-Text {
     $Context.Response.StatusCode = $StatusCode
     $Context.Response.ContentType = "text/plain; charset=utf-8"
     $Context.Response.ContentLength64 = $bytes.Length
-    $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+    if ($Context.Request.HttpMethod -ne "HEAD") {
+        $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+    }
 }
 
 if (-not $Serve) {
@@ -100,10 +102,13 @@ if (-not $Serve) {
 
     $quotedScript = '"' + $PSCommandPath + '"'
     $serverArgs = "-NoProfile -ExecutionPolicy Bypass -File $quotedScript -Serve -Port $selectedPort"
-    Start-Process -FilePath "powershell.exe" -ArgumentList $serverArgs -WindowStyle Hidden | Out-Null
+    $serverProcess = Start-Process -FilePath "powershell.exe" -ArgumentList $serverArgs -WindowStyle Hidden -PassThru
 
     $selectedUrl = "http://127.0.0.1:$selectedPort/"
-    [void](Wait-Visualizer -Url $selectedUrl)
+    if (-not (Wait-Visualizer -Url $selectedUrl)) {
+        if (-not $serverProcess.HasExited) { $serverProcess.Kill() }
+        throw "Silk Current could not start its local preview server."
+    }
     Start-Process $selectedUrl | Out-Null
     return
 }
@@ -116,9 +121,19 @@ try {
     while ($listener.IsListening) {
         $context = $listener.GetContext()
         try {
+            if ($context.Request.HttpMethod -notin @("GET", "HEAD")) {
+                Send-Text -Context $context -StatusCode 405 -Text "Method not allowed"
+                continue
+            }
             $requestPath = [System.Uri]::UnescapeDataString($context.Request.Url.AbsolutePath.TrimStart("/"))
             if ([string]::IsNullOrWhiteSpace($requestPath)) {
                 $requestPath = "index.html"
+            }
+
+            # Only public companion assets are served, never scripts or adjacent project files.
+            if ($requestPath -cnotin @("index.html", "styles.css", "src/visualizer.js")) {
+                Send-Text -Context $context -StatusCode 404 -Text "Not found"
+                continue
             }
 
             $relativePath = $requestPath.Replace("/", [System.IO.Path]::DirectorySeparatorChar)
@@ -135,18 +150,30 @@ try {
                 continue
             }
 
+            $assetPart = Get-Item -LiteralPath $fullPath -Force
+            while ($null -ne $assetPart) {
+                if (($assetPart.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                    throw "Linked asset paths are not served."
+                }
+                if ($assetPart -is [System.IO.FileInfo]) { $assetPart = $assetPart.Directory }
+                else { $assetPart = $assetPart.Parent }
+            }
+
             $bytes = [System.IO.File]::ReadAllBytes($fullPath)
             $context.Response.StatusCode = 200
             $context.Response.ContentType = Get-ContentType -Path $fullPath
             $context.Response.Headers["Cache-Control"] = "no-store"
+            $context.Response.Headers["X-Content-Type-Options"] = "nosniff"
             $context.Response.ContentLength64 = $bytes.Length
-            $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+            if ($context.Request.HttpMethod -ne "HEAD") {
+                $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+            }
         }
         catch {
-            Send-Text -Context $context -StatusCode 500 -Text "Server error"
+            try { Send-Text -Context $context -StatusCode 500 -Text "Server error" } catch { }
         }
         finally {
-            $context.Response.OutputStream.Close()
+            try { $context.Response.OutputStream.Close() } catch { }
         }
     }
 }

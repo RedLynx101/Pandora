@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace OrbitDock.Core;
@@ -9,7 +10,7 @@ public sealed record ProjectRegistration(string Id, string Path, bool Expanded =
 public sealed class ProjectRegistryStore(string registryPath)
 {
     public const int MaxRegistrations = 32;
-    private const int MaxRegistryBytes = 256 * 1024;
+    public const int MaxRegistryBytes = 256 * 1024;
     private static readonly JsonSerializerOptions Options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
     public string RegistryPath { get; } = System.IO.Path.GetFullPath(registryPath);
     private sealed record Registry(int Version, IReadOnlyList<ProjectRegistration> Dashboards);
@@ -27,7 +28,9 @@ public sealed class ProjectRegistryStore(string registryPath)
         foreach (var registration in registry.Dashboards)
         {
             if (registration is null || !Guid.TryParseExact(registration.Id, "N", out _) || !ids.Add(registration.Id)) throw new InvalidDataException("Invalid or duplicate registration ID.");
-            var path = ProjectPath.Validate(registration.Path, requireExists: false);
+            // A source can become unavailable or disallowed after registration.
+            // Keep its registration readable/removable; filesystem policy belongs to each source read.
+            var path = ProjectPath.ValidateSyntax(registration.Path);
             if (!paths.Add(path)) throw new InvalidDataException("Dashboard path is registered more than once.");
             if (registration.LastAccepted is { } checkpoint && (checkpoint.Revision < 0 || string.IsNullOrEmpty(checkpoint.DashboardId) || string.IsNullOrEmpty(checkpoint.PlanId) || string.IsNullOrEmpty(checkpoint.ProjectId) || string.IsNullOrEmpty(checkpoint.TaskId)))
                 throw new InvalidDataException("Invalid project checkpoint.");
@@ -60,21 +63,40 @@ public sealed class ProjectRegistryStore(string registryPath)
         {
             foreach (var id in checkpoints.Keys)
                 if (!entries.Any(e => e.Id == id)) rejected[id] = "This registration was removed during the read.";
-            return entries.Select(entry =>
+            var nextEntries = entries.ToArray();
+            for (var index = 0; index < nextEntries.Length; index++)
             {
-                if (!checkpoints.TryGetValue(entry.Id, out var next)) return entry;
+                var entry = nextEntries[index];
+                if (!checkpoints.TryGetValue(entry.Id, out var next)) continue;
+                if (CheckpointError(next) is { } validationError)
+                {
+                    rejected[entry.Id] = validationError;
+                    continue;
+                }
                 if (entry.LastAccepted is { } previous && Regression(previous, next) is { } error)
                 {
                     rejected[entry.Id] = "A newer registration checkpoint superseded this read. " + error;
-                    return entry;
+                    continue;
                 }
-                return entry with { LastAccepted = next };
-            }).ToArray();
+                nextEntries[index] = entry with { LastAccepted = next };
+                if (Encoding.UTF8.GetByteCount(Serialize(nextEntries)) > MaxRegistryBytes)
+                {
+                    nextEntries[index] = entry;
+                    rejected[entry.Id] = "This checkpoint would exceed the project registry size limit.";
+                }
+            }
+            return nextEntries;
         });
         return rejected;
     }
 
     public static ProjectCheckpoint Checkpoint(MetisSnapshot snapshot) => new(snapshot.DashboardId, snapshot.ProjectId, snapshot.PlanId, snapshot.TaskId, snapshot.Revision, snapshot.UpdatedAt);
+    private static string? CheckpointError(ProjectCheckpoint? checkpoint) =>
+        checkpoint is null || checkpoint.Revision < 0 ||
+        !MetisReader.IsValidIdentifier(checkpoint.DashboardId) || !MetisReader.IsValidIdentifier(checkpoint.ProjectId) ||
+        !MetisReader.IsValidIdentifier(checkpoint.PlanId) || !MetisReader.IsValidIdentifier(checkpoint.TaskId)
+            ? $"Checkpoint identifiers must be valid IDs of at most {MetisReader.MaxIdentifierLength} characters, with a nonnegative revision."
+            : null;
     public static string? Regression(ProjectCheckpoint previous, ProjectCheckpoint next)
     {
         if (previous.DashboardId != next.DashboardId || previous.ProjectId != next.ProjectId || previous.PlanId != next.PlanId || previous.TaskId != next.TaskId)
@@ -89,8 +111,10 @@ public sealed class ProjectRegistryStore(string registryPath)
         using var guard = AcquireLock();
         var previous = Load(); // Reload under a cross-process lock; two docks cannot overwrite one another's registrations.
         var next = change(previous);
-        var json = JsonSerializer.Serialize(new Registry(1, next), Options);
-        if (File.Exists(RegistryPath) && json == JsonSerializer.Serialize(new Registry(1, previous), Options)) return;
+        var json = Serialize(next);
+        if (Encoding.UTF8.GetByteCount(json) > MaxRegistryBytes)
+            throw new InvalidDataException("Project registry update exceeds its size limit. The previous registry was left unchanged.");
+        if (File.Exists(RegistryPath) && json == Serialize(previous)) return;
         var temporary = RegistryPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -104,6 +128,8 @@ public sealed class ProjectRegistryStore(string registryPath)
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
+    private static string Serialize(IReadOnlyList<ProjectRegistration> entries) => JsonSerializer.Serialize(new Registry(1, entries), Options);
+
     private FileStream AcquireLock()
     {
         for (var attempt = 0; ; attempt++)
@@ -116,19 +142,27 @@ public sealed class ProjectRegistryStore(string registryPath)
 
 public static class ProjectPath
 {
-    /// <summary>Only exact local regular .html/.htm files; no URLs, UNC/device paths, ADS, or links/junctions.</summary>
-    public static string Validate(string path, bool requireExists)
+    /// <summary>Validate stored path syntax without touching a potentially unavailable or replaced source.</summary>
+    public static string ValidateSyntax(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !System.IO.Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal) || path.StartsWith("//", StringComparison.Ordinal))
             throw new ArgumentException("Choose an absolute local dashboard HTML file, not a URL or network path.");
         var full = System.IO.Path.GetFullPath(path);
         var root = System.IO.Path.GetPathRoot(full)!;
-        if (OperatingSystem.IsWindows() && new DriveInfo(root).DriveType == DriveType.Network)
-            throw new ArgumentException("Mapped network drives are not local dashboard sources.");
         if (full[root.Length..].Contains(':')) throw new ArgumentException("Alternate data streams are not dashboard files.");
         var extension = System.IO.Path.GetExtension(full);
         if (!extension.Equals(".html", StringComparison.OrdinalIgnoreCase) && !extension.Equals(".htm", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Dashboard file must have an .html or .htm extension.");
+        return full;
+    }
+
+    /// <summary>Only exact local regular .html/.htm files; no URLs, UNC/device paths, ADS, or links/junctions.</summary>
+    public static string Validate(string path, bool requireExists)
+    {
+        var full = ValidateSyntax(path);
+        var root = System.IO.Path.GetPathRoot(full)!;
+        if (OperatingSystem.IsWindows() && new DriveInfo(root).DriveType == DriveType.Network)
+            throw new ArgumentException("Mapped network drives are not local dashboard sources.");
         // Recheck on every read and explicit Open, not just at registration.
         for (var current = full; !string.IsNullOrEmpty(current); current = System.IO.Path.GetDirectoryName(current))
             if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)

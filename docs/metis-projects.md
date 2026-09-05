@@ -34,11 +34,11 @@ Exact-file watchers debounce changes for 500 ms. A 30-second reconciliation catc
 
 ## Trust and authority
 
-Only explicit, absolute local HTML files are accepted. URL, UNC/network, device, alternate-stream, symbolic-link, and junction paths are refused. The path is checked again on reads and before the explicit Open action. Files are limited to 4 MiB, extracted state to 2 MiB, JSON nesting to 40 levels, structural nodes to 40,000, primary sessions to 512, phases to 256, and registered files to 32. Very large detail collections have labeled display limits; totals still use all validated items.
+Only explicit, absolute local HTML files are accepted. URL, UNC/network, device, alternate-stream, symbolic-link, and junction paths are refused. The path is checked again on reads and before the explicit Open action. If a registered source later becomes disallowed, it shows a source error and remains removable; other projects continue to reconcile. No watcher is installed through a disallowed source path. Files are limited to 4 MiB, extracted state to 2 MiB, identifiers to 256 ASCII characters, JSON nesting to 40 levels, structural nodes to 40,000, primary sessions to 512, phases to 256, and registered files to 32. Very large detail collections have labeled display limits; totals still use all validated items.
 
 All source text is rendered as WPF text, not markup or commands. Evidence paths and manager-reported text are not executed or automatically opened. Read validation checks structure and consistency, **not the truth of supplied evidence**.
 
-Pandora owns only registration, presentation preferences, and local validation watermarks. Registry updates use a cross-process file lock, reload-before-write, a flushed temporary sibling, and atomic replacement. Invalid registries are reported without silent replacement. Directors own canonical plans and acceptance; managers own their permitted reports and implementation. There are no project approval buttons, checklist writes, goal creation, automatic messages, or source mutations in this integration.
+Pandora owns only registration, presentation preferences, and local validation watermarks. Registry updates use a cross-process file lock, reload-before-write, a flushed temporary sibling, and atomic replacement. The serialized UTF-8 registry is limited to 256 KiB on both reads and writes; an update exceeding that limit preserves the previous file. Invalid or oversized incoming checkpoints are rejected per registration so independent valid sources can still advance. Invalid registries are reported without silent replacement. Directors own canonical plans and acceptance; managers own their permitted reports and implementation. There are no project approval buttons, checklist writes, goal creation, automatic messages, or source mutations in this integration.
 
 Write-back or agent control would require a separate, explicit authority and conflict-resolution design. It is not implied by opening a Projects dock.
 
@@ -47,6 +47,6 @@ Write-back or agent control would require a separate, explicit authority and con
 - Reader and immutable projections: `src/OrbitDock.Core/MetisReader.cs`, `MetisModels.cs`.
 - Registration and reconciliation: `ProjectRegistryStore.cs`, `ProjectPortfolioService.cs`.
 - Native view: `src/OrbitDock.App/ProjectsControl.xaml` and code-behind.
-- Synthetic boundary tests: `tests/OrbitDock.Tests/MetisTests.cs` (`MetisTests.Run`).
+- Synthetic boundary tests: `tests/OrbitDock.Tests/MetisTests.cs` (`MetisTests.Run`) and `ProjectSafetyTests.cs` (`ProjectSafetyTests.Run`). The latter exercises oversized checkpoints, registry byte preservation, and an isolated directory junction/link without following it during cleanup.
 
 Legacy internal source directories and namespaces remain `OrbitDock` for compatibility; product UI and release branding are Pandora. Test data is synthetic and contains no registered personal projects.

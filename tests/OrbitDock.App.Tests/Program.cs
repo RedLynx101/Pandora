@@ -64,6 +64,14 @@ internal static partial class Program
         Run("Bar size previews, persists, reverts and rolls back safely", DockBarSizeSettings);
         Run("Projects: empty registry and explicit error states", ProjectStates);
         Run("Projects: read-only multi-project details and item-sized buckets", ProjectDetails);
+        Run("Reload failures preserve existing docks until replacement is prepared", LifecycleReloadSafety);
+        Run("Persistence errors cannot masquerade as successful saves", LifecyclePersistenceSafety);
+        Run("Only expected storage failures enter recoverable handling", LifecycleExpectedStorageErrors);
+        Run("Failed transfers preserve desktop pins and source files", DockTransferFailurePreservesPin);
+        Run("Music refresh preserves selected playlist without writing", MusicSelectionRefreshDoesNotWrite);
+        Run("Watcher callbacks stop after disposal", WatcherRefreshStopsAfterDispose);
+        Run("Malformed feeds and stale actions fail safely", FeedRefreshAndActionRaces);
+        Run("Music controls fit every narrow structural bar size", MusicHeaderFitsNarrowBars);
         Run("Verification never displayed an application window", () =>
             Assert(Application.Current.Windows.Cast<Window>().All(w => !w.IsVisible), "A test unexpectedly showed a native window."));
 

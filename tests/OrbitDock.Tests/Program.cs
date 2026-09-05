@@ -29,6 +29,12 @@ var tests = new List<(string Name, Action Body)>
 
 tests.Add(("Metis reader, registry, and read-only portfolio boundaries", MetisTests.Run));
 tests.Add(("Structural themes migrate and round-trip independently from palettes", StructuralThemeTests.Run));
+tests.Add(("CLI validation, isolation and content-stable checklist identities", CliSafetyTests.Run));
+tests.Add(("Workspace recovery, shape validation and snapshot conflict safety", WorkspaceSafetyTests.Run));
+tests.Add(("Agent feed identity, byte limits and state mutation safety", FeedSafetyTests.Run));
+tests.Add(("Metis source isolation and registry persistence safety", ProjectSafetyTests.Run));
+tests.Add(("Repair sizes preserves inactive display variants", LayoutSafetyTests.Run));
+tests.Add(("File transfers and music scans refuse unsafe linked paths", TransferSafetyTests.Run));
 
 var failed = 0;
 foreach (var test in tests)
@@ -578,7 +584,8 @@ static void AgentFeedCli()
     RunCli(repoRoot, workspacePath, ["agent-feed", "list"], "morning-brief");
     RunCli(repoRoot, workspacePath, ["agent-feed", "show", "morning-brief"], "Two things need attention.");
     RunCli(repoRoot, workspacePath, ["agent-feed", "mark-read", "morning-brief"], "marked read");
-    RunCli(repoRoot, workspacePath, ["agent-feed", "complete", "morning-brief", "item-1"], "completed");
+    var firstItemId = new AgentFeedStore(Path.Combine(directory, "AgentFeeds")).LoadFeed("morning-brief")!.Sections.Single(s => s.Kind == AgentFeedSectionKind.Checklist).Items[0].Id;
+    RunCli(repoRoot, workspacePath, ["agent-feed", "complete", "morning-brief", firstItemId], "completed");
     RunCli(repoRoot, workspacePath, ["agent-feed", "validate", Path.Combine(directory, "AgentFeeds", "morning-brief.json")], "OK");
 }
 
@@ -615,9 +622,16 @@ static void RunCli(string repoRoot, string workspacePath, string[] command, stri
     }
 
     using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start orbitdockctl test.");
-    var output = process.StandardOutput.ReadToEnd();
-    var error = process.StandardError.ReadToEnd();
-    process.WaitForExit(30_000);
+    var outputTask = process.StandardOutput.ReadToEndAsync();
+    var errorTask = process.StandardError.ReadToEndAsync();
+    if (!process.WaitForExit(30_000))
+    {
+        process.Kill(entireProcessTree: true);
+        process.WaitForExit(5000);
+        throw new TimeoutException("CLI fixture did not exit within 30 seconds.");
+    }
+    var output = outputTask.GetAwaiter().GetResult();
+    var error = errorTask.GetAwaiter().GetResult();
     Assert(process.ExitCode == 0, $"CLI command failed: {string.Join(' ', command)} {output} {error}");
     Assert(output.Contains(expectedOutput, StringComparison.OrdinalIgnoreCase), $"CLI output should contain {expectedOutput}.");
 }

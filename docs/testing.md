@@ -7,9 +7,13 @@ This is a test checklist, not a claim that every scenario has passed on every Wi
 ```powershell
 dotnet build Pandora.sln --configuration Release
 dotnet run --project tests\OrbitDock.Tests --configuration Release --no-build
+node --test tools/SilkCurrentVisualizer/tests/visualizer.test.cjs
+.\tools\SilkCurrentVisualizer\tests\server.test.ps1
 ```
 
 ## Isolated WPF verification
+
+Safety regressions cover workspace conflicts and byte preservation, read-only CLI validation, feed identity/state limits, project registry isolation, bounded file transfer, saved music selection, watcher disposal, and recoverable lifecycle errors. Windows directory junction fixtures run without requiring file-symlink privileges; file-symlink cases print explicit `SKIP` when unavailable. The visualizer tests use mock media APIs and a temporary loopback-only server that closes after testing; no real capture permission is requested. Windows must permit HttpListener initialization for the server test.
 
 After the solution build, choose a writable **absolute** task directory for render evidence:
 

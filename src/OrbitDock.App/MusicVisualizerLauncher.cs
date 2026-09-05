@@ -48,7 +48,8 @@ internal static class MusicVisualizerLauncher
         for (var depth = 0; directory is not null && depth < MaxParentSearchDepth; depth++)
         {
             var candidate = Path.Combine(directory.FullName, "tools", "SilkCurrentVisualizer", "start-visualizer.ps1");
-            if (File.Exists(candidate))
+            // Prefer packaged assets; development fallback requires a recognized repo root.
+            if (File.Exists(candidate) && (depth == 0 || File.Exists(Path.Combine(directory.FullName, "Pandora.sln"))))
             {
                 return candidate;
             }

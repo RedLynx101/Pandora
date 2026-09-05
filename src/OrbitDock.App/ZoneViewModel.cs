@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -30,10 +32,17 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     private AgentFeedCardViewModel? _selectedAgentFeed;
     private string _nowPlayingText = "No track selected";
     private bool _isMusicPlaying;
+    private bool _updatingMusicSelection;
+    private bool _refreshingAgentFeeds;
+    private bool _disposed;
+    private int _refreshQueued;
+    private readonly DispatcherTimer _refreshTimer;
 
     public ZoneViewModel(ZoneDefinition zone, DesktopZoneManager manager)
     {
         _manager = manager;
+        _refreshTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromMilliseconds(150) };
+        _refreshTimer.Tick += RefreshTimer_Tick;
         Zone = zone;
         var activeTabId = WorkspaceLayoutService.GetActiveTabId(manager.Workspace, zone);
         SelectedTab = zone.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, activeTabId, StringComparison.OrdinalIgnoreCase))
@@ -104,7 +113,9 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
-            state.Volume = Math.Clamp(value, 0, 1);
+            var volume = double.IsFinite(value) ? Math.Clamp(value, 0, 1) : state.Volume;
+            if (state.Volume == volume) return;
+            state.Volume = volume;
             _manager.Audio.SetMusicVolume(state.Volume);
             _manager.Save();
             OnPropertyChanged();
@@ -115,6 +126,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         get => WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Shuffle;
         set
         {
+            if (IsMusicShuffle == value) return;
             WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Shuffle = value;
             _manager.Save();
             OnPropertyChanged();
@@ -125,6 +137,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         get => WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Repeat;
         set
         {
+            if (MusicRepeat == value) return;
             WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music.Repeat = value;
             _manager.Save();
             OnPropertyChanged();
@@ -143,7 +156,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
             _selectedMusicPlaylist = value;
             OnPropertyChanged();
-            ApplySelectedPlaylist(save: true);
+            if (!_updatingMusicSelection) ApplySelectedPlaylist(save: true);
         }
     }
 
@@ -203,7 +216,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
             _selectedMusicTrack = value;
             OnPropertyChanged();
-            SaveSelectedTrack();
+            if (!_updatingMusicSelection) SaveSelectedTrack();
         }
     }
 
@@ -282,6 +295,8 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     public void Refresh()
     {
+        if (_disposed) return;
+        _refreshTimer.Stop();
         StopWatchers();
         Items.Clear();
         _allItems.Clear();
@@ -352,76 +367,43 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public void AddDroppedFiles(IReadOnlyCollection<string> paths, DropAction requestedAction)
+    public int AddDroppedFiles(IReadOnlyCollection<string> paths, DropAction requestedAction)
     {
         if (paths.Count == 0 || string.IsNullOrWhiteSpace(SelectedFolderPath))
         {
-            return;
+            return 0;
         }
 
         if (IsSmartDock)
         {
             AddVirtualItems(paths);
-            return;
-        }
-
-        if (!EnsureTargetFolder(SelectedFolderPath))
-        {
-            StatusMessage = "Drop target is unavailable.";
-            return;
+            return paths.Count;
         }
 
         var completed = 0;
+        string? error = null;
         foreach (var source in paths)
         {
             try
             {
-                if (File.Exists(source))
-                {
-                    if (requestedAction == DropAction.Move)
-                    {
-                        File.Move(source, GetUniqueDestination(SelectedFolderPath, Path.GetFileName(source)));
-                    }
-                    else
-                    {
-                        File.Copy(source, GetUniqueDestination(SelectedFolderPath, Path.GetFileName(source)));
-                    }
-
-                    completed++;
-                }
-                else if (Directory.Exists(source))
-                {
-                    var destination = GetUniqueDestination(SelectedFolderPath, Path.GetFileName(source));
-                    if (IsSameOrSubPath(destination, source))
-                    {
-                        throw new IOException("Cannot copy or move a folder into itself.");
-                    }
-
-                    if (requestedAction == DropAction.Move)
-                    {
-                        Directory.Move(source, destination);
-                    }
-                    else
-                    {
-                        CopyDirectory(source, destination);
-                    }
-
-                    completed++;
-                }
+                SafeFileTransfer.Transfer(source, SelectedFolderPath, requestedAction);
+                completed++;
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
             {
-                StatusMessage = $"Drop skipped: {ex.Message}";
+                error = ex.Message;
             }
         }
 
         if (completed > 0)
         {
+            Refresh();
             StatusMessage = requestedAction == DropAction.Move
                 ? $"Moved {completed} item(s)."
                 : $"Copied {completed} item(s).";
-            Refresh();
         }
+        if (error is not null) StatusMessage = $"{completed} item(s) transferred. Drop skipped: {error} Partial destination files may remain.";
+        return completed;
     }
 
     public void AddVirtualItems(IReadOnlyCollection<string> paths)
@@ -481,8 +463,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
         if (File.Exists(path) || Directory.Exists(path))
         {
-            AddDroppedFiles([path], _manager.Workspace.Settings.DefaultDropAction);
-            return true;
+            return AddDroppedFiles([path], _manager.Workspace.Settings.DefaultDropAction) == 1;
         }
 
         StatusMessage = "Item no longer exists on disk.";
@@ -545,6 +526,10 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _refreshTimer.Stop();
+        _refreshTimer.Tick -= RefreshTimer_Tick;
         ThemeService.ThemeChanged -= OnThemeChanged;
         StopWatchers();
     }
@@ -613,6 +598,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public void MarkSelectedAgentFeedRead()
     {
         if (!IsAgentFeedDock ||
+            _disposed || _refreshingAgentFeeds || Zone.IsCollapsed ||
             !Zone.AgentFeed.MarkReadOnExpand ||
             SelectedAgentFeed is null ||
             SelectedAgentFeed.IsFallback ||
@@ -623,11 +609,12 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            _manager.AgentFeeds.MarkRead(SelectedAgentFeed.FeedId);
+            _manager.AgentFeeds.MarkRead(SelectedAgentFeed.FeedId, AgentFeedStore.GetRevisionKey(SelectedAgentFeed.Document));
             RefreshAgentFeeds();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
         {
+            RefreshAgentFeeds();
             StatusMessage = $"Could not mark feed read: {ex.Message}";
         }
     }
@@ -729,34 +716,20 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshMusic()
     {
-        MusicPlaylists.Clear();
-        MusicTracks.Clear();
         var library = MusicLibraryScanner.Scan(_manager.Workspace.Settings.Audio.MusicRootPath);
-        foreach (var playlist in library.Playlists)
-        {
-            MusicPlaylists.Add(new MusicPlaylistViewModel(playlist));
-        }
-
         var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
-        _selectedMusicPlaylist = MusicPlaylists.FirstOrDefault(playlist =>
-            string.Equals(playlist.Id, state.SelectedPlaylist, StringComparison.OrdinalIgnoreCase))
-            ?? MusicPlaylists.FirstOrDefault();
-        OnPropertyChanged(nameof(SelectedMusicPlaylist));
-        ApplySelectedPlaylist(save: false);
-
-        if (!string.IsNullOrWhiteSpace(state.SelectedTrackPath))
+        _updatingMusicSelection = true;
+        try
         {
-            _selectedMusicTrack = MusicTracks.FirstOrDefault(track =>
-                WorkspaceLayoutService.PathsEqual(track.Path, state.SelectedTrackPath));
-            OnPropertyChanged(nameof(SelectedMusicTrack));
+            MusicPlaylists.Clear();
+            foreach (var playlist in library.Playlists) MusicPlaylists.Add(new MusicPlaylistViewModel(playlist));
+            _selectedMusicPlaylist = MusicPlaylists.FirstOrDefault(playlist =>
+                string.Equals(playlist.Id, state.SelectedPlaylist, StringComparison.OrdinalIgnoreCase))
+                ?? MusicPlaylists.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedMusicPlaylist));
+            ApplySelectedPlaylist(save: false);
         }
-
-        if (_selectedMusicTrack is null)
-        {
-            _selectedMusicTrack = MusicTracks.FirstOrDefault();
-            OnPropertyChanged(nameof(SelectedMusicTrack));
-        }
-
+        finally { _updatingMusicSelection = false; }
         NowPlayingText = SelectedMusicTrack?.Title ?? "No track selected";
         _baseStatusMessage = library.StatusMessage;
         StatusMessage = library.StatusMessage;
@@ -764,31 +737,36 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshAgentFeeds()
     {
-        AgentFeeds.Clear();
-        var state = _manager.AgentFeeds.LoadState();
-        var selectedId = SelectedAgentFeed?.FeedId;
-        var feedIds = Zone.AgentFeed.FeedIds.Count == 0
-            ? new[] { "morning-brief" }
-            : Zone.AgentFeed.FeedIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-
-        foreach (var feedId in feedIds)
+        if (_disposed || _refreshingAgentFeeds) return;
+        _refreshingAgentFeeds = true;
+        StopWatchers();
+        try
         {
-            var card = LoadAgentFeedCard(feedId, state);
-            AgentFeeds.Add(card);
+            var selectedId = SelectedAgentFeed?.FeedId;
+            var feedIds = Zone.AgentFeed.FeedIds.Count == 0
+                ? new[] { "morning-brief" }
+                : Zone.AgentFeed.FeedIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            AgentFeedStateDocument state;
+            string? stateError = null;
+            try { state = _manager.AgentFeeds.LoadStateStrict(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+            { state = new AgentFeedStateDocument(); stateError = ex.Message; }
+            var cards = feedIds.Select(id => stateError is null ? LoadAgentFeedCard(id, state) :
+                CreateErrorAgentFeedCard(id, state, "Local feed state could not be read: " + stateError)).ToArray();
+            AgentFeeds.Clear();
+            foreach (var card in cards) AgentFeeds.Add(card);
+            SelectedAgentFeed = AgentFeeds.FirstOrDefault(feed =>
+                string.Equals(feed.FeedId, selectedId, StringComparison.OrdinalIgnoreCase)) ?? AgentFeeds.FirstOrDefault();
+            _baseStatusMessage = AgentFeeds.Count == 0 ? "No agent feeds configured." : $"{AgentFeeds.Count} agent feed(s)";
+            StatusMessage = stateError is not null ? "Local feed state unavailable: " + stateError :
+                AgentFeedBadgeText.Length == 0 ? _baseStatusMessage : $"{_baseStatusMessage} - {AgentFeedBadgeText}";
+            OnPropertyChanged(nameof(AgentFeedBadgeText));
         }
-
-        SelectedAgentFeed = AgentFeeds.FirstOrDefault(feed =>
-            string.Equals(feed.FeedId, selectedId, StringComparison.OrdinalIgnoreCase))
-            ?? AgentFeeds.FirstOrDefault();
-
-        _baseStatusMessage = AgentFeeds.Count == 0
-            ? "No agent feeds configured."
-            : $"{AgentFeeds.Count} agent feed(s)";
-        StatusMessage = AgentFeedBadgeText.Length == 0
-            ? _baseStatusMessage
-            : $"{_baseStatusMessage} - {AgentFeedBadgeText}";
-        OnPropertyChanged(nameof(AgentFeedBadgeText));
-        StartAgentFeedWatcher();
+        finally
+        {
+            _refreshingAgentFeeds = false;
+            if (!_disposed) StartAgentFeedWatcher();
+        }
     }
 
     private AgentFeedCardViewModel LoadAgentFeedCard(string feedId, AgentFeedStateDocument state)
@@ -803,9 +781,15 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
             return CreateAgentFeedCard(document, state, isFallback: false);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
         {
-            return CreateAgentFeedCard(new AgentFeedDocument
+            return CreateErrorAgentFeedCard(feedId, state, ex.Message);
+        }
+    }
+
+    private AgentFeedCardViewModel CreateErrorAgentFeedCard(string feedId, AgentFeedStateDocument state, string error)
+    {
+        return CreateAgentFeedCard(new AgentFeedDocument
             {
                 FeedId = feedId,
                 Title = feedId,
@@ -813,7 +797,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 Status = AgentFeedStatus.Error,
                 UpdatedUtc = DateTime.UtcNow,
                 Revision = "error",
-                Summary = $"Feed could not be read: {ex.Message}",
+                Summary = $"Feed could not be read: {error}",
                 Sections =
                 [
                     new AgentFeedSection
@@ -821,18 +805,19 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                         Id = "error",
                         Title = "Feed Error",
                         Kind = AgentFeedSectionKind.Summary,
-                        Text = ex.Message
+                        Text = error
                     }
                 ]
             }, state, isFallback: true);
-        }
     }
 
     private AgentFeedCardViewModel CreateAgentFeedCard(AgentFeedDocument document, AgentFeedStateDocument state, bool isFallback)
     {
         var unread = !isFallback && _manager.AgentFeeds.IsUnread(document, state);
         var count = _manager.AgentFeeds.CountOpenAttentionItems(document, state);
-        return new AgentFeedCardViewModel(document, unread, count, isFallback, state, _manager.AgentFeeds, SetAgentFeedItemState);
+        var revision = AgentFeedStore.GetRevisionKey(document);
+        return new AgentFeedCardViewModel(document, unread, count, isFallback, state, _manager.AgentFeeds,
+            (feedId, itemId, nextState) => SetAgentFeedItemState(feedId, itemId, nextState, revision));
     }
 
     private static AgentFeedDocument CreateMissingAgentFeed(string feedId)
@@ -859,34 +844,41 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         };
     }
 
-    private void SetAgentFeedItemState(string feedId, string itemId, AgentFeedItemState state)
+    private void SetAgentFeedItemState(string feedId, string itemId, AgentFeedItemState state, string revision)
     {
+        if (_disposed || _refreshingAgentFeeds) return;
         try
         {
-            _manager.AgentFeeds.SetItemState(feedId, itemId, state);
+            _manager.AgentFeeds.SetItemState(feedId, itemId, state, revision);
             RefreshAgentFeeds();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
         {
+            // Recreate the checklist from saved state so a failed write never leaves a false tick.
+            RefreshAgentFeeds();
             StatusMessage = $"Could not save checklist state: {ex.Message}";
         }
     }
 
     private void ApplySelectedPlaylist(bool save)
     {
-        MusicTracks.Clear();
-        if (SelectedMusicPlaylist is not null)
+        var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
+        var rememberedTrack = save ? null : state.SelectedTrackPath;
+        var wasUpdating = _updatingMusicSelection;
+        _updatingMusicSelection = true;
+        try
         {
-            foreach (var track in SelectedMusicPlaylist.Tracks)
-            {
-                MusicTracks.Add(track);
-            }
+            MusicTracks.Clear();
+            if (SelectedMusicPlaylist is not null)
+                foreach (var track in SelectedMusicPlaylist.Tracks) MusicTracks.Add(track);
+            _selectedMusicTrack = MusicTracks.FirstOrDefault(track =>
+                rememberedTrack is not null && WorkspaceLayoutService.PathsEqual(track.Path, rememberedTrack)) ?? MusicTracks.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedMusicTrack));
+            NowPlayingText = SelectedMusicTrack?.Title ?? "No track selected";
         }
-
-        SelectedMusicTrack = MusicTracks.FirstOrDefault();
+        finally { _updatingMusicSelection = wasUpdating; }
         if (save && SelectedMusicPlaylist is not null)
         {
-            var state = WorkspaceLayoutService.EnsureActiveDisplayVariant(_manager.Workspace).Music;
             state.SelectedPlaylist = SelectedMusicPlaylist.Id;
             state.SelectedTrackPath = SelectedMusicTrack?.Path;
             _manager.Save();
@@ -990,6 +982,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void StartWatchers(IEnumerable<string> paths)
     {
+        if (_disposed) return;
         foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             try
@@ -1005,7 +998,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
                 watcher.Changed += WatcherChanged;
                 _watchers.Add(watcher);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
                 StatusMessage = $"Live refresh unavailable: {ex.Message}";
             }
@@ -1014,6 +1007,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void StartAgentFeedWatcher()
     {
+        if (_disposed) return;
         try
         {
             Directory.CreateDirectory(_manager.AgentFeeds.FeedsDirectory);
@@ -1029,7 +1023,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             watcher.Changed += AgentFeedChanged;
             _watchers.Add(watcher);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             StatusMessage = $"Agent feed live refresh unavailable: {ex.Message}";
         }
@@ -1055,7 +1049,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
 
     private void WatcherChanged(object sender, FileSystemEventArgs e)
     {
-        _dispatcher.BeginInvoke(Refresh);
+        QueueRefresh();
     }
 
     private void AgentFeedChanged(object sender, FileSystemEventArgs e)
@@ -1065,92 +1059,29 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        _dispatcher.BeginInvoke(Refresh);
+        QueueRefresh();
     }
 
-    private static bool EnsureTargetFolder(string path)
+    private void QueueRefresh()
     {
+        if (Volatile.Read(ref _disposed) || _dispatcher.HasShutdownStarted || Interlocked.Exchange(ref _refreshQueued, 1) != 0) return;
         try
         {
-            Directory.CreateDirectory(path);
-            return Directory.Exists(path);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string GetUniqueDestination(string targetDirectory, string name)
-    {
-        var destination = Path.Combine(targetDirectory, name);
-        if (!File.Exists(destination) && !Directory.Exists(destination))
-        {
-            return destination;
-        }
-
-        var baseName = Path.GetFileNameWithoutExtension(name);
-        var extension = Path.GetExtension(name);
-        for (var i = 1; i < 10_000; i++)
-        {
-            var candidate = Path.Combine(targetDirectory, $"{baseName} ({i}){extension}");
-            if (!File.Exists(candidate) && !Directory.Exists(candidate))
+            _dispatcher.BeginInvoke(() =>
             {
-                return candidate;
-            }
+                Interlocked.Exchange(ref _refreshQueued, 0);
+                if (_disposed) return;
+                _refreshTimer.Stop();
+                _refreshTimer.Start();
+            });
         }
-
-        throw new IOException($"Could not find a unique name for {name}.");
+        catch (InvalidOperationException) { Interlocked.Exchange(ref _refreshQueued, 0); }
     }
 
-    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+    private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
-        if (IsSameOrSubPath(destinationDirectory, sourceDirectory))
-        {
-            throw new IOException("Cannot copy a folder into itself.");
-        }
-
-        Directory.CreateDirectory(destinationDirectory);
-        foreach (var file in Directory.EnumerateFiles(sourceDirectory))
-        {
-            File.Copy(file, GetUniqueDestination(destinationDirectory, Path.GetFileName(file)));
-        }
-
-        foreach (var directory in Directory.EnumerateDirectories(sourceDirectory))
-        {
-            CopyDirectory(directory, Path.Combine(destinationDirectory, Path.GetFileName(directory)));
-        }
-    }
-
-    private static bool IsSameOrSubPath(string candidatePath, string parentPath)
-    {
-        var candidate = NormalizeDirectoryForComparison(candidatePath);
-        var parent = NormalizeDirectoryForComparison(parentPath);
-        return string.Equals(candidate, parent, StringComparison.OrdinalIgnoreCase) ||
-               candidate.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeDirectoryForComparison(string path)
-    {
-        return Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-
-    private static SolidColorBrush CreateBrush(string color, double opacity)
-    {
-        try
-        {
-            var parsed = (Color)ColorConverter.ConvertFromString(color);
-            var brush = new SolidColorBrush(parsed) { Opacity = Math.Clamp(opacity, 0.05, 1.0) };
-            brush.Freeze();
-            return brush;
-        }
-        catch
-        {
-            var fallback = new SolidColorBrush(Color.FromRgb(79, 179, 255)) { Opacity = Math.Clamp(opacity, 0.05, 1.0) };
-            fallback.Freeze();
-            return fallback;
-        }
+        _refreshTimer.Stop();
+        if (!_disposed) Refresh();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using OrbitDock.Core;
 using Forms = System.Windows.Forms;
 
@@ -37,50 +38,77 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _showSettingsSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsSignalName);
-        StartSignalListener();
-
-        var store = WorkspaceStore.ForCurrentUser();
-        _manager = new DesktopZoneManager(store);
-        _manager.CleanDesktopModeChanged += enabled =>
+        DispatcherUnhandledException += HandleDispatcherStorageError;
+        try
         {
-            if (enabled)
-            {
-                HideDesktopIcons();
-            }
-            else
-            {
-                RestoreDesktopIcons();
-            }
-        };
-        _manager.Start();
-        RepairStartupRegistration();
-        ApplyDesktopIconMode();
+            _showSettingsSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsSignalName);
+            StartSignalListener();
 
-        _trayIcon = CreateTrayIcon(store);
-        ThemeService.ThemeChanged += RefreshTrayIcon;
-        _hotkeyWindow = new HotkeyWindow(() => Dispatcher.Invoke(() => _manager.TogglePeek()));
+            var store = WorkspaceStore.ForCurrentUser();
+            _manager = new DesktopZoneManager(store);
+            _manager.StorageError += ShowStorageError;
+            _manager.CleanDesktopModeChanged += enabled =>
+            {
+                if (enabled) HideDesktopIcons(); else RestoreDesktopIcons();
+            };
+            // Validate and persist the initial display state before hiding any
+            // Windows icons. A bad/unavailable workspace leaves the shell intact.
+            _manager.Start();
+            RepairStartupRegistration();
+            ApplyDesktopIconMode();
 
-        if (e.Args.Any(arg => string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase)))
+            _trayIcon = CreateTrayIcon(store);
+            ThemeService.ThemeChanged += RefreshTrayIcon;
+            _hotkeyWindow = new HotkeyWindow(() => Dispatcher.Invoke(() => _manager.TogglePeek()));
+
+            if (e.Args.Any(arg => string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase)))
+            {
+                _manager.ShowSettings();
+            }
+        }
+        catch (Exception ex) when (DesktopZoneManager.IsExpectedStorageFailure(ex))
         {
-            _manager.ShowSettings();
+            ShowStorageError("Pandora could not open its workspace. Check the file and its permissions, then start Pandora again. " + ex.Message);
+            Shutdown(1);
         }
     }
 
     protected override void OnExit(System.Windows.ExitEventArgs e)
     {
         _isExiting = true;
-        _showSettingsSignal?.Set();
-        _signalThread?.Join(1000);
-        _hotkeyWindow?.Dispose();
-        ThemeService.ThemeChanged -= RefreshTrayIcon;
-        _trayIcon?.Dispose();
-        _manager?.Dispose();
-        RestoreDesktopIcons();
-        _showSettingsSignal?.Dispose();
-        _mutex?.Dispose();
-        base.OnExit(e);
+        try
+        {
+            _showSettingsSignal?.Set();
+            _signalThread?.Join(1000);
+            _hotkeyWindow?.Dispose();
+            ThemeService.ThemeChanged -= RefreshTrayIcon;
+            _trayIcon?.Dispose();
+            DispatcherUnhandledException -= HandleDispatcherStorageError;
+            if (_manager is not null) _manager.StorageError -= ShowStorageError;
+            _manager?.Dispose();
+        }
+        finally
+        {
+            RestoreDesktopIcons();
+            _showSettingsSignal?.Dispose();
+            _mutex?.Dispose();
+            base.OnExit(e);
+        }
     }
+
+    private void HandleDispatcherStorageError(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        // Programming failures remain unhandled. Expected file/permission/JSON
+        // failures reach this boundary only if a local editor did not handle them.
+        if (!DesktopZoneManager.IsExpectedStorageFailure(e.Exception)) return;
+        e.Handled = true;
+        var message = "Pandora could not complete this operation. Review the error before retrying. " + e.Exception.Message;
+        if (_manager is not null) _manager.ReportStorageError(message);
+        else ShowStorageError(message);
+    }
+
+    private static void ShowStorageError(string message) =>
+        MessageBox.Show(message, "Pandora workspace", MessageBoxButton.OK, MessageBoxImage.Warning);
 
     private void StartSignalListener()
     {
@@ -166,9 +194,18 @@ public partial class App : System.Windows.Application
     private void SetDesktopIconPreference(bool hide)
     {
         if (_manager is null) return;
+        var previous = _manager.Workspace.Settings.HideDesktopIconsWhenRunning;
         _manager.Workspace.Settings.HideDesktopIconsWhenRunning = hide;
-        _manager.Save();
-        if (hide) HideDesktopIcons(); else RestoreDesktopIcons();
+        try
+        {
+            _manager.Save();
+        }
+        catch
+        {
+            _manager.Workspace.Settings.HideDesktopIconsWhenRunning = previous;
+            throw;
+        }
+        if (hide) HideDesktopIcons(); else RestoreDesktopIcons(force: true);
     }
 
     private void RefreshTrayIcon(object? sender, EventArgs e)
@@ -211,8 +248,11 @@ public partial class App : System.Windows.Application
         _desktopIconsHidden = DesktopIconVisibility.TrySetVisible(false) || _desktopIconsHidden;
     }
 
-    private void RestoreDesktopIcons()
+    private void RestoreDesktopIcons(bool force = false)
     {
+        // A second instance never hid icons and must not undo the running
+        // instance's clean-desktop mode when it exits after signaling settings.
+        if (!_desktopIconsHidden && !force) return;
         DesktopIconVisibility.TrySetVisible(true);
         _desktopIconsHidden = false;
     }

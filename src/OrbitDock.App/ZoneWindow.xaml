@@ -52,6 +52,7 @@
                     Grid.Row="0"
                     Background="{Binding HeaderBrush}"
                     CornerRadius="17,17,0,0"
+                    SizeChanged="HeaderBorder_SizeChanged"
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <Grid x:Name="HeaderGrid" Margin="{DynamicResource Pandora.HeaderPadding}">
                     <Grid.ColumnDefinitions>
@@ -73,7 +74,7 @@
                                VerticalAlignment="Center" />
                     </Border>
 
-                    <StackPanel x:Name="TitleStackPanel" Grid.Column="1" VerticalAlignment="Center">
+                    <StackPanel x:Name="TitleStackPanel" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0" ClipToBounds="True">
                         <StackPanel x:Name="DockTitlePanel">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

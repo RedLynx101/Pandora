@@ -28,6 +28,10 @@ const state = {
   audioContext: null,
   analyser: null,
   stream: null,
+  capturing: false,
+  captureGeneration: 0,
+  captureResources: null,
+  lastFrame: null,
   frequency: null,
   waveform: null,
   bands: {
@@ -75,6 +79,8 @@ const palettes = {
 };
 
 function resize() {
+  // Leave the frozen bitmap untouched; CSS can scale it until animation resumes.
+  if (state.frozen) return;
   const { innerWidth, innerHeight, devicePixelRatio } = window;
   state.dpr = Math.min(devicePixelRatio || 1, maxDpr);
   state.width = Math.max(1, innerWidth);
@@ -124,14 +130,21 @@ function setLive(isLive) {
 }
 
 async function startCapture() {
+  if (state.capturing || state.live) return;
   if (!navigator.mediaDevices?.getDisplayMedia) {
     setStatus("System audio capture needs Edge or Chrome.");
     return;
   }
 
+  const generation = ++state.captureGeneration;
+  state.capturing = true;
+  listenButton.querySelector("span:last-child").textContent = "Cancel";
+  let stream = null;
+  let audioContext = null;
+  const resources = { stream: null, context: null, disposed: false };
   try {
     setStatus("Waiting for capture permission");
-    const stream = await navigator.mediaDevices.getDisplayMedia({
+    stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         frameRate: 1,
         width: { ideal: 16 },
@@ -145,52 +158,83 @@ async function startCapture() {
       }
     });
 
+    if (generation !== state.captureGeneration) return;
+    resources.stream = stream;
+    state.captureResources = resources;
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
-      stream.getTracks().forEach(track => track.stop());
       setStatus("No shared audio track. Enable Share audio and try again.");
       return;
     }
 
-    state.stream = stream;
-    state.audioContext = new AudioContext();
-    state.analyser = state.audioContext.createAnalyser();
-    state.analyser.fftSize = 2048;
-    state.analyser.smoothingTimeConstant = 0.86;
-    state.frequency = new Uint8Array(state.analyser.frequencyBinCount);
-    state.waveform = new Uint8Array(state.analyser.fftSize);
+    audioContext = new AudioContext();
+    resources.context = audioContext;
+    await audioContext.resume();
+    if (generation !== state.captureGeneration || audioTracks.every(track => track.readyState === "ended")) return;
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.86;
 
-    const source = state.audioContext.createMediaStreamSource(stream);
-    source.connect(state.analyser);
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    state.stream = stream;
+    state.audioContext = audioContext;
+    state.analyser = analyser;
+    state.frequency = new Uint8Array(analyser.frequencyBinCount);
+    state.waveform = new Uint8Array(analyser.fftSize);
+    state.captureResources = null;
     stream.getTracks().forEach(track => {
-      track.addEventListener("ended", stopCapture, { once: true });
+      track.addEventListener("ended", () => {
+        if (generation === state.captureGeneration) stopCapture();
+      }, { once: true });
     });
 
     setLive(true);
     setStatus("Live system audio");
   } catch (error) {
+    if (generation !== state.captureGeneration) return;
     if (error?.name === "NotAllowedError") {
       setStatus("Capture canceled.");
     } else {
       setStatus("Could not start audio capture.");
     }
+  } finally {
+    // A canceled/stale permission result never acquires ownership of capture resources.
+    if (stream !== state.stream) {
+      // A permission promise can resolve after cancellation, before provisional registration.
+      resources.stream ??= stream;
+      disposeCaptureResources(resources);
+    }
+    if (generation === state.captureGeneration) {
+      state.captureResources = null;
+      state.capturing = false;
+      setLive(state.live);
+    }
   }
 }
 
+function disposeCaptureResources(resources) {
+  if (!resources || resources.disposed) return;
+  resources.disposed = true;
+  resources.stream?.getTracks().forEach(track => track.stop());
+  resources.context?.close().catch(() => {});
+}
+
 function stopCapture() {
-  if (state.stream) {
-    state.stream.getTracks().forEach(track => track.stop());
-  }
-
-  if (state.audioContext) {
-    state.audioContext.close().catch(() => {});
-  }
-
+  ++state.captureGeneration;
+  state.capturing = false;
+  const provisional = state.captureResources;
+  state.captureResources = null;
+  disposeCaptureResources(provisional);
+  const stream = state.stream;
+  const audioContext = state.audioContext;
   state.stream = null;
   state.audioContext = null;
   state.analyser = null;
   state.frequency = null;
   state.waveform = null;
+  stream?.getTracks().forEach(track => track.stop());
+  audioContext?.close().catch(() => {});
   setLive(false);
   setStatus(demoMode ? "Preview drift" : "Waiting for system audio");
 }
@@ -403,10 +447,12 @@ function drawVignette(palette) {
 }
 
 function draw(now) {
-  if (!state.frozen) {
-    state.time = now / 1000;
-    sampleAudio(state.time);
-  }
+  requestAnimationFrame(draw);
+  const elapsed = state.lastFrame === null ? 0 : Math.min(0.1, Math.max(0, (now - state.lastFrame) / 1000));
+  state.lastFrame = now;
+  if (state.frozen) return;
+  state.time += elapsed;
+  sampleAudio(state.time);
 
   const palette = palettes[state.mode];
   drawBackground(palette);
@@ -414,11 +460,10 @@ function draw(now) {
   drawWaveHalo(palette, state.time);
   drawParticles(palette, state.time);
   drawVignette(palette);
-  requestAnimationFrame(draw);
 }
 
 listenButton.addEventListener("click", () => {
-  if (state.live) {
+  if (state.live || state.capturing) {
     stopCapture();
   } else {
     startCapture();
@@ -427,6 +472,7 @@ listenButton.addEventListener("click", () => {
 
 freezeButton.addEventListener("click", () => {
   state.frozen = !state.frozen;
+  if (!state.frozen && (state.width !== window.innerWidth || state.height !== window.innerHeight)) resize();
   freezeButton.classList.toggle("is-active", state.frozen);
   freezeButton.setAttribute("aria-pressed", String(state.frozen));
 });
@@ -449,6 +495,7 @@ modeButtons.forEach(button => {
     stage.dataset.mode = state.mode;
     for (const modeButton of modeButtons) {
       modeButton.classList.toggle("is-active", modeButton === button);
+      modeButton.setAttribute("aria-pressed", String(modeButton === button));
     }
   });
 });
@@ -466,7 +513,7 @@ window.addEventListener("pointerdown", event => {
 });
 
 window.addEventListener("resize", resize);
-window.addEventListener("beforeunload", stopCapture);
+window.addEventListener("pagehide", stopCapture);
 
 resize();
 clearCanvas();

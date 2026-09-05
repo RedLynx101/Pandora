@@ -8,6 +8,18 @@ Workspace path:
 
 If `%APPDATA%\OrbitDock\workspace.json` does not exist, Pandora imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to the current schema.
 
+## Data preservation and recovery
+
+Existing malformed, unreadable, null-shaped, or future-schema workspaces are never automatically replaced with defaults. Startup reports the problem; a failed reload leaves existing docks open. Fix the file or explicitly restore a known backup, then reload. Supported migrations back up the original bytes before replacement.
+
+Writes use an exclusive lock and a content fingerprint attached to the loaded snapshot. A stale writer fails instead of overwriting another agent's or editor's changes—even if the file timestamp did not change. Reload and reapply the intended change after a conflict. Non-cooperating editors can still race a pathname-based check; use the CLI for coordinated writes.
+
+`pandoractl workspace validate` is read-only: it does not create a missing workspace, import legacy data, migrate on disk, create locks, or make backups. A missing/invalid/unsupported file produces a nonzero exit code. Relative explicit workspace paths resolve against the current directory, including their companion feed store.
+
+Folder drops never overwrite existing items and reject symbolic links/junctions or other reparse points in source trees and destination ancestors. Preflight is bounded to 20,000 entries and 128 levels. A failed copy may leave partial destination files, but it retains the source and its pin. These checks are not a race-proof filesystem sandbox.
+
+Automatic startup/reload rewriting of AI virtual-tab shortcuts has been removed. Explicit shortcut installation and the user's startup preference remain separate operations. Repairing oversized docks affects only the active display variant.
+
 Starter workspace shape:
 
 ```json

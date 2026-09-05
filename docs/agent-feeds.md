@@ -24,6 +24,10 @@ Pandora keeps read state and local checklist completion in:
 
 Agents should prefer the CLI. The store writes atomically with a lock file so concurrent local agents do not corrupt feed state.
 
+`state` is a reserved feed ID, including normalized aliases; a feed's embedded ID must match its filename. Local state mutations hold the lock through read/modify/write and reject corrupt state instead of overwriting it. Feed and state writes are bounded to 1 MiB of serialized UTF-8; local state allows 64 feeds and 500 items per feed, with explicit errors at capacity. Checklist item IDs must be unique throughout a feed, not just within a section.
+
+Simple `--checklist-file` text or string-array inputs derive IDs from task content, not row numbers. Reordering preserves completion; different task text receives a new identity. LF, CRLF and CR line endings are supported. Use explicit object IDs for tasks whose wording changes while identity remains the same. Malformed JSON inputs are rejected. The UI's read/check actions are revision-aware: stale callbacks cannot mark an unseen revision or a replaced task complete. Malformed feeds or local state render an error card.
+
 Feed files are local-only but still treated as untrusted agent input. Pandora rejects oversized feed files, very long text fields, and feeds with excessive sections or items so a broken automation cannot freeze the desktop surface with an accidentally huge payload.
 
 ## CLI

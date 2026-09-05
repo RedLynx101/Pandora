@@ -21,12 +21,16 @@ public static class MusicLibraryScanner
             expandedRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "OrbitDock");
         }
 
-        if (!Directory.Exists(expandedRoot))
+        try
         {
-            return new MusicLibrary(expandedRoot, [], $"Music folder unavailable: {expandedRoot}");
+            if (!SafeFileTransfer.RequireOrdinaryPath(expandedRoot).HasFlag(FileAttributes.Directory))
+                return new MusicLibrary(expandedRoot, [], $"Music folder unavailable: {expandedRoot}");
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { return new MusicLibrary(expandedRoot, [], $"Music folder unavailable: {ex.Message}"); }
 
-        var tracks = SafeEnumerateFiles(expandedRoot)
+        var files = SafeEnumerateFiles(expandedRoot, out var skipped, out var limited);
+        var tracks = files
             .Where(IsSupported)
             .Select(path => CreateTrack(expandedRoot, path))
             .OrderBy(track => track.PlaylistId, StringComparer.OrdinalIgnoreCase)
@@ -47,6 +51,8 @@ public static class MusicLibraryScanner
         var status = tracks.Length == 0
             ? "No supported music files found."
             : $"{tracks.Length} music track(s)";
+        if (skipped > 0) status += $" · {skipped} inaccessible, changed, or linked item(s) skipped";
+        if (limited) status += " · Scan limit reached; remaining items skipped";
         return new MusicLibrary(expandedRoot, playlists, status);
     }
 
@@ -75,16 +81,40 @@ public static class MusicLibraryScanner
             playlistId);
     }
 
-    private static IEnumerable<string> SafeEnumerateFiles(string root)
+    private static IReadOnlyList<string> SafeEnumerateFiles(string root, out int skipped, out bool limited)
     {
-        try
+        var files = new List<string>();
+        var pending = new Stack<(string Path, int Depth)>();
+        pending.Push((root, 0));
+        skipped = 0;
+        limited = false;
+        var visited = 0;
+        while (pending.TryPop(out var directory))
         {
-            return Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories);
+            try
+            {
+                SafeFileTransfer.RequireOrdinaryPath(directory.Path);
+                foreach (var path in Directory.EnumerateFileSystemEntries(directory.Path))
+                {
+                    if (++visited > SafeFileTransfer.MaximumEntries) { limited = true; return files; }
+                    try
+                    {
+                        var attributes = SafeFileTransfer.RequireOrdinaryPath(path);
+                        if (attributes.HasFlag(FileAttributes.Directory))
+                        {
+                            if (directory.Depth >= SafeFileTransfer.MaximumDepth) { limited = true; continue; }
+                            pending.Push((path, directory.Depth + 1));
+                        }
+                        else if (IsSupported(path)) files.Add(path);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    { skipped++; }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { skipped++; }
         }
-        catch
-        {
-            return [];
-        }
+        return files;
     }
 }
 

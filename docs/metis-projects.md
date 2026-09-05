@@ -1,6 +1,8 @@
 # Metis projects in Pandora
 
-Pandora's **Projects** dock is a local, read-only portfolio of Metis active plans. It complements the normal launcher, music, and agent-feed docks; it does not replace them or become another director.
+Pandora's **Projects** dock is a local, read-only portfolio of [Metis](https://github.com/RedLynx101/Metis) active plans. Metis is the Codex execution skill that keeps long-running work grounded in a contract, phased plan, ownership, and acceptance evidence. It complements the normal launcher, music, and agent-feed docks; Pandora does not replace them or become another director.
+
+Use the combination for one long-running agent or several independent director-led projects: Metis manages execution, while Pandora makes phases, owners, blockers, and declared capacity visible together. Managers can coordinate their own internal subagents; the shared JSON format preserves separate plan identities and authority. Large-team sizing remains subject to host/account limits, not a capability Pandora enforces. [Metis setup and connection guide →](https://github.com/RedLynx101/Metis/blob/main/docs/pandora.md)
 
 ## Register a project
 

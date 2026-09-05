@@ -2,7 +2,7 @@
 
 **Files, tools, and projects. On your desktop.**
 
-Pandora is a Windows desktop organizer with customizable docks, folder tabs, saved layouts, local music, and an optional view of long-running Metis projects. No account or cloud service required.
+Pandora is a Windows desktop organizer with customizable docks, folder tabs, saved layouts, local music, and an optional view of long-running [Metis](https://github.com/RedLynx101/Metis) projects. No account or cloud service required.
 
 [![Build and tests](https://github.com/RedLynx101/Pandora/actions/workflows/ci.yml/badge.svg)](https://github.com/RedLynx101/Pandora/actions/workflows/ci.yml) · [MIT](LICENSE) · Windows 10/11 · .NET 8 · **Alpha**
 
@@ -53,11 +53,15 @@ Header and body transparency leave text readable. Compact, Standard, and Large b
 
 ## A home for Metis projects
 
-Register an existing local Metis dashboard from the Projects dock or CLI. Pandora reads its embedded JSON without running the HTML or changing the plan.
+[Metis](https://github.com/RedLynx101/Metis) is the companion Codex skill for grounded, long-running agent work: written contracts, phased plans, assigned owners, and evidence-backed acceptance. It works with a single agent or director-led teams of managers and their subagents.
+
+For very large tasks, **Metis coordinates execution; Pandora gives you one desktop view across independent projects**. See which phase is active, who owns the work, and where a decision is needed without opening every agent conversation. Metis targets workflows up to roughly 100 agents when host limits permit; this is a design target, not a tested concurrency claim.
+
+Register an existing local Metis dashboard from the Projects dock or CLI. Pandora reads its embedded JSON without running the HTML or changing the plan. The shared versioned format keeps each plan and director's authority separate.
 
 <img src="screenshots/pandora-projects.png" alt="Projects dock showing two synthetic Metis plans" width="540">
 
-Plans remain independent. The view distinguishes implemented work from verified acceptance, declared team budgets from live usage, and source freshness from agent liveness. Pandora displays progress; it does not direct agents or approve work. [Connect a project →](docs/metis-projects.md)
+The view distinguishes implemented work from verified acceptance, declared team budgets from live usage, and source freshness from agent liveness. Pandora displays progress; it does not direct agents or approve work. [Get Metis →](https://github.com/RedLynx101/Metis) · [Connect a project →](docs/metis-projects.md)
 
 Images above are **actual WPF controls with sample content**, rendered offscreen—not captures of a live desktop. [Image provenance →](screenshots/README.md)
 

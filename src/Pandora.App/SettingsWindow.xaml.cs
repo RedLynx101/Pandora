@@ -49,6 +49,8 @@ public partial class SettingsWindow : Window
             LayoutsComboBox.SelectedItem = _manager.Workspace.Layouts.FirstOrDefault(layout =>
                 string.Equals(layout.Name, _manager.Workspace.ActiveLayoutName, StringComparison.OrdinalIgnoreCase));
             LayoutNameTextBox.Text = _manager.Workspace.ActiveLayoutName;
+            var activeLayout = WorkspaceLayoutService.EnsureActiveLayout(_manager.Workspace);
+            DisplayStateText.Text = $"Current display arrangement: {activeLayout.ActiveDisplayVariantKey}\n{activeLayout.DisplayVariants.Count} retained arrangement(s) in this layout.";
             ZonesList.SelectedItem = _manager.Workspace.Zones.FirstOrDefault(zone => zone.Id == selectedDockId)
                 ?? _manager.Workspace.Zones.FirstOrDefault();
 
@@ -526,6 +528,39 @@ public partial class SettingsWindow : Window
     private void OpenWorkspace_Click(object sender, RoutedEventArgs e)
     {
         OpenPath(_manager.WorkspacePath);
+    }
+
+    private void OpenRecovery_Click(object sender, RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(_manager.RecoveryDirectory);
+        OpenPath(_manager.RecoveryDirectory);
+    }
+
+    private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var directory = Path.Combine(Path.GetDirectoryName(_manager.WorkspacePath)!, "Diagnostics");
+        Directory.CreateDirectory(directory);
+        OpenPath(directory);
+    }
+
+    private void RestoreWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Restore a Pandora workspace backup", Filter = "Workspace backups (*.json;*.bak)|*.json;*.bak",
+            InitialDirectory = Directory.Exists(_manager.RecoveryDirectory) ? _manager.RecoveryDirectory : Path.GetDirectoryName(_manager.WorkspacePath),
+            CheckFileExists = true, Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var candidate = new WorkspaceStore(dialog.FileName).LoadReadOnly();
+            var message = $"Restore {candidate.Zones.Count} docks and {candidate.Layouts.Count} layouts from:\n{dialog.FileName}\n\nThis replaces workspace preferences and layout metadata, not your files or project registry. The current workspace will be backed up first.";
+            if (MessageBox.Show(this, message, "Restore workspace", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+            _manager.RestoreWorkspace(dialog.FileName);
+        }
+        catch (Exception ex) when (DesktopZoneManager.IsExpectedStorageFailure(ex))
+        { MessageBox.Show(this, "Recovery could not complete. " + ex.Message, "Recovery failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void OpenMusicFolder_Click(object sender, RoutedEventArgs e)

@@ -45,6 +45,8 @@ public partial class App : System.Windows.Application
             StartSignalListener();
 
             var store = WorkspaceStore.ForCurrentUser();
+            RuntimeDiagnostics.Initialize(store.WorkspacePath);
+            AppDomain.CurrentDomain.UnhandledException += RecordUnhandledFailure;
             _manager = new DesktopZoneManager(store);
             _manager.StorageError += ShowStorageError;
             _manager.CleanDesktopModeChanged += enabled =>
@@ -68,6 +70,7 @@ public partial class App : System.Windows.Application
         }
         catch (Exception ex) when (DesktopZoneManager.IsExpectedStorageFailure(ex))
         {
+            RuntimeDiagnostics.RecordFailure(ex);
             ShowStorageError("Pandora could not open its workspace. Check the file and its permissions, then start Pandora again. " + ex.Message);
             Shutdown(1);
         }
@@ -86,6 +89,8 @@ public partial class App : System.Windows.Application
             DispatcherUnhandledException -= HandleDispatcherStorageError;
             if (_manager is not null) _manager.StorageError -= ShowStorageError;
             _manager?.Dispose();
+            RuntimeDiagnostics.Record("shutdown", new { at = DateTimeOffset.UtcNow, exitCode = e.ApplicationExitCode });
+            AppDomain.CurrentDomain.UnhandledException -= RecordUnhandledFailure;
         }
         finally
         {
@@ -98,6 +103,7 @@ public partial class App : System.Windows.Application
 
     private void HandleDispatcherStorageError(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        RuntimeDiagnostics.RecordFailure(e.Exception);
         // Programming failures remain unhandled. Expected file/permission/JSON
         // failures reach this boundary only if a local editor did not handle them.
         if (!DesktopZoneManager.IsExpectedStorageFailure(e.Exception)) return;
@@ -109,6 +115,11 @@ public partial class App : System.Windows.Application
 
     private static void ShowStorageError(string message) =>
         MessageBox.Show(message, "Pandora workspace", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+    private static void RecordUnhandledFailure(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception error) RuntimeDiagnostics.RecordFailure(error);
+    }
 
     private void StartSignalListener()
     {

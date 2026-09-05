@@ -104,6 +104,12 @@ Preview shortcut changes without writing:
 
 ## Rolled-up movement regression
 
+Automated reliability checks cover 100 coalesced placement updates during one
+gesture, final collapsed-state persistence, a paused worker save with a newer UI
+edit, and synchronous settings save ordering. Core fixtures cover detached-snapshot
+conflicts, five-slot recovery rotation, explicit restore rollback, and oversized
+workspace rejection. These checks do not simulate Windows compositor behavior.
+
 - For each structure, record a dock's expanded size, collapse it, drag the visible header, and confirm it stays closed. Reopen it and verify the remembered expanded size and new location.
 - Repeat with top and bottom expansion. Bottom-anchored docks must retain the lower edge and expand upward without jumping or replacing saved height with header height.
 - Repeat movement through coordinate normalization and layout save/reload. Confirm `isCollapsed` is preserved and saved expanded bounds remain distinct from the visible collapsed projection.
@@ -111,6 +117,10 @@ Preview shortcut changes without writing:
 - Test actual display transitions and mixed-DPI movement separately from fixture-level bounds checks.
 
 ## Projects and existing behavior
+
+The offscreen harness also constructs a Projects control that never receives
+`Loaded`, verifies its automatic initial read, injects a registry failure, and
+checks recovery and concurrent-refresh completion. No live user registry is used.
 
 - Register two independent Metis sources; verify ownership, current phase, weighted buckets, verified counts, budgets, and timestamps against the JSON.
 - Test missing, unsupported, malformed, stale, and updated project sources. Ensure no source plan file is changed.

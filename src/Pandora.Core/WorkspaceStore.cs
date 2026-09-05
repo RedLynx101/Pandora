@@ -13,6 +13,8 @@ public sealed class WorkspaceStore
     private const int LockRetryCount = 80;
     private const int LockRetryDelayMilliseconds = 50;
     private static readonly ConditionalWeakTable<Workspace, PersistenceStamp> Stamps = new();
+    private static readonly ConditionalWeakTable<Workspace, SnapshotOrigin> SnapshotOrigins = new();
+    private const int MaximumWorkspaceBytes = 8 * 1024 * 1024;
     private readonly string? _legacyWorkspacePath;
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -31,6 +33,7 @@ public sealed class WorkspaceStore
     }
 
     public string WorkspacePath { get; }
+    public string RecoveryDirectory => WorkspacePath + ".recovery";
 
     // Deterministic failure injection for fixture tests; never set by product callers.
     internal Action? BeforeBackupForTests { get; set; }
@@ -99,7 +102,65 @@ public sealed class WorkspaceStore
 
         if (current is not null && expected!.SchemaVersion < WorkspaceMigrator.CurrentSchemaVersion)
             BackupCore(current, $"migrated-v{WorkspaceMigrator.CurrentSchemaVersion}");
+        if (current is not null && current.AsSpan().SequenceEqual(bytes)) return;
+        if (current is not null) PreserveRecoverySnapshot(current);
         WriteCore(workspace, bytes, destinationExists: current is not null);
+    }
+
+    /// <summary>Capture on the model's owning thread; save only this detached object on a worker.</summary>
+    public Workspace CreateSaveSnapshot(Workspace source)
+    {
+        if (!Stamps.TryGetValue(source, out var stamp) || stamp.Path != WorkspacePath)
+            throw new WorkspaceConflictException("Cannot capture an untracked workspace.");
+        var snapshot = Parse(Serialize(source)); // Do not reapply a layout over the latest geometry.
+        Stamps.Add(snapshot, stamp);
+        SnapshotOrigins.Add(snapshot, new SnapshotOrigin(source, stamp));
+        return snapshot;
+    }
+
+    /// <summary>Advance only persistence metadata, never overwrite edits made during the save.</summary>
+    public void AcceptSavedSnapshot(Workspace source, Workspace snapshot)
+    {
+        if (!SnapshotOrigins.TryGetValue(snapshot, out var origin) || !ReferenceEquals(origin.Source, source) ||
+            !Stamps.TryGetValue(source, out var before) || before != origin.Stamp ||
+            !Stamps.TryGetValue(snapshot, out var after) || after.Path != WorkspacePath)
+            throw new WorkspaceConflictException("The workspace changed while accepting a background save.");
+        Stamps.Remove(source);
+        Stamps.Add(source, after);
+        SnapshotOrigins.Remove(snapshot);
+    }
+
+    /// <summary>Explicit recovery only. Validate first and retain the current bytes before replacement.</summary>
+    public Workspace RestoreFromBackup(string backupPath)
+    {
+        var candidate = PrepareSnapshot(ReadExistingBytes(Path.GetFullPath(backupPath)), attachStamp: false);
+        var bytes = Serialize(candidate);
+        using var guard = AcquireLock();
+        var current = ReadBytesIfPresent(WorkspacePath);
+        if (current is not null) BackupCore(current, "before-restore");
+        WriteCore(candidate, bytes, current is not null);
+        return candidate;
+    }
+
+    private void PreserveRecoverySnapshot(byte[] bytes)
+    {
+        // Five fixed slots, no more than one per five minutes. Manual/migration
+        // backups are separate and are never pruned by this rotation.
+        Parse(bytes);
+        Directory.CreateDirectory(RecoveryDirectory);
+        var slots = Enumerable.Range(1, 5).Select(i => Path.Combine(RecoveryDirectory, $"workspace-{i}.json")).ToArray();
+        var newest = slots.Where(File.Exists).Select(File.GetLastWriteTimeUtc).DefaultIfEmpty(DateTime.MinValue).Max();
+        if (DateTime.UtcNow - newest < TimeSpan.FromMinutes(5)) return;
+        var target = slots.OrderBy(path => File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue).First();
+        var temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { stream.Write(bytes); stream.Flush(flushToDisk: true); }
+            if (File.Exists(target)) File.Replace(temporary, target, null);
+            else File.Move(temporary, target);
+        }
+        finally { TryDelete(temporary); }
     }
 
     public string Backup(string reason = "manual")
@@ -139,7 +200,9 @@ public sealed class WorkspaceStore
     private byte[] Serialize(Workspace workspace)
     {
         WorkspaceValidation.ThrowIfInvalid(workspace);
-        return JsonSerializer.SerializeToUtf8Bytes(workspace, _jsonOptions);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(workspace, _jsonOptions);
+        if (bytes.Length > MaximumWorkspaceBytes) throw new WorkspaceValidationException("Workspace exceeds the 8 MiB safety limit.");
+        return bytes;
     }
 
     private void WriteCore(Workspace workspace, byte[] bytes, bool destinationExists)
@@ -182,8 +245,15 @@ public sealed class WorkspaceStore
     private static byte[] ReadExistingBytes(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
+        if (stream.Length > MaximumWorkspaceBytes) throw new WorkspaceValidationException("Workspace exceeds the 8 MiB safety limit.");
+        using var buffer = new MemoryStream((int)stream.Length);
+        var chunk = new byte[16 * 1024];
+        int count;
+        while ((count = stream.Read(chunk)) > 0)
+        {
+            if (buffer.Length + count > MaximumWorkspaceBytes) throw new WorkspaceValidationException("Workspace exceeds the 8 MiB safety limit.");
+            buffer.Write(chunk, 0, count);
+        }
         return buffer.ToArray();
     }
 
@@ -223,4 +293,5 @@ public sealed class WorkspaceStore
     }
 
     private sealed record PersistenceStamp(string Path, string Fingerprint, int SchemaVersion);
+    private sealed record SnapshotOrigin(Workspace Source, PersistenceStamp Stamp);
 }

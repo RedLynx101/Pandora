@@ -26,6 +26,13 @@ For a Metis director, check once at dashboard setup or an active-plan transition
 
 ## What the overview means
 
+Startup reads do not depend on expanding the dock. **Loading**, **No dashboards
+registered**, and **Projects unavailable · refresh failed** are different states;
+source errors retain explicit unavailable/stale cards rather than claiming healthy
+projects. Hover over the status line for the registry path and last refresh time.
+Local diagnostics under `%APPDATA%\Pandora\Diagnostics` record refresh and rendered
+summary counts. Review diagnostic paths/error details before sharing.
+
 - A project groups plans by stable `projectId`; each plan retains its own `plan.id`, `task.id`, dashboard ID, and director boundary. Display names do not supply identity.
 - Verified progress counts acceptance criteria marked `verified`, not activity, time spent, or manager claims of implementation. Phase status is also shown separately.
 - Phase bucket widths use the number of work packages, falling back to criteria count, with a minimum width of one. Fill uses verified criteria. A completed-looking bar does not substitute for the phase acceptance gate.

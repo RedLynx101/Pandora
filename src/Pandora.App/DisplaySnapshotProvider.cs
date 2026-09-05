@@ -12,16 +12,39 @@ namespace Pandora.App;
 public static class DisplaySnapshotProvider
 {
     private const int MonitorDefaultToNearest = 2;
+    private static readonly object CacheGuard = new();
+    private static IReadOnlyList<DisplayDescriptor>? _physicalCache;
+    private static IReadOnlyList<DisplayDescriptor>? _dipCache;
+    private static DateTime _cacheUntil;
+
+    public static void Invalidate()
+    {
+        lock (CacheGuard) { _physicalCache = null; _dipCache = null; }
+    }
 
     public static IReadOnlyList<DisplayDescriptor> GetDisplays(Visual? visual = null)
     {
-        var physicalDisplays = GetPhysicalDisplays();
-        return ScreenCoordinatesNeedDipConversion(physicalDisplays)
-            ? physicalDisplays.Select(ConvertDisplayToDip).ToArray()
-            : physicalDisplays;
+        lock (CacheGuard)
+        {
+            var physicalDisplays = GetPhysicalDisplays();
+            return _dipCache ??= ScreenCoordinatesNeedDipConversion(physicalDisplays)
+                ? physicalDisplays.Select(ConvertDisplayToDip).ToArray()
+                : physicalDisplays;
+        }
     }
 
     public static IReadOnlyList<DisplayDescriptor> GetPhysicalDisplays()
+    {
+        lock (CacheGuard)
+        {
+            if (_physicalCache is not null && DateTime.UtcNow < _cacheUntil) return _physicalCache;
+            _dipCache = null;
+            _cacheUntil = DateTime.UtcNow.AddSeconds(1);
+            return _physicalCache = ReadPhysicalDisplays();
+        }
+    }
+
+    private static IReadOnlyList<DisplayDescriptor> ReadPhysicalDisplays()
     {
         var displays = new List<DisplayDescriptor>();
         foreach (var screen in Forms.Screen.AllScreens)

@@ -31,6 +31,9 @@ public partial class ProjectsControl : UserControl, IDisposable
         _portfolio.Changed += PortfolioChanged;
         Loaded += async (_, _) => await RefreshAsync();
         Render();
+        // A collapsed host may not receive Loaded yet. Reconcile independently
+        // of visibility so the first expansion has real state, not "0 projects".
+        _ = _portfolio.RefreshAsync();
     }
 
     public async Task RefreshAsync()
@@ -42,6 +45,13 @@ public partial class ProjectsControl : UserControl, IDisposable
 
     private void PortfolioChanged(object? sender, EventArgs args)
     {
+        RuntimeDiagnostics.Record("projects", new
+        {
+            registryPath = _portfolio.RegistryPath, _portfolio.HasRefreshed, _portfolio.IsRefreshing,
+            _portfolio.LastRefreshCompletedAt, registrations = _portfolio.Entries.Count,
+            live = _portfolio.Entries.Count(e => e.IsLive), error = _portfolio.RegistryError,
+            sources = _portfolio.Entries.Select(e => new { e.Registration.Id, status = e.Status.ToString(), e.Error }).ToArray()
+        });
         if (!_disposed && !Dispatcher.HasShutdownStarted) _ = Dispatcher.InvokeAsync(Render);
     }
 
@@ -71,7 +81,8 @@ public partial class ProjectsControl : UserControl, IDisposable
     {
         if (_disposed) return;
         var entries = _portfolio.Entries;
-        var key = string.Join("|", entries.Select(e => $"{e.Registration.Id}:{e.Registration.Expanded}:{e.Status}:{e.Error}:{e.Snapshot?.ContentFingerprint}")) + _portfolio.RegistryError + _actionError;
+        ProjectsStatus.ToolTip = "Registry: " + _portfolio.RegistryPath + "\nLast refresh: " + (_portfolio.LastRefreshCompletedAt?.ToLocalTime().ToString("g") ?? "not completed");
+        var key = string.Join("|", entries.Select(e => $"{e.Registration.Id}:{e.Registration.Expanded}:{e.Status}:{e.Error}:{e.Snapshot?.ContentFingerprint}")) + _portfolio.RegistryError + _actionError + _portfolio.HasRefreshed;
         if (key == _renderKey)
         {
             foreach (var entry in entries)
@@ -85,19 +96,26 @@ public partial class ProjectsControl : UserControl, IDisposable
         var projects = live.Select(e => e.Snapshot!.ProjectId).Distinct(StringComparer.Ordinal).Count();
         var verified = live.Sum(e => e.Snapshot!.VerifiedCriteria);
         var total = live.Sum(e => e.Snapshot!.CriteriaCount);
-        ProjectsSummary.Text = entries.Count == 0 ? "Your projects, one quiet overview" :
+        ProjectsSummary.Text = !_portfolio.HasRefreshed ? "Loading registered projects…" :
+            _portfolio.RegistryError is not null ? "Projects unavailable · refresh failed" :
+            entries.Count == 0 ? "No dashboards registered" :
             $"{projects} live project{Plural(projects)} · {live.Length} plan{Plural(live.Length)} · {verified}/{total} criteria verified";
         var errors = entries.Count(e => e.Status is not (MetisReadStatus.Ready or MetisReadStatus.Sample));
         var samples = entries.Count(e => e.Status == MetisReadStatus.Sample);
-        ProjectsStatus.Text = _actionError ?? _portfolio.RegistryError ?? (entries.Count == 0
+        ProjectsStatus.Text = _actionError ?? _portfolio.RegistryError ?? (!_portfolio.HasRefreshed
+            ? "Reading your local project registry. This is not an empty-project result."
+            : entries.Count == 0
             ? "Add a trusted Metis dashboard HTML file. Nothing is discovered automatically, and project files stay read-only."
             : $"{errors} source issue{Plural(errors)} · {samples} sample{Plural(samples)} excluded. Source snapshots, not live agent telemetry. Refreshes every 30 seconds.");
         ProjectsStatus.SetResourceReference(TextBlock.ForegroundProperty, _actionError is not null || _portfolio.RegistryError is not null ? "Pandora.DangerBrush" : "Pandora.MutedBrush");
+        RuntimeDiagnostics.Record("projects-view", new { at = DateTimeOffset.UtcNow, registryPath = _portfolio.RegistryPath,
+            IsLoaded, visibility = Visibility.ToString(), registrations = entries.Count, liveProjects = projects,
+            summary = ProjectsSummary.Text, error = _portfolio.RegistryError ?? _actionError });
         ProjectsList.Children.Clear();
         if (entries.Count == 0)
         {
             var empty = Panel();
-            empty.Children.Add(Label("A view, not a second manager", 16, bold: true));
+            empty.Children.Add(Label(!_portfolio.HasRefreshed ? "Loading…" : _portfolio.RegistryError is not null ? "Could not read the project registry" : "A view, not a second manager", 16, bold: true));
             empty.Children.Add(Label("Follow multiple plans without merging their authority. Directors keep the plan and acceptance gates; Pandora shows the state they publish.", 12, muted: true));
             empty.Children.Add(Label("No approval buttons, automatic agents, or checklist writes. You choose every source.", 11, muted: true));
             ProjectsList.Children.Add(Card(empty));

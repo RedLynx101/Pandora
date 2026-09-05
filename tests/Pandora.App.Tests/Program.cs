@@ -64,6 +64,8 @@ internal static partial class Program
         Run("Bar size previews, persists, reverts and rolls back safely", DockBarSizeSettings);
         Run("Projects: empty registry and explicit error states", ProjectStates);
         Run("Projects: read-only multi-project details and item-sized buckets", ProjectDetails);
+        Run("Projects: startup without Loaded and registry failure recovery", ProjectStartupLifecycle);
+        Run("Placement gestures coalesce saves and preserve concurrent edits", PlacementSaveLifecycle);
         Run("Reload failures preserve existing docks until replacement is prepared", LifecycleReloadSafety);
         Run("Persistence errors cannot masquerade as successful saves", LifecyclePersistenceSafety);
         Run("Only expected storage failures enter recoverable handling", LifecycleExpectedStorageErrors);

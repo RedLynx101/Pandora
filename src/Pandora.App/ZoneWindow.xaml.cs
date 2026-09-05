@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using Pandora.Core;
 
@@ -29,6 +30,8 @@ public partial class ZoneWindow : Window
     private FileItemViewModel? _dragItem;
     private ProjectsControl? _projectsControl;
     private bool _isClosed;
+    private HwndSource? _windowSource;
+    private bool _placementGesture;
 
     public ZoneWindow(ZoneViewModel viewModel, DesktopZoneManager manager)
     {
@@ -81,6 +84,8 @@ public partial class ZoneWindow : Window
 
     private void Window_SourceInitialized(object sender, EventArgs e)
     {
+        _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        _windowSource?.AddHook(PlacementMessage);
         DockWindowLayer.ApplyDesktopOverlayStyles(this);
         TryAttachToDesktop();
 
@@ -176,12 +181,28 @@ public partial class ZoneWindow : Window
                 _isApplyingPlacement = false;
             }
 
-            _manager.Save();
+            _manager.SavePlacement();
             return;
         }
 
         SaveCurrentWindowBoundsToModel();
-        _manager.Save();
+        _manager.SavePlacement();
+    }
+
+    private IntPtr PlacementMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message == 0x0231) SetPlacementGesture(true); // WM_ENTERSIZEMOVE, including resize borders
+        if (message == 0x0232) SetPlacementGesture(false); // WM_EXITSIZEMOVE
+        if (message == 0x02E0) DisplaySnapshotProvider.Invalidate(); // WM_DPICHANGED
+        return IntPtr.Zero;
+    }
+
+    private void SetPlacementGesture(bool active)
+    {
+        if (_placementGesture == active) return;
+        _placementGesture = active;
+        if (active) _manager.BeginPlacementGesture();
+        else _manager.EndPlacementGesture();
     }
 
     private void Window_StateChanged(object sender, EventArgs e)
@@ -234,12 +255,14 @@ public partial class ZoneWindow : Window
 
         try
         {
+            SetPlacementGesture(true);
             DragMove();
         }
         catch
         {
             // DragMove throws if Windows cancels the drag. The next drag can still succeed.
         }
+        finally { SetPlacementGesture(false); }
 
         _manager.ApplyDockLayering();
     }
@@ -669,6 +692,9 @@ public partial class ZoneWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        SetPlacementGesture(false);
+        _windowSource?.RemoveHook(PlacementMessage);
+        _windowSource = null;
         _isClosed = true;
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ThemeService.ThemeChanged -= RefreshTheme;
@@ -772,7 +798,8 @@ public partial class ZoneWindow : Window
         ApplyCollapsedState();
         _manager.Save();
         _manager.Audio.PlaySoundEffect(_manager.Workspace, _viewModel.Zone.IsCollapsed ? "dock-close" : "dock-bloom");
-        _manager.ApplyDockLayering();
+        // Resizing does not change z-order. Re-layering every dock here creates
+        // avoidable compositor churn while this transparent window changes size.
     }
 
     private void ApplyCollapsedState()
@@ -780,9 +807,9 @@ public partial class ZoneWindow : Window
         _isApplyingPlacement = true;
         try
         {
-            ApplyWindowBounds(_viewModel.Zone.Bounds);
             ApplyExpansionEdgeLayout();
             ApplyContentMode();
+            ApplyWindowBounds(_viewModel.Zone.Bounds);
             SaveCurrentWindowBoundsToModel();
             if (!_viewModel.Zone.IsCollapsed && _viewModel.IsAgentFeedDock)
             {

@@ -124,6 +124,10 @@
                             <TextBlock Text="Workspace file" Style="{StaticResource SectionTitle}" />
                             <TextBlock Text="Advanced edits can be made in the local JSON. Reload only after saving your file." Style="{StaticResource MutedText}" Margin="0,0,0,12" />
                             <WrapPanel><Button Content="Open workspace JSON" Click="OpenWorkspace_Click" /><Button Content="Reload workspace" Click="Reload_Click" /></WrapPanel>
+                            <TextBlock Text="Recovery &amp; diagnostics" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="Five automatic recovery snapshots are retained, at most one every five minutes of changes. Restoring is always your choice and keeps a backup of the current workspace. Monitor-specific layouts remain under Layouts." Style="{StaticResource MutedText}" Margin="0,0,0,12" />
+                            <WrapPanel><Button Content="Restore from backup…" Click="RestoreWorkspace_Click" /><Button Content="Open recovery folder" Click="OpenRecovery_Click" /><Button Content="Open diagnostics" Click="OpenDiagnostics_Click" /></WrapPanel>
+                            <TextBlock Text="Diagnostics stay on this computer. They include paths, refresh status, layout selection and error details—not dashboard contents or agent conversations. Review before sharing." Style="{StaticResource MutedText}" Margin="0,8,0,0" />
                         </StackPanel>
                         <StackPanel x:Name="DocksPanel" Visibility="Collapsed">
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -155,7 +159,9 @@
                             <TextBlock Text="Saved layout" Style="{StaticResource FieldLabel}" /><ComboBox x:Name="LayoutsComboBox" DisplayMemberPath="Name" SelectionChanged="LayoutsComboBox_SelectionChanged" AutomationProperties.Name="Saved layout" />
                             <TextBlock Text="Layout name" Style="{StaticResource FieldLabel}" /><TextBox x:Name="LayoutNameTextBox" AutomationProperties.Name="Layout name" />
                             <WrapPanel><Button Content="Save current as…" Click="SaveLayout_Click" Style="{StaticResource Pandora.AccentButton}" Margin="0,0,8,8" /><Button Content="Switch layout" Click="SwitchLayout_Click" /><Button Content="Duplicate" Click="DuplicateLayout_Click" /><Button x:Name="DeleteLayoutButton" Content="Delete layout" Click="DeleteLayout_Click" Style="{StaticResource DangerButton}" /></WrapPanel>
-                            <TextBlock Text="Display recovery" Style="{StaticResource SectionTitle}" /><TextBlock Text="If a monitor change left a dock oversized, repair bounds without resetting its content or appearance." Style="{StaticResource MutedText}" Margin="0,0,0,12" /><Button Content="Repair dock sizes" Click="RepairDockSizes_Click" HorizontalAlignment="Left" />
+                            <TextBlock Text="Display recovery" Style="{StaticResource SectionTitle}" />
+                            <TextBlock x:Name="DisplayStateText" Style="{StaticResource MutedText}" Margin="0,0,0,12" />
+                            <TextBlock Text="Changing monitors selects a stored arrangement. Hidden docks are still listed under Docks. If a monitor change left a dock oversized, repair bounds without resetting its content or appearance. Full workspace backups are under Desktop → Recovery." Style="{StaticResource MutedText}" Margin="0,0,0,12" /><Button Content="Repair dock sizes" Click="RepairDockSizes_Click" HorizontalAlignment="Left" />
                         </StackPanel>
                         <StackPanel x:Name="AudioPanel" Visibility="Collapsed">
                             <CheckBox x:Name="SoundEffectsCheckBox" Content="Interface sound effects" /><CheckBox x:Name="MusicDockCheckBox" Content="Show music dock" />

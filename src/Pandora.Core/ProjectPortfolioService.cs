@@ -7,17 +7,22 @@ namespace Pandora.Core;
 public sealed class ProjectPortfolioService : IDisposable
 {
     private readonly ProjectRegistryStore _store;
-    private readonly SemaphoreSlim _refresh = new(1, 1);
+    private readonly object _refreshGuard = new();
+    private Task? _refreshTask;
     private readonly CancellationTokenSource _stop = new();
     private readonly Timer _periodic;
     private readonly Timer _debounce;
     private readonly List<FileSystemWatcher> _watchers = [];
     private readonly object _watcherGuard = new();
     private IReadOnlyList<MetisProjectRead> _entries = [];
-    private bool _disposed;
+    private volatile bool _disposed;
     public event EventHandler? Changed;
     public IReadOnlyList<MetisProjectRead> Entries => Volatile.Read(ref _entries);
     public string? RegistryError { get; private set; }
+    public bool HasRefreshed { get; private set; }
+    public bool IsRefreshing { get; private set; }
+    public DateTimeOffset? LastRefreshCompletedAt { get; private set; }
+    public string RegistryPath => _store.RegistryPath;
 
     public ProjectPortfolioService(ProjectRegistryStore store, TimeSpan? reconciliationInterval = null)
     {
@@ -28,12 +33,30 @@ public sealed class ProjectPortfolioService : IDisposable
         _periodic = new Timer(_ => QueueRefresh(), null, interval, interval);
     }
 
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
     {
-        if (_disposed) return;
-        if (!await _refresh.WaitAsync(0)) { ScheduleRefresh(); return; }
+        lock (_refreshGuard)
+        {
+            if (_disposed) return Task.CompletedTask;
+            // Every caller awaits the same reconciliation, rather than returning
+            // early with an empty/stale result when another refresh owns the gate.
+            if (_refreshTask is { IsCompleted: false })
+            {
+                // A file may change after the in-flight pass read its registry.
+                // Retain one debounced follow-up, without queueing more worker tasks.
+                ScheduleRefresh();
+                return _refreshTask;
+            }
+            return _refreshTask = Task.Run(RefreshCoreAsync);
+        }
+    }
+
+    private async Task RefreshCoreAsync()
+    {
+        IsRefreshing = true;
         try
         {
+            if (!_disposed) Changed?.Invoke(this, EventArgs.Empty);
             var registrations = await Task.Run(_store.Load, _stop.Token);
             RegistryError = null;
             var old = Entries.ToDictionary(e => e.Registration.Id, StringComparer.Ordinal);
@@ -66,7 +89,6 @@ public sealed class ProjectPortfolioService : IDisposable
             }
             Volatile.Write(ref _entries, reads);
             UpdateWatchers(registrations);
-            if (!_disposed) Changed?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidDataException)
@@ -74,9 +96,21 @@ public sealed class ProjectPortfolioService : IDisposable
             RegistryError = "Project registry could not be reconciled: " + ex.Message;
             // A failed refresh never silently presents the previous entries as current.
             Volatile.Write(ref _entries, Entries.Select(e => e with { Status = MetisReadStatus.ReadError, Error = RegistryError }).ToArray());
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Timer-triggered reconciliation must not fault invisibly. Expose a
+            // diagnostic error, never call old entries live after an internal failure.
+            RegistryError = $"Project refresh failed ({ex.GetType().Name}): {ex.Message}";
+            Volatile.Write(ref _entries, Entries.Select(e => e with { Status = MetisReadStatus.ReadError, Error = RegistryError }).ToArray());
+        }
+        finally
+        {
+            IsRefreshing = false;
+            HasRefreshed = true;
+            LastRefreshCompletedAt = DateTimeOffset.UtcNow;
             if (!_disposed) Changed?.Invoke(this, EventArgs.Empty);
         }
-        finally { _refresh.Release(); }
     }
 
     private async Task<MetisProjectRead> ReadOne(ProjectRegistration registration, MetisProjectRead? previous)
@@ -147,6 +181,6 @@ public sealed class ProjectPortfolioService : IDisposable
             foreach (var watcher in _watchers) watcher.Dispose();
             _watchers.Clear();
         }
-        // Do not dispose the semaphore/token source while an in-flight async read unwinds.
+        // Do not dispose the token source while an in-flight async read unwinds.
     }
 }

@@ -11,6 +11,73 @@ public static class WorkspaceSafetyTests
     {
         SnapshotConflicts(); ExternalRewriteAndDeletion(); ReadOnlyAndLegacyImport();
         InvalidInputsStayIntact(); WriteAndBackupFailures(); ConcurrentMigration(); AbsolutePathsAndBackups();
+        DetachedSavesPreserveNewEdits(); RecoveryRotationAndExplicitRestore(); OversizedWorkspaceIsRejected();
+    }
+
+    private static void DetachedSavesPreserveNewEdits()
+    {
+        using var fixture = new Fixture();
+        var store = new WorkspaceStore(fixture.Path);
+        var source = store.LoadOrCreate();
+        source.Settings.GlassOpacity = 0.71;
+        var snapshot = store.CreateSaveSnapshot(source);
+        source.Settings.GlassOpacity = 0.82;
+        Task.Run(() => store.Save(snapshot)).GetAwaiter().GetResult();
+        store.AcceptSavedSnapshot(source, snapshot);
+        Assert(source.Settings.GlassOpacity == 0.82 && store.LoadReadOnly().Settings.GlassOpacity == 0.71,
+            "Background persistence replaced an edit made after capture.");
+        store.Save(source);
+        Assert(store.LoadReadOnly().Settings.GlassOpacity == 0.82, "Follow-up save lost the latest edit.");
+        Throws<WorkspaceConflictException>(() => store.AcceptSavedSnapshot(source, snapshot), "A saved snapshot must be accepted once only.");
+
+        source.Settings.GlassOpacity = 0.83;
+        snapshot = store.CreateSaveSnapshot(source);
+        var external = store.LoadReadOnly();
+        external.Settings.GlassOpacity = 0.91;
+        store.Save(external);
+        Throws<WorkspaceConflictException>(() => store.Save(snapshot), "A background snapshot overwrote an external edit.");
+        Assert(store.LoadReadOnly().Settings.GlassOpacity == 0.91, "External edit was lost.");
+    }
+
+    private static void RecoveryRotationAndExplicitRestore()
+    {
+        using var fixture = new Fixture();
+        var store = new WorkspaceStore(fixture.Path);
+        var workspace = store.LoadOrCreate();
+        var original = File.ReadAllBytes(fixture.Path);
+        var manual = store.Backup("keep-manual");
+        workspace.Settings.GlassOpacity = 0.67;
+        store.Save(workspace);
+        var first = Directory.GetFiles(store.RecoveryDirectory, "*.json").Single();
+        Assert(File.ReadAllBytes(first).SequenceEqual(original), "First recovery slot did not preserve the prior workspace.");
+        workspace.Settings.GlassOpacity = 0.68;
+        store.Save(workspace);
+        Assert(Directory.GetFiles(store.RecoveryDirectory, "*.json").Length == 1, "Rapid saves grew recovery history.");
+        for (var i = 0; i < 8; i++)
+        {
+            foreach (var slot in Directory.GetFiles(store.RecoveryDirectory, "*.json"))
+                File.SetLastWriteTimeUtc(slot, DateTime.UtcNow.AddMinutes(-20 - i));
+            workspace.Settings.GlassOpacity = 0.70 + i * 0.01;
+            store.Save(workspace);
+        }
+        Assert(Directory.GetFiles(store.RecoveryDirectory, "*.json").Length == 5 && File.Exists(manual), "Recovery rotation exceeded five slots or removed a manual backup.");
+        foreach (var slot in Directory.GetFiles(store.RecoveryDirectory, "*.json")) new WorkspaceStore(slot).LoadReadOnly();
+        var beforeRestore = File.ReadAllBytes(fixture.Path);
+        var invalid = System.IO.Path.Combine(fixture.Root, "invalid.json");
+        File.WriteAllText(invalid, "{broken");
+        Throws<JsonException>(() => store.RestoreFromBackup(invalid), "Invalid recovery source was accepted.");
+        Assert(File.ReadAllBytes(fixture.Path).SequenceEqual(beforeRestore), "Invalid restore changed the workspace.");
+        var restored = store.RestoreFromBackup(manual);
+        Assert(store.IsCurrent(restored) && File.ReadAllBytes(fixture.Path).SequenceEqual(original), "Explicit restore lost original content or persistence stamp.");
+        Assert(fixture.Backups().Any(path => File.ReadAllBytes(path).SequenceEqual(beforeRestore)), "Restore did not retain the replaced workspace.");
+    }
+
+    private static void OversizedWorkspaceIsRejected()
+    {
+        using var fixture = new Fixture();
+        using (var stream = File.Create(fixture.Path)) stream.SetLength(8 * 1024 * 1024 + 1);
+        Throws<WorkspaceValidationException>(() => new WorkspaceStore(fixture.Path).LoadReadOnly(), "Oversized source was not bounded before parsing.");
+        Assert(new FileInfo(fixture.Path).Length == 8 * 1024 * 1024 + 1, "Rejected oversized input was modified.");
     }
 
     private static void SnapshotConflicts()

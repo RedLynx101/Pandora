@@ -39,6 +39,19 @@
 
 Workspace writes use a temporary file, a sibling `.lock` file, and `File.Replace` where possible, which prevents partial writes from corrupting an existing config. The WPF app watches the workspace and reloads after external CLI changes.
 
+Movement/resizing updates the UI-owned model in memory. Gesture boundaries and a
+short fallback debounce coalesce placement into detached snapshots; one worker
+write can be in flight at a time. Completion advances only the model's persistence
+fingerprint, preserving newer UI edits. Synchronous editors and shutdown drain
+that worker before saving. Every path retains optimistic conflict detection.
+Overlay layering and external reloads wait until the drag/resize gesture ends;
+display queries use a short cache invalidated by monitor/DPI events.
+
+Workspace reads are bounded to 8 MiB. Changed writes preserve a previous validated
+workspace in five rotating recovery slots, at most once per five minutes. Explicit
+restore validates first and backs up the replaced bytes. No recovery heuristic
+silently substitutes defaults or chooses a historic layout for the user.
+
 Canonical binaries are `Pandora.App.exe` and `Pandora.Cli.exe`. `Pandora.sln` contains the app, core, CLI, and isolated test projects.
 
 ## Appearance
@@ -48,6 +61,12 @@ Canonical binaries are `Pandora.App.exe` and `Pandora.Cli.exe`. `Pandora.sln` co
 ## Project portfolio boundary
 
 `ProjectRegistryStore` holds explicitly registered local dashboard paths; `MetisReader` reads the supported versioned JSON without running HTML. `ProjectPortfolioService` turns those sources into read-only project summaries for `ProjectsControl`.
+
+The control starts reconciliation independently of `Loaded`/expanded visibility.
+Concurrent callers await one shared refresh task. Loading, empty registration,
+registry failure, and per-source errors are distinct states; last-good content is
+never counted live after a failed read. Local bounded runtime diagnostics expose
+refresh completion and errors without recording source dashboard contents.
 
 Each project retains its own source plan, revision, director, and evidence. Pandora does not combine them into a mutable master plan or give a local checkbox authority to accept work. Source freshness, file-read success, and actual agent liveness are separate facts. See [Metis projects](metis-projects.md) for the data contract.
 

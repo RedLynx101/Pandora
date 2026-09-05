@@ -96,6 +96,7 @@ public partial class SettingsWindow : Window
         DockThemeListBox.SelectedItem = DockThemeListBox.Items.OfType<ListBoxItem>().First(item =>
             item.Tag?.ToString() == ThemeService.NormalizeDockTheme(settings.DockTheme));
         SelectTag(ThemeComboBox, ThemeService.NormalizeTheme(settings.Theme));
+        SelectTag(DockBarSizeComboBox, DockBarSizing.Normalize(settings.DockBarSize));
         CustomAccentTextBox.Text = settings.CustomAccentColor ?? string.Empty;
         CustomSurfaceTextBox.Text = settings.CustomSurfaceColor ?? string.Empty;
         CustomColorsExpander.IsExpanded = !string.IsNullOrWhiteSpace(settings.CustomAccentColor) || !string.IsNullOrWhiteSpace(settings.CustomSurfaceColor);
@@ -123,14 +124,14 @@ public partial class SettingsWindow : Window
     private void PreviewAppearance()
     {
         if (_isRefreshing || GlassOpacitySlider is null || ReduceMotionCheckBox is null || ThemeComboBox.SelectedItem is null ||
-            DockThemeListBox?.SelectedItem is null || CustomAccentTextBox is null || CustomSurfaceTextBox is null || AppearanceValidationText is null) return;
+            DockThemeListBox?.SelectedItem is null || DockBarSizeComboBox?.SelectedItem is null || CustomAccentTextBox is null || CustomSurfaceTextBox is null || AppearanceValidationText is null) return;
         var colorsValid = ValidateAppearanceColors(out var accent, out var surface);
         // An incomplete HEX draft must not become a color. Other independent controls remain
         // responsive, using the last valid value only for the invalid field until it is corrected.
         if (!ThemeService.TryNormalizeCustomColor(CustomAccentTextBox.Text, out _)) accent = ThemeService.EffectiveCustomAccentColor;
         if (!ThemeService.TryNormalizeCustomColor(CustomSurfaceTextBox.Text, out _)) surface = ThemeService.EffectiveCustomSurfaceColor;
         ThemeService.Apply(SelectedTag(ThemeComboBox, "LunarGlass"), GlassOpacitySlider.Value / 100,
-            ReduceMotionCheckBox.IsChecked == true, SelectedDockTheme(), accent, surface);
+            ReduceMotionCheckBox.IsChecked == true, SelectedDockTheme(), accent, surface, SelectedTag(DockBarSizeComboBox, "Standard"));
         StatusText.Text = colorsValid ? "Appearance preview · Apply to keep, or revert." :
             "Invalid color draft · That color keeps its last valid preview. Correct it before applying.";
     }
@@ -230,6 +231,7 @@ public partial class SettingsWindow : Window
         var saved = AppearanceSnapshot.Capture(settings);
         settings.Theme = SelectedTag(ThemeComboBox, "LunarGlass");
         settings.DockTheme = SelectedDockTheme();
+        settings.DockBarSize = SelectedTag(DockBarSizeComboBox, "Standard");
         settings.CustomAccentColor = accent;
         settings.CustomSurfaceColor = surface;
         settings.GlassOpacity = GlassOpacitySlider.Value / 100;
@@ -258,15 +260,16 @@ public partial class SettingsWindow : Window
         finally { _isRefreshing = false; }
     }
 
-    private sealed record AppearanceSnapshot(string Theme, string DockTheme, string? Accent, string? Surface, double Opacity, bool ReduceMotion, string Icon)
+    private sealed record AppearanceSnapshot(string Theme, string DockTheme, string DockBarSize, string? Accent, string? Surface, double Opacity, bool ReduceMotion, string Icon)
     {
-        public static AppearanceSnapshot Capture(AppSettings settings) => new(settings.Theme, settings.DockTheme,
+        public static AppearanceSnapshot Capture(AppSettings settings) => new(settings.Theme, settings.DockTheme, settings.DockBarSize,
             settings.CustomAccentColor, settings.CustomSurfaceColor, settings.GlassOpacity, settings.ReduceMotion, settings.IconStyle);
 
         public void Restore(AppSettings settings)
         {
             settings.Theme = Theme;
             settings.DockTheme = DockTheme;
+            settings.DockBarSize = DockBarSize;
             settings.CustomAccentColor = Accent;
             settings.CustomSurfaceColor = Surface;
             settings.GlassOpacity = Opacity;

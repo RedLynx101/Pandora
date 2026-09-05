@@ -60,6 +60,8 @@ internal static partial class Program
         Run("All structural themes render differently at each palette", StructuralDockRenders);
         Run("Collapsed normalization preserves state, expanded geometry, and anchoring", CollapsedDockRegression);
         Run("Header transparency follows surface opacity without fading foregrounds", DockChromeOpacity);
+        Run("Bar sizes scale single-line headers and preserve tab content and anchors", DockBarSizeGeometry);
+        Run("Bar size previews, persists, reverts and rolls back safely", DockBarSizeSettings);
         Run("Projects: empty registry and explicit error states", ProjectStates);
         Run("Projects: read-only multi-project details and item-sized buckets", ProjectDetails);
         Run("Verification never displayed an application window", () =>

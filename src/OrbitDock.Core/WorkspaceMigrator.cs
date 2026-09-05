@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public static class WorkspaceMigrator
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
 
     public static bool MigrateToCurrent(Workspace workspace)
     {
@@ -14,6 +14,12 @@ public static class WorkspaceMigrator
         }
 
         workspace.Settings.Audio ??= new AudioSettings();
+
+        if (string.IsNullOrWhiteSpace(workspace.Settings.DockBarSize))
+        {
+            workspace.Settings.DockBarSize = "Standard";
+            changed = true;
+        }
 
         // Existing palette, dock geometry overrides and icon choice are not rewritten.
         if (string.IsNullOrWhiteSpace(workspace.Settings.DockTheme))

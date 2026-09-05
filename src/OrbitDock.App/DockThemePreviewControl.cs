@@ -32,10 +32,11 @@ public sealed class DockThemePreviewControl : FrameworkElement
         var left = (ActualWidth - width) / 2;
         var top = (ActualHeight - height) / 2;
         var radius = profile.CornerRadius * scale;
-        var headerHeight = profile.HeaderHeight * scale;
+        var bar = DockBarSizing.Get(profile, ThemeService.EffectiveDockBarSize);
+        var headerHeight = bar.Height * scale;
         var gap = profile.HeaderGap * scale;
         var background = Brush("Glass", Color.FromRgb(21, 26, 41));
-        var surface = Brush("Surface", Color.FromRgb(28, 35, 51));
+        var surface = ThemeService.GetDockChrome(new OrbitDock.Core.ZoneAppearance());
         var elevated = Brush("Elevated", Color.FromRgb(41, 50, 70));
         var accent = Brush("Accent", Color.FromRgb(193, 188, 255));
         var text = Brush("Text", Colors.White);
@@ -64,7 +65,8 @@ public sealed class DockThemePreviewControl : FrameworkElement
         var glyphLeft = left + headerInset;
         drawing.DrawEllipse(null, new Pen(accent, 1.2), new Point(glyphLeft + 4, midline), 3.5, 3.5);
         drawing.DrawLine(new Pen(accent, 1), new Point(glyphLeft + 4, midline - 5), new Point(glyphLeft + 4, midline + 5));
-        DrawText(drawing, "Launchpad", text, new Point(glyphLeft + 13, midline - 6), 9.5);
+        var titleSize = 9.5 * bar.TitleFontSize / profile.TitleFontSize;
+        DrawText(drawing, "Launchpad", text, new Point(glyphLeft + 13, midline - titleSize * 0.65), titleSize);
         drawing.DrawEllipse(muted, null, new Point(left + width - 25, midline), 1, 1);
         drawing.DrawEllipse(muted, null, new Point(left + width - 21, midline), 1, 1);
         drawing.DrawEllipse(muted, null, new Point(left + width - 17, midline), 1, 1);

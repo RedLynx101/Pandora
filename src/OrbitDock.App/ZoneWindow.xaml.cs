@@ -693,20 +693,7 @@ public partial class ZoneWindow : Window
         HeaderControlsChrome.BorderBrush = _viewModel.BorderBrush;
         HeaderControlsChrome.BorderThickness = profile.Id == "Meridian" ? new Thickness(1) : new Thickness(0);
         BrandTile.CornerRadius = new CornerRadius(profile.Id == "Halo" ? 16 : profile.Id == "Meridian" ? 3 : 10);
-        BrandTile.Width = BrandTile.Height = profile.Id == "Halo" ? 34 : 30;
-
-        var separateNavigation = profile.Id != "Classic";
-        if (separateNavigation && TabsPanel.Parent is Panel parent)
-        {
-            parent.Children.Remove(TabsPanel);
-            NavigationScroll.Content = TabsPanel;
-        }
-        else if (!separateNavigation && NavigationScroll.Content == TabsPanel)
-        {
-            NavigationScroll.Content = null;
-            DockTitlePanel.Children.Add(TabsPanel);
-        }
-        TabsPanel.Margin = separateNavigation ? new Thickness(0) : new Thickness(0, 5, 0, 0);
+        BrandTile.Width = BrandTile.Height = _viewModel.BarMetrics.BrandSize;
         ApplyExpansionEdgeLayout();
     }
 
@@ -985,13 +972,14 @@ public partial class ZoneWindow : Window
         var profile = _viewModel.ThemeProfile;
         var bottom = _viewModel.ExpansionEdge == DockExpansionEdge.Bottom;
         var collapsed = IsCollapsed;
-        var separateNavigation = profile.Id != "Classic" && _viewModel.Tabs.Count > 1;
-        var navigationHeight = collapsed ? 0 : profile.HeaderGap + (separateNavigation ? 38 : 0);
+        var separateNavigation = _viewModel.Tabs.Count > 1;
+        // Auto accommodates an overflow scrollbar without clipping tab labels on narrow docks.
+        var navigationHeight = collapsed ? new GridLength(0) : separateNavigation ? GridLength.Auto : new GridLength(profile.HeaderGap);
         var radius = Math.Max(0, _viewModel.CornerRadius.TopLeft - (profile.SeparatedHeader ? 0 : 1));
         TopChromeRow.Height = new GridLength(bottom ? (collapsed ? 0 : profile.FooterHeight) : _viewModel.HeaderHeight);
         BottomChromeRow.Height = new GridLength(bottom ? _viewModel.HeaderHeight : (collapsed ? 0 : profile.FooterHeight));
-        TopNavigationRow.Height = new GridLength(bottom ? 0 : navigationHeight);
-        BottomNavigationRow.Height = new GridLength(bottom ? navigationHeight : 0);
+        TopNavigationRow.Height = bottom ? new GridLength(0) : navigationHeight;
+        BottomNavigationRow.Height = bottom ? navigationHeight : new GridLength(0);
         ContentRow.Height = collapsed ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
         Grid.SetRow(HeaderBorder, bottom ? 4 : 0);
         Grid.SetRow(StatusBorder, bottom ? 0 : 4);
@@ -1006,6 +994,7 @@ public partial class ZoneWindow : Window
         StatusBorder.Background = profile.SeparatedHeader ? Brushes.Transparent : _viewModel.HeaderBrush;
         NavigationHost.Margin = new Thickness(12, bottom ? 0 : profile.HeaderGap, 12, bottom ? profile.HeaderGap : 0);
         NavigationHost.Padding = new Thickness(0, 4, 0, 4);
+        NavigationHost.MinHeight = _viewModel.BarMetrics.NavigationHeight;
         NavigationHost.BorderBrush = _viewModel.BorderBrush;
         NavigationHost.BorderThickness = profile.Id == "Meridian" ? new Thickness(0, bottom ? 1 : 0, 0, bottom ? 0 : 1) : new Thickness(0);
         NavigationHost.Visibility = !collapsed && separateNavigation ? Visibility.Visible : Visibility.Collapsed;

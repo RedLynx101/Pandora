@@ -12,13 +12,14 @@ Starter workspace shape:
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "settings": {
     "attachWindowsToDesktop": false,
     "startWithWindows": false,
     "peekHotkey": "Ctrl+Alt+Space",
     "theme": "LunarGlass",
     "dockTheme": "Classic",
+    "dockBarSize": "Standard",
     "customAccentColor": null,
     "customSurfaceColor": null,
     "glassOpacity": 0.88,
@@ -63,6 +64,7 @@ Appearance has separate structure and color choices:
 | Settings choice | JSON field | Values |
 | --- | --- | --- |
 | Dock theme / structure | `dockTheme` | `Classic` (default), `Halo`, `Meridian` |
+| Dock bar size | `dockBarSize` | `Compact`, `Standard` (default), `Large` |
 | Palette | `theme` | `LunarGlass` (displayed as Lunar, default), `Midnight`, `Limestone`, `Aegean`, `System` |
 | Optional accent | `customAccentColor` | `#RRGGBB` or `null` |
 | Optional base surface | `customSurfaceColor` | `#RRGGBB` or `null` |
@@ -70,6 +72,8 @@ Appearance has separate structure and color choices:
 The C# `AppSettings.Theme` property and JSON `theme` field intentionally retain their legacy **palette** meaning. `DockTheme` selects geometry independently. Classic keeps the existing dock structure. Halo separates a floating rounded header and body with pill controls and an airy grid. Meridian uses a crisp frame, accent rail, separate tab strip, and compact horizontal file tiles. Changing the palette does not switch structure.
 
 Classic honors a dock's saved corner radius. Halo and Meridian use their structural profile's radius; the saved per-dock value is retained for switching back to Classic.
+
+**Dock bar size** scales the name, brand icon and header buttons together without resizing file icons or changing the stored expanded dock size. Compact uses 36px bars (44px for Halo); Standard uses the theme's normal 44px/60px height; Large uses 56px/72px. Outer borders add their thickness. Title fonts scale with the bar. All themes keep the name on one line: multi-tab navigation is a separate horizontal strip visible only while expanded. Older Classic docks no longer stack tabs inside the name bar. Tab contents, order and active selection are preserved.
 
 System follows the Windows app theme. The legacy `Graphite` value resolves to Lunar. Aegean pairs deep blue-green surfaces with a sea-glass accent.
 
@@ -79,7 +83,7 @@ Use the color pickers or enter six-digit `#RRGGBB` values. Blank fields clear th
 
 `iconStyle` selects `Aperture`, `Selene`, or `Aster` for product surfaces. The shipped executable uses Aperture; desktop shortcuts can be refreshed with `install-test-shortcut.ps1 -IconStyle Selene`.
 
-Aperture remains the selected default. Schema v6 migration adds the new structure/custom-color settings while preserving the existing palette and icon selection; it does not reset a user's Selene or Aster choice.
+Aperture remains the selected default. Schema v6 introduced structure/custom-color settings; v7 adds Standard bar sizing for existing workspaces. Migration preserves existing palette, icon, layout and dock content choices; it does not reset a user's Selene or Aster choice.
 
 ## Compatibility
 

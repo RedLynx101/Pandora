@@ -12,6 +12,8 @@ Theme is structure; palette is color. `DockThemeCatalog` defines geometry indepe
 
 `DockThemeCatalog.Get(id)` returns `DockThemeProfile`; `.All` is read-only. Unknown and missing IDs safely resolve to Classic. The profile defines radius, header/content padding, footer height, item padding/gap, borders, header separation, accent rail, title scale, and shadow. The host still owns collapse/expand, placement, and tab behavior; changing structure must not rewrite saved expanded bounds.
 
+`DockBarSizing.Get(profile, size)` derives Compact/Standard/Large bar height, title font, controls and brand dimensions independently of structure/palette. `EffectiveDockBarSize` exposes the normalized choice. All structures use one name row and a separate expanded-only tab strip; its auto height and overflow minimum keep larger labels clear of the horizontal scrollbar. These resources affect dock bars, not Settings/menu typography or file icons. Header/footer backgrounds use `GetDockChrome` to share body opacity without mutating opaque UI brushes.
+
 ## Integration
 
 - Call `ThemeService.Initialize(workspace.Settings)` after the workspace loads. Call `Apply(settings)` after a saved-settings reload. This reads the full structural/palette/custom-color configuration.

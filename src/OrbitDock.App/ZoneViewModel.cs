@@ -56,7 +56,8 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public string ThemeId => ThemeService.EffectiveDockTheme;
     public DockThemeProfile ThemeProfile => DockThemeCatalog.Get(ThemeId);
     public double ItemWidth => ThemeId == "Meridian" ? 150 : Math.Max(78, Zone.Appearance.IconSize + (ThemeId == "Halo" ? 48 : 42));
-    public double HeaderHeight => ThemeProfile.HeaderHeight + (ThemeId == "Classic" && Tabs.Count > 1 ? 20 : 0);
+    public DockBarMetrics BarMetrics => DockBarSizing.Get(ThemeProfile, ThemeService.EffectiveDockBarSize);
+    public double HeaderHeight => BarMetrics.Height;
     public Thickness ItemMargin => new(ThemeProfile.ItemGap);
     public Brush ItemSurfaceBrush => ThemeId == "Halo" && ThemeService.IsFactoryBackground(Zone.Appearance.BackgroundColor)
         ? ThemeResource("Pandora.SurfaceBrush") : Brushes.Transparent;
@@ -558,6 +559,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(ItemTextBrush));
         OnPropertyChanged(nameof(ThemeId));
         OnPropertyChanged(nameof(ThemeProfile));
+        OnPropertyChanged(nameof(BarMetrics));
         OnPropertyChanged(nameof(HeaderHeight));
         OnPropertyChanged(nameof(CornerRadius));
         OnPropertyChanged(nameof(ItemWidth));

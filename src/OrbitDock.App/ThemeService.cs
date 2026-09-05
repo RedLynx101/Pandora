@@ -15,6 +15,7 @@ public static class ThemeService
     private static double _requestedOpacity = 0.88;
     private static bool _requestedReducedMotion;
     private static string _requestedDockTheme = "Classic";
+    private static string _requestedDockBarSize = "Standard";
     private static string? _customAccent;
     private static string? _customSurface;
 
@@ -22,6 +23,7 @@ public static class ThemeService
     public static string EffectivePalette { get; private set; } = "LunarGlass";
     public static string EffectiveTheme => EffectivePalette;
     public static string EffectiveDockTheme => _requestedDockTheme;
+    public static string EffectiveDockBarSize => _requestedDockBarSize;
     public static string? EffectiveCustomAccentColor => _customAccent;
     public static string? EffectiveCustomSurfaceColor => _customSurface;
     public static bool IsHighContrast => SystemParameters.HighContrast;
@@ -41,7 +43,7 @@ public static class ThemeService
     }
 
     public static void Apply(AppSettings settings) => Apply(settings.Theme, settings.GlassOpacity, settings.ReduceMotion,
-        settings.DockTheme, settings.CustomAccentColor, settings.CustomSurfaceColor);
+        settings.DockTheme, settings.CustomAccentColor, settings.CustomSurfaceColor, settings.DockBarSize);
 
     public static string NormalizeTheme(string? theme) => theme?.Trim().ToLowerInvariant() switch
     {
@@ -74,12 +76,13 @@ public static class ThemeService
     public static void Apply(string? theme, double opacity, bool reduceMotion) =>
         Apply(theme, opacity, reduceMotion, "Classic", null, null);
 
-    public static void Apply(string? theme, double opacity, bool reduceMotion, string? dockTheme, string? accent, string? surface)
+    public static void Apply(string? theme, double opacity, bool reduceMotion, string? dockTheme, string? accent, string? surface, string? dockBarSize = "Standard")
     {
         _requestedTheme = NormalizeTheme(theme);
         _requestedOpacity = double.IsFinite(opacity) ? Math.Clamp(opacity, 0.55, 1) : 0.88;
         _requestedReducedMotion = reduceMotion;
         _requestedDockTheme = NormalizeDockTheme(dockTheme);
+        _requestedDockBarSize = DockBarSizing.Normalize(dockBarSize);
         TryNormalizeCustomColor(accent, out _customAccent);
         TryNormalizeCustomColor(surface, out _customSurface);
         RefreshPalette();
@@ -165,8 +168,9 @@ public static class ThemeService
     private static void ApplyStructure(DockThemeProfile profile)
     {
         var resources = Application.Current.Resources;
+        var bar = DockBarSizing.Get(profile, _requestedDockBarSize);
         resources["Pandora.DockCornerRadius"] = new CornerRadius(profile.CornerRadius);
-        resources["Pandora.HeaderHeight"] = profile.HeaderHeight;
+        resources["Pandora.HeaderHeight"] = bar.Height;
         resources["Pandora.HeaderPadding"] = profile.HeaderPadding;
         resources["Pandora.ContentPadding"] = profile.ContentPadding;
         resources["Pandora.FooterHeight"] = profile.FooterHeight;
@@ -179,7 +183,14 @@ public static class ThemeService
         resources["Pandora.HeaderGap"] = profile.HeaderGap;
         resources["Pandora.AccentRailWidth"] = profile.AccentRailWidth;
         resources["Pandora.SeparatedHeader"] = profile.SeparatedHeader;
-        resources["Pandora.TitleFontSize"] = profile.TitleFontSize;
+        resources["Pandora.TitleFontSize"] = bar.TitleFontSize;
+        resources["Pandora.HeaderControlSize"] = bar.ControlSize;
+        resources["Pandora.HeaderGlyphSize"] = bar.GlyphSize;
+        resources["Pandora.HeaderBrandImageSize"] = bar.BrandImageSize;
+        resources["Pandora.TabFontSize"] = bar.TabFontSize;
+        var tabHeight = _requestedDockBarSize == "Large" ? 32.0 : 28.0;
+        resources["Pandora.TabMinHeight"] = tabHeight;
+        resources["Pandora.TabOverflowHeight"] = tabHeight + SystemParameters.HorizontalScrollBarHeight;
         resources["Pandora.ShadowBlur"] = IsHighContrast ? 0.0 : profile.ShadowBlur;
         resources["Pandora.ShadowOpacity"] = IsHighContrast ? 0.0 : profile.ShadowOpacity;
         resources["Pandora.ControlPadding"] = profile.Id switch

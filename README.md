@@ -31,6 +31,8 @@ Choose a **dock theme** for structure, then a **palette** for color. Every palet
 
 **Classic + Lunar** is the default. Palettes are **Lunar** (stored as `LunarGlass`), **Midnight**, **Limestone**, **Aegean**, and Windows-following **System**. Optional accent and surface color pickers accept `#RRGGBB`; Pandora derives readable text, focus, border, and status colors around those choices. Intentional per-dock overrides remain intact. High contrast uses Windows colors and opaque surfaces.
 
+Choose **Compact**, **Standard**, or **Large** dock bars to scale names and controls together. Every theme has a single-line name bar, with multi-tab navigation below it only when expanded. **Dock surface opacity** includes the name/header background while keeping text and controls solid.
+
 ![Classic dock theme](screenshots/pandora-theme-classic.png)
 ![Halo dock theme](screenshots/pandora-theme-halo.png)
 ![Meridian dock theme](screenshots/pandora-theme-meridian.png)
@@ -125,7 +127,7 @@ The product and new executable names are Pandora. A deliberate compatibility lay
 | `OrbitDock.sln`, source project folders, namespaces | Existing developer tooling and serialized compatibility |
 | `start-orbitdock.ps1`, `stop-orbitdock.ps1`, `orbitdockctl.ps1` | Forwarders to the canonical Pandora scripts |
 
-Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Schema v6 adds independent dock structure and optional global color fields without replacing the existing palette or icon choice. The legacy `theme` key remains the palette; `dockTheme` selects structure. Existing `Graphite` values resolve to Lunar, and intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
+Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Schema v6 introduced independent structure/custom colors; v7 adds bar sizing with Standard as the migration default. The legacy `theme` key remains the palette; `dockTheme` selects structure and `dockBarSize` selects bar scale. Existing `Graphite` values resolve to Lunar, and intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
 
 Do not rename or delete the compatibility folders manually. Back up your workspace before testing upgrades. The shortcut installer recognizes exact application paths from this checkout; if a shortcut points elsewhere, it refuses to replace it. No legacy artifact directory is recursively deleted.
 

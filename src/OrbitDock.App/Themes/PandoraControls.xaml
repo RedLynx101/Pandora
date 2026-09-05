@@ -31,6 +31,12 @@
     <system:Double x:Key="Pandora.AccentRailWidth">0</system:Double>
     <system:Boolean x:Key="Pandora.SeparatedHeader">False</system:Boolean>
     <system:Double x:Key="Pandora.TitleFontSize">13</system:Double>
+    <system:Double x:Key="Pandora.HeaderControlSize">30</system:Double>
+    <system:Double x:Key="Pandora.HeaderGlyphSize">13</system:Double>
+    <system:Double x:Key="Pandora.HeaderBrandImageSize">22</system:Double>
+    <system:Double x:Key="Pandora.TabFontSize">11</system:Double>
+    <system:Double x:Key="Pandora.TabMinHeight">28</system:Double>
+    <system:Double x:Key="Pandora.TabOverflowHeight">45</system:Double>
     <system:Double x:Key="Pandora.ShadowBlur">18</system:Double>
     <system:Double x:Key="Pandora.ShadowOpacity">0.22</system:Double>
     <Thickness x:Key="Pandora.ControlPadding">14,8</Thickness>
@@ -70,7 +76,13 @@
         <Setter Property="Background" Value="Transparent" /><Setter Property="FontFamily" Value="Segoe MDL2 Assets" /><Setter Property="FontSize" Value="13" />
     </Style>
     <Style x:Key="DockTabButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-        <Setter Property="Padding" Value="9,4" /><Setter Property="MinHeight" Value="25" /><Setter Property="FontSize" Value="11" /><Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="9,4" /><Setter Property="MinHeight" Value="{DynamicResource Pandora.TabMinHeight}" /><Setter Property="FontSize" Value="{DynamicResource Pandora.TabFontSize}" /><Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="DockHeaderButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+        <Setter Property="Width" Value="{DynamicResource Pandora.HeaderControlSize}" />
+        <Setter Property="Height" Value="{DynamicResource Pandora.HeaderControlSize}" />
+        <Setter Property="MinHeight" Value="{DynamicResource Pandora.HeaderControlSize}" />
+        <Setter Property="FontSize" Value="{DynamicResource Pandora.HeaderGlyphSize}" />
     </Style>
     <Style TargetType="TextBox">
         <Setter Property="Background" Value="{DynamicResource Pandora.SurfaceBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" /><Setter Property="BorderThickness" Value="1" />
@@ -257,7 +269,7 @@
                         <Track.IncreaseRepeatButton><RepeatButton x:Name="Increase" Style="{StaticResource Pandora.ScrollRepeat}" Command="{x:Static ScrollBar.PageDownCommand}" /></Track.IncreaseRepeatButton>
                     </Track>
                 </Grid>
-                <ControlTemplate.Triggers><Trigger Property="Orientation" Value="Horizontal"><Setter TargetName="Root" Property="Width" Value="Auto" /><Setter TargetName="Root" Property="Height" Value="10" /><Setter Property="Height" Value="10" /><Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" /><Setter TargetName="Decrease" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}" /><Setter TargetName="Increase" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}" /></Trigger></ControlTemplate.Triggers>
+                <ControlTemplate.Triggers><Trigger Property="Orientation" Value="Horizontal"><Setter Property="Width" Value="Auto" /><Setter TargetName="Root" Property="Width" Value="Auto" /><Setter TargetName="Root" Property="Height" Value="10" /><Setter Property="Height" Value="10" /><Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" /><Setter TargetName="Decrease" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}" /><Setter TargetName="Increase" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}" /></Trigger></ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value></Setter>
     </Style>

@@ -15,6 +15,7 @@ internal static class StructuralThemeTests
             }
             """, jsonOptions)!;
         Assert(legacy.Settings.DockTheme == "Classic", "Old palette-only JSON must default to the Classic structural theme.");
+        Assert(legacy.Settings.DockBarSize == "Standard", "Old workspaces must default to Standard bar sizing.");
         Assert(WorkspaceMigrator.MigrateToCurrent(legacy), "The old schema should report a migration.");
         Assert(legacy.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Migration must use the current schema.");
         Assert(legacy.Settings.Theme == "Midnight", "Structural migration must not rewrite the existing palette.");
@@ -29,20 +30,24 @@ internal static class StructuralThemeTests
         foreach (var structure in new[] { "Classic", "Halo", "Meridian" })
         foreach (var palette in new[] { "LunarGlass", "Midnight", "Limestone", "Aegean", "System" })
         foreach (var icon in new[] { "Aperture", "Selene", "Aster" })
+        foreach (var barSize in new[] { "Compact", "Standard", "Large" })
         {
             var settings = new AppSettings
             {
-                Theme = palette, DockTheme = structure, IconStyle = icon,
+                Theme = palette, DockTheme = structure, IconStyle = icon, DockBarSize = barSize,
                 CustomAccentColor = "#D4A857", CustomSurfaceColor = "#142B32", GlassOpacity = 0.79, ReduceMotion = true
             };
             var reloaded = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings, jsonOptions), jsonOptions)!;
             Assert(reloaded.DockTheme == structure && reloaded.Theme == palette && reloaded.IconStyle == icon, "Structure, palette, and icon must round-trip as independent axes.");
+            Assert(reloaded.DockBarSize == barSize, "Bar size must round-trip independently.");
             Assert(reloaded.CustomAccentColor == settings.CustomAccentColor && reloaded.CustomSurfaceColor == settings.CustomSurfaceColor && reloaded.GlassOpacity == 0.79 && reloaded.ReduceMotion,
                 "Custom colors, opacity, and accessibility choices must round-trip.");
         }
 
         legacy.Settings.DockTheme = null!;
+        legacy.Settings.DockBarSize = null!;
         Assert(WorkspaceMigrator.MigrateToCurrent(legacy) && legacy.Settings.DockTheme == "Classic", "Explicit null old structural state must recover to Classic.");
+        Assert(legacy.Settings.DockBarSize == "Standard", "Explicit null bar size must recover to Standard.");
         legacy.Settings.DockTheme = "  ";
         Assert(WorkspaceMigrator.MigrateToCurrent(legacy) && legacy.Settings.DockTheme == "Classic", "Blank structural state must recover to Classic.");
 

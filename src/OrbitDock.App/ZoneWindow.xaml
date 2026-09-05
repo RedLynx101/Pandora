@@ -67,8 +67,8 @@
                             VerticalAlignment="Center"
                             Margin="0,0,10,0">
                         <Image Source="{Binding BrandImage}"
-                               Width="22"
-                               Height="22"
+                               Width="{DynamicResource Pandora.HeaderBrandImageSize}"
+                               Height="{DynamicResource Pandora.HeaderBrandImageSize}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                     </Border>
@@ -78,6 +78,7 @@
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Name}"
+                                           ToolTip="{Binding Name}"
                                            Foreground="{DynamicResource Pandora.TextBrush}"
                                            FontFamily="Segoe UI Semibold"
                                            FontSize="{DynamicResource Pandora.TitleFontSize}"
@@ -104,7 +105,6 @@
                                                FontSize="10" />
                                 </Border>
                             </Grid>
-                            <StackPanel x:Name="TabsPanel" Orientation="Horizontal" Margin="0,5,0,0" />
                         </StackPanel>
                         <TextBox x:Name="SearchBox"
                                  Visibility="Collapsed"
@@ -127,34 +127,34 @@
                                     Orientation="Horizontal"
                                     Visibility="Collapsed"
                                     Margin="0,0,6,0">
-                            <Button Style="{StaticResource IconButton}"
+                            <Button Style="{StaticResource DockHeaderButton}"
                                     Content="&#xE892;"
                                     ToolTip="Previous"
                                     Click="MusicPrevious_Click" />
                             <Button x:Name="MusicPlayPauseButton"
-                                    Style="{StaticResource IconButton}"
+                                    Style="{StaticResource DockHeaderButton}"
                                     Content="{Binding PlayPauseGlyph}"
                                     ToolTip="Play or pause"
                                     Margin="6,0,0,0"
                                     Click="MusicPlayPause_Click" />
-                            <Button Style="{StaticResource IconButton}"
+                            <Button Style="{StaticResource DockHeaderButton}"
                                     Content="&#xE893;"
                                     ToolTip="Next"
                                     Margin="6,0,0,0"
                                     Click="MusicNext_Click" />
                         </StackPanel>
                         <Button x:Name="SearchButton"
-                                Style="{StaticResource IconButton}"
+                                Style="{StaticResource DockHeaderButton}"
                                 Content="&#xE721;"
                                 ToolTip="Search this dock"
                                 Click="Search_Click" />
-                        <Button x:Name="MoreButton" Style="{StaticResource IconButton}"
+                        <Button x:Name="MoreButton" Style="{StaticResource DockHeaderButton}"
                                 Content="&#xE712;"
                                 ToolTip="Dock actions"
                                 Margin="6,0,0,0"
                                 Click="More_Click" />
                         <Button x:Name="CollapseButton"
-                                Style="{StaticResource IconButton}"
+                                Style="{StaticResource DockHeaderButton}"
                                 Content="&#xE96E;"
                                 ToolTip="Roll up"
                                 Margin="6,0,0,0"
@@ -164,8 +164,20 @@
                 </Grid>
             </Border>
 
-            <Border x:Name="NavigationHost" Grid.Row="1" Visibility="Collapsed">
-                <ScrollViewer x:Name="NavigationScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False"/>
+            <Border x:Name="NavigationHost" Grid.Row="1" Visibility="Collapsed" UseLayoutRounding="True">
+                <ScrollViewer x:Name="NavigationScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Setter Property="MinHeight" Value="{DynamicResource Pandora.TabMinHeight}" />
+                            <Style.Triggers>
+                                <Trigger Property="ComputedHorizontalScrollBarVisibility" Value="Visible">
+                                    <Setter Property="MinHeight" Value="{DynamicResource Pandora.TabOverflowHeight}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <StackPanel x:Name="TabsPanel" Orientation="Horizontal" />
+                </ScrollViewer>
             </Border>
             <Grid Grid.Row="2" x:Name="ContentHost" Margin="{DynamicResource Pandora.ContentPadding}">
             <ContentControl x:Name="ProjectsHost" Visibility="Collapsed" Background="Transparent" />

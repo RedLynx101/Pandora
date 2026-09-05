@@ -12,7 +12,7 @@ Pandora is the new name for OrbitDock. Existing workspaces, layouts, music folde
 
 - Desktop docks for app shortcuts, virtual categories, and folder portals.
 - Named layouts with monitor-specific positions, roll-up state, tabs, ordering, and desktop pins.
-- Lunar Glass, Midnight, and Limestone themes, system-following appearance, adjustable glass opacity, and reduced motion.
+- Classic, Halo, and Meridian dock structures with independent color palettes, optional custom colors, adjustable glass opacity, and reduced motion.
 - Categorized settings, consistent menus, and three icon options.
 - A read-only **Projects** dock for multiple Metis plans: current phase, owners, verified progress, attention, and source freshness.
 - Local music and optional sounds, plus the Silk Current browser visualizer.
@@ -21,12 +21,25 @@ Pandora is the new name for OrbitDock. Existing workspaces, layouts, music folde
 
 ## Appearance
 
-The default is **Lunar Glass**: midnight glass, silver text, and a restrained lavender accent. **Midnight** increases separation for dark desktops; **Limestone** provides a warm, light workspace. System mode follows the Windows app theme. High contrast uses Windows colors and opaque surfaces.
+Choose a **dock theme** for structure, then a **palette** for color. Every palette works with every structure:
 
-![Pandora in Lunar Glass](screenshots/pandora-lunar-glass.png)
-![Pandora in Limestone](screenshots/pandora-limestone.png)
+| Dock theme | Structure |
+| --- | --- |
+| Classic | The familiar Pandora dock: an integrated frame and compact header |
+| Halo | Floating rounded header and body, pill controls, and an airy tile grid |
+| Meridian | Crisp frame with an accent rail, separate tab strip, and compact horizontal file tiles |
 
-These are offscreen renders of the actual WPF settings controls, not desktop screenshots. See [testing](docs/testing.md) for live desktop/compositor checks.
+**Classic + Lunar** is the default. Palettes are **Lunar** (stored as `LunarGlass`), **Midnight**, **Limestone**, **Aegean**, and Windows-following **System**. Optional accent and surface color pickers accept `#RRGGBB`; Pandora derives readable text, focus, border, and status colors around those choices. Intentional per-dock overrides remain intact. High contrast uses Windows colors and opaque surfaces.
+
+![Classic dock theme](screenshots/pandora-theme-classic.png)
+![Halo dock theme](screenshots/pandora-theme-halo.png)
+![Meridian dock theme](screenshots/pandora-theme-meridian.png)
+
+![Pandora appearance settings](screenshots/pandora-lunar-glass.png)
+
+These are offscreen renders of actual WPF controls, not desktop screenshots. See [testing](docs/testing.md) for live desktop/compositor checks. **Aperture** is the selected default icon; **Selene** and **Aster** remain available in settings.
+
+Rolled-up docks retain their expanded size separately from the visible header. Moving or normalizing a closed dock keeps it closed; bottom-expanding docks keep their bottom anchor when reopened.
 
 See [visual direction](docs/visual-direction.md) and [icon options](docs/pandora-icons.md).
 
@@ -45,6 +58,14 @@ Run core verification:
 ```powershell
 dotnet run --project tests\OrbitDock.Tests
 ```
+
+Run isolated WPF verification with an explicit absolute evidence directory:
+
+```powershell
+dotnet run --project tests\OrbitDock.App.Tests --configuration Release -- --output C:\absolute\task\work\pandora-ui-evidence
+```
+
+Choose a writable task directory for `--output`. The harness renders controls offscreen using fixture-local data; it does not start the desktop app or change your workspace. It cannot establish live compositor, monitor/DPI, or native popup behavior.
 
 Publish and launch a local build:
 
@@ -104,7 +125,7 @@ The product and new executable names are Pandora. A deliberate compatibility lay
 | `OrbitDock.sln`, source project folders, namespaces | Existing developer tooling and serialized compatibility |
 | `start-orbitdock.ps1`, `stop-orbitdock.ps1`, `orbitdockctl.ps1` | Forwarders to the canonical Pandora scripts |
 
-Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Existing `Graphite` theme settings resolve to Lunar Glass; intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
+Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Schema v6 adds independent dock structure and optional global color fields without replacing the existing palette or icon choice. The legacy `theme` key remains the palette; `dockTheme` selects structure. Existing `Graphite` values resolve to Lunar, and intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
 
 Do not rename or delete the compatibility folders manually. Back up your workspace before testing upgrades. The shortcut installer recognizes exact application paths from this checkout; if a shortcut points elsewhere, it refuses to replace it. No legacy artifact directory is recursively deleted.
 
@@ -127,6 +148,7 @@ src/OrbitDock.App/   WPF app, settings, tray, shell integration, audio, Projects
 src/OrbitDock.Core/  Models, migration, layouts, scanners, local storage
 src/OrbitDock.Cli/   Local CLI
 tests/OrbitDock.Tests/  Dependency-light console verification
+tests/OrbitDock.App.Tests/  Isolated WPF checks and offscreen evidence
 docs/               Architecture, configuration, safety, testing, integration
 scripts/            Publish, start/stop, shortcuts, recovery, CLI
 tools/              Optional Silk Current visualizer

@@ -54,6 +54,11 @@ internal static partial class Program
         Run("Settings appearance preview, save, revert, and close persistence", SettingsBehavior);
         Run("Settings categories and all appearance themes render", SettingsRenders);
         Run("Actual dock content renders without desktop startup", DockRenders);
+        Run("Structural catalog and custom-color contrast", StructuralThemeContract);
+        Run("Structure, palette, custom colors, and icons preview and persist independently", StructuralSettingsBehavior);
+        Run("Appearance save failure rolls back every new preference", StructuralSettingsSaveFailure);
+        Run("All structural themes render differently at each palette", StructuralDockRenders);
+        Run("Collapsed normalization preserves state, expanded geometry, and anchoring", CollapsedDockRegression);
         Run("Projects: empty registry and explicit error states", ProjectStates);
         Run("Projects: read-only multi-project details and item-sized buckets", ProjectDetails);
         Run("Verification never displayed an application window", () =>
@@ -342,6 +347,9 @@ internal static partial class Program
             Store = new WorkspaceStore(Path.Combine(root, "workspace.json"));
             var workspace = WorkspaceFactory.CreateDefault();
             workspace.Settings.Theme = "LunarGlass";
+            workspace.Settings.DockTheme = "Classic";
+            workspace.Settings.CustomAccentColor = null;
+            workspace.Settings.CustomSurfaceColor = null;
             workspace.Settings.GlassOpacity = 0.88;
             workspace.Settings.ReduceMotion = false;
             workspace.Settings.StartWithWindows = false;

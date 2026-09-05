@@ -2,7 +2,7 @@ namespace OrbitDock.Core;
 
 public sealed class Workspace
 {
-    public int SchemaVersion { get; set; } = 5;
+    public int SchemaVersion { get; set; } = 6;
     public AppSettings Settings { get; set; } = new();
     public List<ZoneDefinition> Zones { get; set; } = [];
     public List<RuleDefinition> Rules { get; set; } = [];
@@ -18,6 +18,10 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; }
     public string PeekHotkey { get; set; } = "Ctrl+Alt+Space";
     public string Theme { get; set; } = "LunarGlass";
+    // Theme retains the legacy palette key; DockTheme selects structure independently.
+    public string DockTheme { get; set; } = "Classic";
+    public string? CustomAccentColor { get; set; }
+    public string? CustomSurfaceColor { get; set; }
     public double GlassOpacity { get; set; } = 0.88;
     public bool ReduceMotion { get; set; }
     public string IconStyle { get; set; } = "Aperture";

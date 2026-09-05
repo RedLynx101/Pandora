@@ -6,7 +6,7 @@
         Width="360"
         Height="300"
         MinWidth="230"
-        MinHeight="76"
+        MinHeight="1"
         Foreground="{DynamicResource Pandora.TextBrush}"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
@@ -25,35 +25,42 @@
         DragOver="Window_DragOver"
         Drop="Window_Drop">
     <Border x:Name="Frame"
-            Background="{Binding BackgroundBrush}"
+            Background="Transparent"
             BorderBrush="{Binding BorderBrush}"
-            BorderThickness="1"
+            BorderThickness="{DynamicResource Pandora.FrameBorderThickness}"
             CornerRadius="{Binding CornerRadius}"
             SnapsToDevicePixels="True">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="26" ShadowDepth="8" Opacity="0.22" Color="#000000" />
+            <DropShadowEffect BlurRadius="{DynamicResource Pandora.ShadowBlur}" ShadowDepth="4" Opacity="{DynamicResource Pandora.ShadowOpacity}" Color="#000000" />
         </Border.Effect>
 
         <Grid ClipToBounds="True">
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="TopChromeRow" Height="{Binding HeaderHeight}" />
+                <RowDefinition x:Name="TopNavigationRow" Height="0" />
                 <RowDefinition x:Name="ContentRow" Height="*" />
+                <RowDefinition x:Name="BottomNavigationRow" Height="0" />
                 <RowDefinition x:Name="BottomChromeRow" Height="26" />
             </Grid.RowDefinitions>
+
+            <Border x:Name="BodyChrome" Grid.Row="1" Grid.RowSpan="3" Background="{Binding BackgroundBrush}"
+                    BorderBrush="{Binding BorderBrush}" IsHitTestVisible="False" />
+            <Border x:Name="AccentRail" Grid.RowSpan="5" Width="0" HorizontalAlignment="Left"
+                    Background="{Binding AccentBrush}" Panel.ZIndex="2" IsHitTestVisible="False" />
 
             <Border x:Name="HeaderBorder"
                     Grid.Row="0"
                     Background="{Binding HeaderBrush}"
                     CornerRadius="17,17,0,0"
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                <Grid x:Name="HeaderGrid" Margin="13,0,10,0">
+                <Grid x:Name="HeaderGrid" Margin="{DynamicResource Pandora.HeaderPadding}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Width="30"
+                    <Border x:Name="BrandTile" Width="30"
                             Height="30"
                             CornerRadius="10"
                             Background="{DynamicResource Pandora.HoverBrush}"
@@ -68,13 +75,14 @@
 
                     <StackPanel x:Name="TitleStackPanel" Grid.Column="1" VerticalAlignment="Center">
                         <StackPanel x:Name="DockTitlePanel">
-                            <StackPanel Orientation="Horizontal">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Name}"
                                            Foreground="{DynamicResource Pandora.TextBrush}"
                                            FontFamily="Segoe UI Semibold"
-                                           FontSize="15"
+                                           FontSize="{DynamicResource Pandora.TitleFontSize}"
                                            TextTrimming="CharacterEllipsis" />
-                                <Border x:Name="AgentBadgeBorder"
+                                <Border x:Name="AgentBadgeBorder" Grid.Column="1"
                                         Margin="8,0,0,0"
                                         Padding="7,1"
                                         CornerRadius="8"
@@ -95,7 +103,7 @@
                                                FontFamily="Segoe UI Semibold"
                                                FontSize="10" />
                                 </Border>
-                            </StackPanel>
+                            </Grid>
                             <StackPanel x:Name="TabsPanel" Orientation="Horizontal" Margin="0,5,0,0" />
                         </StackPanel>
                         <TextBox x:Name="SearchBox"
@@ -113,7 +121,8 @@
                                  PreviewKeyDown="SearchBox_PreviewKeyDown" />
                     </StackPanel>
 
-                    <StackPanel x:Name="HeaderButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="HeaderControlsChrome" Grid.Column="2" VerticalAlignment="Center">
+                    <StackPanel x:Name="HeaderButtons" Orientation="Horizontal" VerticalAlignment="Center">
                         <StackPanel x:Name="MusicHeaderControls"
                                     Orientation="Horizontal"
                                     Visibility="Collapsed"
@@ -151,11 +160,15 @@
                                 Margin="6,0,0,0"
                                 Click="Collapse_Click" />
                     </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="1" x:Name="ContentHost">
-            <ContentControl x:Name="ProjectsHost" Visibility="Collapsed" Background="{DynamicResource Pandora.SurfaceBrush}" />
+            <Border x:Name="NavigationHost" Grid.Row="1" Visibility="Collapsed">
+                <ScrollViewer x:Name="NavigationScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False"/>
+            </Border>
+            <Grid Grid.Row="2" x:Name="ContentHost" Margin="{DynamicResource Pandora.ContentPadding}">
+            <ContentControl x:Name="ProjectsHost" Visibility="Collapsed" Background="Transparent" />
             <ListBox
                      x:Name="ItemsList"
                      ItemsSource="{Binding Items}"
@@ -181,8 +194,9 @@
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="4" />
-                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Margin" Value="{Binding DataContext.ItemMargin, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <Setter Property="Background" Value="{Binding DataContext.ItemSurfaceBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <Setter Property="BorderBrush" Value="{Binding DataContext.ItemBorderBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
                         <Setter Property="Foreground" Value="{Binding DataContext.ItemTextBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="Template">
@@ -190,8 +204,9 @@
                                 <ControlTemplate TargetType="ListBoxItem">
                                     <Border x:Name="ItemChrome"
                                             Background="{TemplateBinding Background}"
-                                            CornerRadius="10"
-                                            Padding="7">
+                                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource Pandora.ItemCornerRadius}"
+                                            Padding="{DynamicResource Pandora.ItemPadding}">
                                         <ContentPresenter />
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -201,7 +216,7 @@
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource Pandora.SelectionBrush}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Pandora.SelectionTextBrush}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -212,16 +227,17 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:FileItemViewModel}">
                         <Grid Width="{Binding DataContext.ItemWidth, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="34" />
+                                <RowDefinition x:Name="LabelRow" Height="34" />
                             </Grid.RowDefinitions>
-                            <Image Width="{Binding DataContext.IconSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            <Image x:Name="FileGlyph" Grid.ColumnSpan="2" Width="{Binding DataContext.IconSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                    Height="{Binding DataContext.IconSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                    Source="{Binding Icon}"
                                    HorizontalAlignment="Center"
                                    SnapsToDevicePixels="True" />
-                            <TextBlock Grid.Row="1"
+                            <TextBlock x:Name="FileLabel" Grid.Row="1" Grid.ColumnSpan="2"
                                        Text="{Binding DisplayName}"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                                        FontFamily="Segoe UI"
@@ -231,6 +247,21 @@
                                        TextTrimming="CharacterEllipsis"
                                        LineHeight="13" />
                         </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.ThemeId, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="Meridian">
+                                <Setter TargetName="FileGlyph" Property="Grid.ColumnSpan" Value="1"/>
+                                <Setter TargetName="FileGlyph" Property="Width" Value="26"/>
+                                <Setter TargetName="FileGlyph" Property="Height" Value="26"/>
+                                <Setter TargetName="FileGlyph" Property="HorizontalAlignment" Value="Left"/>
+                                <Setter TargetName="FileLabel" Property="Grid.Row" Value="0"/>
+                                <Setter TargetName="FileLabel" Property="Grid.Column" Value="1"/>
+                                <Setter TargetName="FileLabel" Property="Grid.ColumnSpan" Value="1"/>
+                                <Setter TargetName="FileLabel" Property="Margin" Value="10,0,0,0"/>
+                                <Setter TargetName="FileLabel" Property="VerticalAlignment" Value="Center"/>
+                                <Setter TargetName="FileLabel" Property="TextAlignment" Value="Left"/>
+                                <Setter TargetName="LabelRow" Property="Height" Value="0"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
                 <ListBox.ContextMenu>
@@ -268,7 +299,7 @@
                                    FontFamily="Segoe UI Semibold"
                                    FontSize="14"
                                    TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="Orbit Radio"
+                        <TextBlock Text="Radio"
                                    Foreground="{DynamicResource Pandora.TextBrush}"
                                    FontSize="11"
                                    Margin="0,2,0,0" />
@@ -462,7 +493,7 @@
             </Grid>
             </Grid>
 
-            <Border x:Name="StatusBorder" Grid.Row="2" Background="{DynamicResource Pandora.SurfaceBrush}" CornerRadius="0,0,17,17">
+            <Border x:Name="StatusBorder" Grid.Row="4" Background="{DynamicResource Pandora.SurfaceBrush}" CornerRadius="0,0,17,17">
                 <DockPanel Margin="12,0">
                     <TextBlock Text="{Binding StatusMessage}"
                                Foreground="{DynamicResource Pandora.MutedBrush}"

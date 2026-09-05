@@ -26,8 +26,10 @@ public partial class SettingsWindow : Window
         RefreshFromWorkspace();
         SettingsNavigation.SelectedIndex = 0;
         VersionText.Text = $"Version {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · Windows desktop";
+        ThemeService.ThemeChanged += AppearanceThemeChanged;
         Closed += (_, _) =>
         {
+            ThemeService.ThemeChanged -= AppearanceThemeChanged;
             UpdateBrandImage(_manager.Workspace.Settings.IconStyle);
             ThemeService.Apply(_manager.Workspace.Settings);
         };
@@ -83,7 +85,7 @@ public partial class SettingsWindow : Window
             "Layouts" => "Keep useful arrangements for different work and displays.",
             "Audio" => "Manage local music and interface sounds.",
             "About" => "Local-first desktop tools. Compatible with your existing workspace.",
-            _ => "Choose a surface that fits your desktop. Preview before applying."
+            _ => "Choose the dock structure, then its colors. Every palette works with every theme."
         };
         SettingsScrollViewer.ScrollToTop();
     }
@@ -91,7 +93,12 @@ public partial class SettingsWindow : Window
     private void LoadAppearanceFields()
     {
         var settings = _manager.Workspace.Settings;
+        DockThemeListBox.SelectedItem = DockThemeListBox.Items.OfType<ListBoxItem>().First(item =>
+            item.Tag?.ToString() == ThemeService.NormalizeDockTheme(settings.DockTheme));
         SelectTag(ThemeComboBox, ThemeService.NormalizeTheme(settings.Theme));
+        CustomAccentTextBox.Text = settings.CustomAccentColor ?? string.Empty;
+        CustomSurfaceTextBox.Text = settings.CustomSurfaceColor ?? string.Empty;
+        CustomColorsExpander.IsExpanded = !string.IsNullOrWhiteSpace(settings.CustomAccentColor) || !string.IsNullOrWhiteSpace(settings.CustomSurfaceColor);
         SelectTag(IconStyleComboBox, settings.IconStyle);
         UpdateBrandImage(settings.IconStyle);
         GlassOpacitySlider.Value = double.IsFinite(settings.GlassOpacity) ? Math.Clamp(settings.GlassOpacity * 100, 55, 100) : 88;
@@ -100,6 +107,8 @@ public partial class SettingsWindow : Window
         AccessibilityText.Text = ThemeService.IsHighContrast
             ? "Windows high contrast is active. System colors and opaque backgrounds override theme previews."
             : "Windows high contrast and reduced-animation preferences are always respected.";
+        ValidateAppearanceColors(out _, out _);
+        RefreshAppearancePreviews();
     }
 
     private static void SelectTag(ComboBox comboBox, string? tag)
@@ -113,9 +122,72 @@ public partial class SettingsWindow : Window
 
     private void PreviewAppearance()
     {
-        if (_isRefreshing || GlassOpacitySlider is null || ReduceMotionCheckBox is null || ThemeComboBox.SelectedItem is null) return;
-        ThemeService.Apply(SelectedTag(ThemeComboBox, "LunarGlass"), GlassOpacitySlider.Value / 100, ReduceMotionCheckBox.IsChecked == true);
-        StatusText.Text = "Appearance preview · Apply to keep, or revert.";
+        if (_isRefreshing || GlassOpacitySlider is null || ReduceMotionCheckBox is null || ThemeComboBox.SelectedItem is null ||
+            DockThemeListBox?.SelectedItem is null || CustomAccentTextBox is null || CustomSurfaceTextBox is null || AppearanceValidationText is null) return;
+        var colorsValid = ValidateAppearanceColors(out var accent, out var surface);
+        // An incomplete HEX draft must not become a color. Other independent controls remain
+        // responsive, using the last valid value only for the invalid field until it is corrected.
+        if (!ThemeService.TryNormalizeCustomColor(CustomAccentTextBox.Text, out _)) accent = ThemeService.EffectiveCustomAccentColor;
+        if (!ThemeService.TryNormalizeCustomColor(CustomSurfaceTextBox.Text, out _)) surface = ThemeService.EffectiveCustomSurfaceColor;
+        ThemeService.Apply(SelectedTag(ThemeComboBox, "LunarGlass"), GlassOpacitySlider.Value / 100,
+            ReduceMotionCheckBox.IsChecked == true, SelectedDockTheme(), accent, surface);
+        StatusText.Text = colorsValid ? "Appearance preview · Apply to keep, or revert." :
+            "Invalid color draft · That color keeps its last valid preview. Correct it before applying.";
+    }
+
+    private string SelectedDockTheme() => (DockThemeListBox.SelectedItem as ListBoxItem)?.Tag?.ToString() ?? "Classic";
+
+    private bool ValidateAppearanceColors(out string? accent, out string? surface)
+    {
+        var accentValid = ThemeService.TryNormalizeCustomColor(CustomAccentTextBox.Text, out accent);
+        var surfaceValid = ThemeService.TryNormalizeCustomColor(CustomSurfaceTextBox.Text, out surface);
+        var valid = accentValid && surfaceValid;
+        var field = !accentValid && !surfaceValid ? "Accent and surface colors" : !accentValid ? "Accent color" : "Surface color";
+        AppearanceValidationText.Text = valid ? string.Empty : $"{field} must use #RRGGBB (for example, #78CDBE), or be left blank.";
+        AppearanceValidationText.Visibility = valid ? Visibility.Collapsed : Visibility.Visible;
+        ApplyAppearanceButton.IsEnabled = valid;
+        CustomAccentTextBox.SetResourceReference(BorderBrushProperty, accentValid ? "Pandora.BorderBrush" : "Pandora.DangerBrush");
+        CustomSurfaceTextBox.SetResourceReference(BorderBrushProperty, surfaceValid ? "Pandora.BorderBrush" : "Pandora.DangerBrush");
+        return valid;
+    }
+
+    private void CustomColor_TextChanged(object sender, TextChangedEventArgs e) => PreviewAppearance();
+
+    private void ResetCustomColors_Click(object sender, RoutedEventArgs e)
+    {
+        _isRefreshing = true;
+        try { CustomAccentTextBox.Text = string.Empty; CustomSurfaceTextBox.Text = string.Empty; }
+        finally { _isRefreshing = false; }
+        PreviewAppearance();
+    }
+
+    private void PickCustomColor_Click(object sender, RoutedEventArgs e)
+    {
+        var isAccent = (sender as Button)?.Tag?.ToString() == "Accent";
+        var input = isAccent ? CustomAccentTextBox : CustomSurfaceTextBox;
+        var fallback = TryFindResource(isAccent ? "Pandora.AccentBrush" : "Pandora.WindowBrush") as System.Windows.Media.SolidColorBrush;
+        var color = fallback?.Color ?? System.Windows.Media.Colors.SlateGray;
+        if (ThemeService.TryNormalizeCustomColor(input.Text, out var normalized) && normalized is not null)
+            color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(normalized);
+        using var dialog = new System.Windows.Forms.ColorDialog
+        {
+            FullOpen = true,
+            Color = System.Drawing.Color.FromArgb(color.R, color.G, color.B)
+        };
+        var owner = new DialogOwner(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        if (dialog.ShowDialog(owner) == System.Windows.Forms.DialogResult.OK)
+            input.Text = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}";
+    }
+
+    private sealed record DialogOwner(IntPtr Handle) : System.Windows.Forms.IWin32Window;
+
+    private void AppearanceThemeChanged(object? sender, EventArgs e) => RefreshAppearancePreviews();
+
+    private void RefreshAppearancePreviews()
+    {
+        ClassicPreview?.InvalidateVisual();
+        HaloPreview?.InvalidateVisual();
+        MeridianPreview?.InvalidateVisual();
     }
 
     private void Appearance_SelectionChanged(object sender, SelectionChangedEventArgs e) => PreviewAppearance();
@@ -138,10 +210,6 @@ public partial class SettingsWindow : Window
         if (GlassOpacityText is not null) GlassOpacityText.Text = $"{e.NewValue:0}%";
         PreviewAppearance();
     }
-    private void ThemePreview_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button) SelectTag(ThemeComboBox, button.Tag?.ToString());
-    }
     private void RevertTheme_Click(object sender, RoutedEventArgs e)
     {
         _isRefreshing = true;
@@ -152,12 +220,18 @@ public partial class SettingsWindow : Window
     }
     private void SaveAppearance_Click(object sender, RoutedEventArgs e)
     {
+        if (!ValidateAppearanceColors(out var accent, out var surface))
+        {
+            CustomColorsExpander.IsExpanded = true;
+            StatusText.Text = "Appearance was not saved. Correct the color draft or use palette colors.";
+            return;
+        }
         var settings = _manager.Workspace.Settings;
-        var oldTheme = settings.Theme;
-        var oldOpacity = settings.GlassOpacity;
-        var oldMotion = settings.ReduceMotion;
-        var oldIcon = settings.IconStyle;
+        var saved = AppearanceSnapshot.Capture(settings);
         settings.Theme = SelectedTag(ThemeComboBox, "LunarGlass");
+        settings.DockTheme = SelectedDockTheme();
+        settings.CustomAccentColor = accent;
+        settings.CustomSurfaceColor = surface;
         settings.GlassOpacity = GlassOpacitySlider.Value / 100;
         settings.ReduceMotion = ReduceMotionCheckBox.IsChecked == true;
         settings.IconStyle = SelectedTag(IconStyleComboBox, "Aperture");
@@ -165,17 +239,39 @@ public partial class SettingsWindow : Window
         {
             _manager.SaveAppearanceSettings();
             ThemeService.Apply(settings);
+            RefreshAppearanceFields();
             StatusText.Text = "Appearance saved. Existing custom dock values are unchanged.";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            settings.Theme = oldTheme;
-            settings.GlassOpacity = oldOpacity;
-            settings.ReduceMotion = oldMotion;
-            settings.IconStyle = oldIcon;
-            UpdateBrandImage(oldIcon);
+            saved.Restore(settings);
             ThemeService.Apply(settings);
+            RefreshAppearanceFields();
             StatusText.Text = $"Appearance was not saved: {ex.Message}";
+        }
+    }
+
+    private void RefreshAppearanceFields()
+    {
+        _isRefreshing = true;
+        try { LoadAppearanceFields(); }
+        finally { _isRefreshing = false; }
+    }
+
+    private sealed record AppearanceSnapshot(string Theme, string DockTheme, string? Accent, string? Surface, double Opacity, bool ReduceMotion, string Icon)
+    {
+        public static AppearanceSnapshot Capture(AppSettings settings) => new(settings.Theme, settings.DockTheme,
+            settings.CustomAccentColor, settings.CustomSurfaceColor, settings.GlassOpacity, settings.ReduceMotion, settings.IconStyle);
+
+        public void Restore(AppSettings settings)
+        {
+            settings.Theme = Theme;
+            settings.DockTheme = DockTheme;
+            settings.CustomAccentColor = Accent;
+            settings.CustomSurfaceColor = Surface;
+            settings.GlassOpacity = Opacity;
+            settings.ReduceMotion = ReduceMotion;
+            settings.IconStyle = Icon;
         }
     }
     private void SaveDesktop_Click(object sender, RoutedEventArgs e)

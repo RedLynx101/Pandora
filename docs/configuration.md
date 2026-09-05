@@ -12,12 +12,15 @@ Starter workspace shape:
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "settings": {
     "attachWindowsToDesktop": false,
     "startWithWindows": false,
     "peekHotkey": "Ctrl+Alt+Space",
     "theme": "LunarGlass",
+    "dockTheme": "Classic",
+    "customAccentColor": null,
+    "customSurfaceColor": null,
     "glassOpacity": 0.88,
     "reduceMotion": false,
     "iconStyle": "Aperture",
@@ -55,11 +58,28 @@ Starter workspace shape:
 
 ## Appearance
 
-Settings offer `LunarGlass` (default), `Midnight`, `Limestone`, and `System`. System follows the Windows app theme. The legacy `Graphite` value resolves to Lunar Glass. Saved custom dock colors remain custom; selecting a theme does not erase them.
+Appearance has separate structure and color choices:
+
+| Settings choice | JSON field | Values |
+| --- | --- | --- |
+| Dock theme / structure | `dockTheme` | `Classic` (default), `Halo`, `Meridian` |
+| Palette | `theme` | `LunarGlass` (displayed as Lunar, default), `Midnight`, `Limestone`, `Aegean`, `System` |
+| Optional accent | `customAccentColor` | `#RRGGBB` or `null` |
+| Optional base surface | `customSurfaceColor` | `#RRGGBB` or `null` |
+
+The C# `AppSettings.Theme` property and JSON `theme` field intentionally retain their legacy **palette** meaning. `DockTheme` selects geometry independently. Classic keeps the existing dock structure. Halo separates a floating rounded header and body with pill controls and an airy grid. Meridian uses a crisp frame, accent rail, separate tab strip, and compact horizontal file tiles. Changing the palette does not switch structure.
+
+Classic honors a dock's saved corner radius. Halo and Meridian use their structural profile's radius; the saved per-dock value is retained for switching back to Classic.
+
+System follows the Windows app theme. The legacy `Graphite` value resolves to Lunar. Aegean pairs deep blue-green surfaces with a sea-glass accent.
+
+Use the color pickers or enter six-digit `#RRGGBB` values. Blank fields clear the optional override. The global accent and surface choices generate related text, muted text, focus, border, selection, and status roles for readability; they are not a collection of unrelated raw brush overrides. Invalid drafts are identified before applying. Intentional per-dock accent/background overrides remain intact when the global theme, palette, or custom colors change.
 
 `glassOpacity` is a 0.55–1.0 surface-opacity preference, not window/text opacity. `reduceMotion` suppresses optional motion. Windows high contrast overrides the palette and forces opaque surfaces; Windows reduced-animation preferences are respected.
 
 `iconStyle` selects `Aperture`, `Selene`, or `Aster` for product surfaces. The shipped executable uses Aperture; desktop shortcuts can be refreshed with `install-test-shortcut.ps1 -IconStyle Selene`.
+
+Aperture remains the selected default. Schema v6 migration adds the new structure/custom-color settings while preserving the existing palette and icon selection; it does not reset a user's Selene or Aster choice.
 
 ## Compatibility
 
@@ -87,6 +107,10 @@ Pandora deliberately retains `%APPDATA%\OrbitDock`, the existing music root, man
 Use settings or `pandoractl layout switch <name>` to change profiles.
 
 Pandora automatically creates a display variant when it sees a new monitor combination. Unknown monitor combinations clone the profile's default variant and clamp docks into the visible work area.
+
+### Rolled-up geometry
+
+Saved bounds describe the dock's remembered **expanded** geometry. A rolled-up window is a shorter visible projection of those bounds, with `isCollapsed` stored separately. Moving or normalizing that projection must not replace the expanded height or clear the collapsed state. For bottom expansion, the visible header is anchored to the saved bottom edge so reopening grows upward without a jump. This separation addresses closed docks reopening or losing their size when moved.
 
 ## Paths
 

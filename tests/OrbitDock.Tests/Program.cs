@@ -28,6 +28,7 @@ var tests = new List<(string Name, Action Body)>
 };
 
 tests.Add(("Metis reader, registry, and read-only portfolio boundaries", MetisTests.Run));
+tests.Add(("Structural themes migrate and round-trip independently from palettes", StructuralThemeTests.Run));
 
 var failed = 0;
 foreach (var test in tests)
@@ -68,7 +69,7 @@ static void PandoraMigration()
     workspace.Zones.RemoveAll(zone => zone.Kind == ZoneKind.Projects);
     workspace.Zones.Add(new ZoneDefinition { Id = "projects", Name = "Personal files", Kind = ZoneKind.Standard });
     WorkspaceMigrator.MigrateToCurrent(workspace);
-    Assert(workspace.SchemaVersion == 5, "Pandora schema should be v5.");
+    Assert(workspace.SchemaVersion == WorkspaceMigrator.CurrentSchemaVersion, "Pandora schema should be current.");
     Assert(workspace.Zones.Count(zone => zone.Kind == ZoneKind.Projects) == 1, "Projects dock should be added once.");
     Assert(workspace.Zones.Single(zone => zone.Kind == ZoneKind.Projects).Id != "projects", "An existing unrelated ID must not be taken over.");
     Assert(launchpad.Name == "My launch tools" && launchpad.Appearance.BackgroundColor == "#123456", "Custom dock identity/appearance must survive.");

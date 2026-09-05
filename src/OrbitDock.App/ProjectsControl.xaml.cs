@@ -294,7 +294,10 @@ public partial class ProjectsControl : UserControl, IDisposable
     private static StackPanel Panel() => new() { Margin = new Thickness(2, 2, 2, 2) };
     private static Border Card(UIElement content)
     {
-        var border = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(8), Margin = new Thickness(0, 4, 0, 12), BorderThickness = new Thickness(1), Child = content };
+        var border = new Border { BorderThickness = new Thickness(1), Child = content };
+        border.SetResourceReference(Border.CornerRadiusProperty, "Pandora.ProjectCardCornerRadius");
+        border.SetResourceReference(Border.PaddingProperty, "Pandora.ProjectCardPadding");
+        border.SetResourceReference(Border.MarginProperty, "Pandora.ProjectCardMargin");
         border.SetResourceReference(Border.BackgroundProperty, "Pandora.SurfaceBrush"); border.SetResourceReference(Border.BorderBrushProperty, "Pandora.BorderBrush"); return border;
     }
     private static TextBlock Label(string text, double size = 12, string? resource = null, bool bold = false, bool muted = false)

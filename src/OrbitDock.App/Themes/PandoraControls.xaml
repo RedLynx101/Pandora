@@ -1,4 +1,4 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:system="clr-namespace:System;assembly=mscorlib">
     <!-- Fallback colors before ThemeService reads workspace settings. -->
     <SolidColorBrush x:Key="Pandora.WindowBrush" Color="#151A29" />
     <SolidColorBrush x:Key="Pandora.SurfaceBrush" Color="#1C2333" />
@@ -8,29 +8,54 @@
     <SolidColorBrush x:Key="Pandora.MutedBrush" Color="#BAC3D8" />
     <SolidColorBrush x:Key="Pandora.AccentBrush" Color="#C1BCFF" />
     <SolidColorBrush x:Key="Pandora.AccentTextBrush" Color="#171929" />
+    <SolidColorBrush x:Key="Pandora.FocusBrush" Color="#C1BCFF" />
     <SolidColorBrush x:Key="Pandora.SelectionBrush" Color="#45415F" />
     <SolidColorBrush x:Key="Pandora.SelectionTextBrush" Color="#F0F2FC" />
     <SolidColorBrush x:Key="Pandora.HoverBrush" Color="#343D52" />
     <SolidColorBrush x:Key="Pandora.DangerBrush" Color="#FFADBA" />
     <SolidColorBrush x:Key="Pandora.SuccessBrush" Color="#A1DFC9" />
     <SolidColorBrush x:Key="Pandora.GlassBrush" Color="#151A29" Opacity="0.88" />
+    <!-- Classic structure fallback. ThemeService updates these independently of color. -->
+    <CornerRadius x:Key="Pandora.DockCornerRadius">18</CornerRadius>
+    <system:Double x:Key="Pandora.HeaderHeight">44</system:Double>
+    <Thickness x:Key="Pandora.HeaderPadding">12,0,12,0</Thickness>
+    <Thickness x:Key="Pandora.ContentPadding">12,6,12,8</Thickness>
+    <system:Double x:Key="Pandora.FooterHeight">26</system:Double>
+    <CornerRadius x:Key="Pandora.ControlCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="Pandora.ItemCornerRadius">8</CornerRadius>
+    <Thickness x:Key="Pandora.ItemPadding">8,7</Thickness>
+    <system:Double x:Key="Pandora.ItemGap">4</system:Double>
+    <Thickness x:Key="Pandora.ItemMargin">0,2</Thickness>
+    <Thickness x:Key="Pandora.FrameBorderThickness">1</Thickness>
+    <system:Double x:Key="Pandora.HeaderGap">0</system:Double>
+    <system:Double x:Key="Pandora.AccentRailWidth">0</system:Double>
+    <system:Boolean x:Key="Pandora.SeparatedHeader">False</system:Boolean>
+    <system:Double x:Key="Pandora.TitleFontSize">13</system:Double>
+    <system:Double x:Key="Pandora.ShadowBlur">18</system:Double>
+    <system:Double x:Key="Pandora.ShadowOpacity">0.22</system:Double>
+    <Thickness x:Key="Pandora.ControlPadding">14,8</Thickness>
+    <Thickness x:Key="Pandora.MenuPadding">9,7</Thickness>
+    <CornerRadius x:Key="Pandora.ProjectCardCornerRadius">8</CornerRadius>
+    <Thickness x:Key="Pandora.ProjectCardPadding">8,7</Thickness>
+    <Thickness x:Key="Pandora.ProjectCardMargin">0,0,0,4</Thickness>
+    <Thickness x:Key="Pandora.ExpanderHeaderPadding">8,7</Thickness>
     <Style x:Key="Pandora.FocusVisual">
-        <Setter Property="Control.Template"><Setter.Value><ControlTemplate><Rectangle Margin="2" Stroke="{DynamicResource Pandora.AccentBrush}" StrokeThickness="2" StrokeDashArray="2,1" /></ControlTemplate></Setter.Value></Setter>
+        <Setter Property="Control.Template"><Setter.Value><ControlTemplate><Rectangle Margin="2" Stroke="{DynamicResource Pandora.FocusBrush}" StrokeThickness="2" StrokeDashArray="2,1" /></ControlTemplate></Setter.Value></Setter>
     </Style>
     <!-- Inherit foreground and font from the control: global setters break accent labels and icon glyphs. -->
     <Style TargetType="TextBlock" />
     <Style TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Pandora.ElevatedBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="14,8" /><Setter Property="MinHeight" Value="34" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Pandora.FrameBorderThickness}" /><Setter Property="Padding" Value="{DynamicResource Pandora.ControlPadding}" /><Setter Property="MinHeight" Value="34" />
         <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="FontFamily" Value="Segoe UI Semibold" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource Pandora.FocusVisual}" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="Button">
-                <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="{TemplateBinding Padding}">
                     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
                 </Border>
                 <ControlTemplate.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.AccentBrush}" /></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
                     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.75" /></Trigger>
                     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
                 </ControlTemplate.Triggers>
@@ -52,9 +77,9 @@
         <Setter Property="CaretBrush" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="SelectionBrush" Value="{DynamicResource Pandora.SelectionBrush}" /><Setter Property="Padding" Value="10,8" /><Setter Property="MinHeight" Value="36" /><Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="TextBox">
-                <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" /></Border>
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" /></Border>
                 <ControlTemplate.Triggers>
-                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.AccentBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
                     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -72,17 +97,17 @@
                 </StackPanel>
                 <ControlTemplate.Triggers>
                     <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Pandora.AccentBrush}" /><Setter TargetName="Check" Property="Visibility" Value="Visible" /></Trigger>
-                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Pandora.AccentBrush}" /></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
                     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value></Setter>
     </Style>
     <Style TargetType="ComboBoxItem">
-        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="Padding" Value="10,8" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="Padding" Value="{DynamicResource Pandora.MenuPadding}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="ComboBoxItem">
-                <Border x:Name="Chrome" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="3"><ContentPresenter /></Border>
+                <Border x:Name="Chrome" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}"><ContentPresenter /></Border>
                 <ControlTemplate.Triggers>
                     <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Pandora.HoverBrush}" /></Trigger>
                     <Trigger Property="IsSelected" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Pandora.SelectionBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.SelectionTextBrush}" /></Trigger>
@@ -99,19 +124,19 @@
                 <Grid>
                     <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                         <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Chrome" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="5">
+                            <Border x:Name="Chrome" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}">
                                 <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource Pandora.MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
                             </Border>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.AccentBrush}" /></Trigger>
-                                <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.AccentBrush}" /></Trigger>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
+                                <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate></ToggleButton.Template>
                     </ToggleButton>
                     <ContentPresenter IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" Margin="10,0,34,0" VerticalAlignment="Center" />
                     <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="2,2,30,2" Background="{TemplateBinding Background}" />
                     <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" PopupAnimation="None">
-                        <Border Background="{DynamicResource Pandora.SurfaceBrush}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="4" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                        <Border Background="{DynamicResource Pandora.SurfaceBrush}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="4" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
                             <ScrollViewer><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer>
                         </Border>
                     </Popup>
@@ -127,10 +152,10 @@
         <Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="BorderThickness" Value="0" /><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
     </Style>
     <Style TargetType="ListBoxItem">
-        <Setter Property="Padding" Value="12,10" /><Setter Property="Margin" Value="0,2" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="FocusVisualStyle" Value="{StaticResource Pandora.FocusVisual}" />
+        <Setter Property="Padding" Value="{DynamicResource Pandora.ItemPadding}" /><Setter Property="Margin" Value="{DynamicResource Pandora.ItemMargin}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="FocusVisualStyle" Value="{StaticResource Pandora.FocusVisual}" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="ListBoxItem">
-                <Border x:Name="Chrome" Background="Transparent" BorderThickness="1" BorderBrush="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="6"><ContentPresenter /></Border>
+                <Border x:Name="Chrome" Background="Transparent" BorderThickness="1" BorderBrush="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="{DynamicResource Pandora.ItemCornerRadius}"><ContentPresenter /></Border>
                 <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Pandora.HoverBrush}" /></Trigger>
                     <Trigger Property="IsSelected" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Pandora.SelectionBrush}" /><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.SelectionTextBrush}" /></Trigger>
@@ -141,15 +166,15 @@
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="{DynamicResource Pandora.SurfaceBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" /><Setter Property="FontFamily" Value="Segoe UI" /><Setter Property="FontSize" Value="12" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContextMenu">
-            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="5" MinWidth="190"><ScrollViewer CanContentScroll="True" MaxHeight="600"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" /></ScrollViewer></Border>
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="5" MinWidth="190"><ScrollViewer CanContentScroll="True" MaxHeight="600"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" /></ScrollViewer></Border>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="MenuItem">
-        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="Padding" Value="9,7" />
+        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="Padding" Value="{DynamicResource Pandora.MenuPadding}" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="MenuItem">
                 <Grid>
-                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="{TemplateBinding Padding}">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="15" /></Grid.ColumnDefinitions>
                             <ContentPresenter x:Name="Icon" ContentSource="Icon" Width="14" Height="14" />
@@ -160,7 +185,7 @@
                         </Grid>
                     </Border>
                     <Popup x:Name="PART_Popup" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" AllowsTransparency="True" Placement="Right" HorizontalOffset="-1" PopupAnimation="None" Focusable="False">
-                        <Border Background="{DynamicResource Pandora.SurfaceBrush}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="5" MinWidth="180"><ScrollViewer CanContentScroll="True" MaxHeight="600"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" /></ScrollViewer></Border>
+                        <Border Background="{DynamicResource Pandora.SurfaceBrush}" BorderBrush="{DynamicResource Pandora.BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="5" MinWidth="180"><ScrollViewer CanContentScroll="True" MaxHeight="600"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" /></ScrollViewer></Border>
                     </Popup>
                 </Grid>
                 <ControlTemplate.Triggers>
@@ -172,6 +197,50 @@
                 </ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="Pandora.ExpanderToggle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="{DynamicResource Pandora.ExpanderHeaderPadding}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Pandora.FocusVisual}" />
+        <Setter Property="Template"><Setter.Value>
+            <ControlTemplate TargetType="ToggleButton">
+                <Border x:Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource Pandora.ControlCornerRadius}" Padding="{TemplateBinding Padding}" BorderBrush="Transparent" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="16" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="Arrow" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" />
+                        <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" ContentStringFormat="{TemplateBinding ContentStringFormat}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" />
+                    </Grid>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="&#xE70D;" /></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Pandora.HoverBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Pandora.FocusBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value></Setter>
+    </Style>
+    <Style TargetType="Expander">
+        <Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template"><Setter.Value>
+            <ControlTemplate TargetType="Expander">
+                <StackPanel>
+                    <ToggleButton Style="{StaticResource Pandora.ExpanderToggle}" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" ContentStringFormat="{TemplateBinding HeaderStringFormat}"
+                                  IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                    <Border x:Name="ExpandedBody" Visibility="Collapsed" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter ContentSource="Content" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                    </Border>
+                </StackPanel>
+                <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="ExpandedBody" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="Pandora.ProjectCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Pandora.SurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Pandora.FrameBorderThickness}" /><Setter Property="CornerRadius" Value="{DynamicResource Pandora.ProjectCardCornerRadius}" />
+        <Setter Property="Padding" Value="{DynamicResource Pandora.ProjectCardPadding}" /><Setter Property="Margin" Value="{DynamicResource Pandora.ProjectCardMargin}" />
     </Style>
     <Style TargetType="Separator"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Separator"><Border Height="1" Background="{DynamicResource Pandora.BorderBrush}" Margin="8,5" /></ControlTemplate></Setter.Value></Setter></Style>
     <Style TargetType="ToolTip"><Setter Property="Background" Value="{DynamicResource Pandora.SurfaceBrush}" /><Setter Property="Foreground" Value="{DynamicResource Pandora.TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource Pandora.BorderBrush}" /><Setter Property="Padding" Value="9,6" /></Style>

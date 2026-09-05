@@ -9,6 +9,18 @@ dotnet build Pandora.sln --configuration Release
 dotnet run --project tests\OrbitDock.Tests --configuration Release --no-build
 ```
 
+## Isolated WPF verification
+
+After the solution build, choose a writable **absolute** task directory for render evidence:
+
+```powershell
+dotnet run --project tests\OrbitDock.App.Tests --configuration Release --no-build -- --output C:\absolute\task\work\pandora-ui-evidence
+```
+
+Each run creates a unique child directory containing fixture-local data, offscreen PNG renders, and a JSON report. The harness uses the actual WPF resources and controls without instantiating the product `App`, showing desktop windows, loading the user's workspace, or changing startup registration. See [harness boundaries](../tests/OrbitDock.App.Tests/README.md).
+
+These checks do not establish GPU/compositor transparency, live tray/taskbar behavior, Explorer layering, mixed-DPI monitor movement, or keyboard focus across native popups. Review those on real Windows hardware separately. Offscreen renders are not desktop screenshots. Record actual suite results and CI state for the tested commit; this document does not claim a new pass count or successful run.
+
 ## Publish a Test Build
 
 ```powershell
@@ -75,13 +87,27 @@ Preview shortcut changes without writing:
 
 `-StartupShortcut` repairs recognized existing registration while preserving Windows approval state, including disabled state. It does not opt an unregistered app into startup. Backups are under `artifacts\shortcut-backups`. Unknown shortcut targets are left alone.
 
-## Pandora review matrix
+## Structure, color, and migration review
 
-- Inspect Lunar Glass, Midnight, and Limestone on light and dark wallpapers; confirm labels, menus, focus indicators, and disabled controls are legible.
+- Compare Classic, Halo, and Meridian using the same palette. Confirm that header/body structure, controls, tab treatment, spacing, and file-tile layout differ as intended—not only colors.
+- Inspect every structure with Lunar, Midnight, Limestone, and Aegean on light and dark wallpapers. Confirm labels, menus, focus indicators, selected states, and disabled controls remain legible.
 - Select System and change the Windows app theme; test Windows high contrast separately.
+- Use the accent/surface color pickers and valid `#RRGGBB` input, including very light and dark surfaces. Check derived text, borders, focus, and status roles. Invalid drafts must not silently apply; clearing overrides should return to palette-derived colors.
 - Change transparency and reduced motion, save, restart, and verify the preference persists without changing intentional dock colors.
+- Load a schema v5 workspace with a nondefault palette and icon; migrate to v6 and confirm those choices, per-dock overrides, layouts, and item data are preserved. Verify `theme` still stores the palette and `dockTheme` stores structure independently.
 - Open each settings section using keyboard navigation; confirm window resizing and 100%, 150%, and 200% DPI do not clip required controls.
-- Switch icons among Aperture, Selene, and Aster; verify product surfaces and refresh shortcuts as needed.
+- Confirm Aperture is the default; switch to Selene or Aster, save/reopen, and verify the choice is preserved. Refresh shortcuts as needed.
+
+## Rolled-up movement regression
+
+- For each structure, record a dock's expanded size, collapse it, drag the visible header, and confirm it stays closed. Reopen it and verify the remembered expanded size and new location.
+- Repeat with top and bottom expansion. Bottom-anchored docks must retain the lower edge and expand upward without jumping or replacing saved height with header height.
+- Repeat movement through coordinate normalization and layout save/reload. Confirm `isCollapsed` is preserved and saved expanded bounds remain distinct from the visible collapsed projection.
+- Change structure while collapsed, then reopen. Different header heights must not corrupt the remembered geometry.
+- Test actual display transitions and mixed-DPI movement separately from fixture-level bounds checks.
+
+## Projects and existing behavior
+
 - Register two independent Metis sources; verify ownership, current phase, weighted buckets, verified counts, budgets, and timestamps against the JSON.
 - Test missing, unsupported, malformed, stale, and updated project sources. Ensure no source plan file is changed.
 - Keep a project in a long wait: old source activity must not be displayed as proof the agent stopped running.

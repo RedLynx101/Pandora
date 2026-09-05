@@ -53,15 +53,21 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
     public IReadOnlyList<ZoneTabDefinition> Tabs => Zone.Tabs;
     public string Name => Zone.Name;
     public double IconSize => Zone.Appearance.IconSize;
-    public double ItemWidth => Math.Max(78, Zone.Appearance.IconSize + 42);
-    public double HeaderHeight => Tabs.Count > 1 ? 54 : 44;
+    public string ThemeId => ThemeService.EffectiveDockTheme;
+    public DockThemeProfile ThemeProfile => DockThemeCatalog.Get(ThemeId);
+    public double ItemWidth => ThemeId == "Meridian" ? 150 : Math.Max(78, Zone.Appearance.IconSize + (ThemeId == "Halo" ? 48 : 42));
+    public double HeaderHeight => ThemeProfile.HeaderHeight + (ThemeId == "Classic" && Tabs.Count > 1 ? 20 : 0);
+    public Thickness ItemMargin => new(ThemeProfile.ItemGap);
+    public Brush ItemSurfaceBrush => ThemeId == "Halo" && ThemeService.IsFactoryBackground(Zone.Appearance.BackgroundColor)
+        ? ThemeResource("Pandora.SurfaceBrush") : Brushes.Transparent;
+    public Brush ItemBorderBrush => ThemeId == "Meridian" ? ThemeResource("Pandora.BorderBrush") : Brushes.Transparent;
     public System.Windows.Media.Brush AccentBrush => ThemeService.GetDockAccent(Zone.Appearance);
     public System.Windows.Media.Brush HeaderBrush => ThemeResource("Pandora.SurfaceBrush");
     public System.Windows.Media.Brush BackgroundBrush => ThemeService.GetDockBackground(Zone.Appearance);
     public System.Windows.Media.Brush BorderBrush => ThemeResource("Pandora.BorderBrush");
     public ImageSource? BrandImage => BrandIdentity.Image(_manager.Workspace.Settings.IconStyle, 32);
     public Brush ItemTextBrush => ThemeService.GetDockText(Zone.Appearance);
-    public CornerRadius CornerRadius => new(Zone.Appearance.CornerRadius);
+    public CornerRadius CornerRadius => new(ThemeId == "Classic" ? Zone.Appearance.CornerRadius : ThemeProfile.CornerRadius);
 
     public ZoneTabDefinition? SelectedTab
     {
@@ -550,6 +556,14 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(BorderBrush));
         OnPropertyChanged(nameof(BrandImage));
         OnPropertyChanged(nameof(ItemTextBrush));
+        OnPropertyChanged(nameof(ThemeId));
+        OnPropertyChanged(nameof(ThemeProfile));
+        OnPropertyChanged(nameof(HeaderHeight));
+        OnPropertyChanged(nameof(CornerRadius));
+        OnPropertyChanged(nameof(ItemWidth));
+        OnPropertyChanged(nameof(ItemMargin));
+        OnPropertyChanged(nameof(ItemSurfaceBrush));
+        OnPropertyChanged(nameof(ItemBorderBrush));
     }
 
     private static Brush ThemeResource(string key) =>

@@ -22,8 +22,8 @@
             Background="{DynamicResource Pandora.GlassBrush}"
             BorderBrush="{DynamicResource Pandora.BorderBrush}"
             BorderThickness="1"
-            CornerRadius="12"
-            Padding="7"
+            CornerRadius="{DynamicResource Pandora.ItemCornerRadius}"
+            Padding="{DynamicResource Pandora.ItemPadding}"
             MouseLeftButtonDown="Frame_MouseLeftButtonDown">
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="5" Opacity="0.18" Color="#000000" />

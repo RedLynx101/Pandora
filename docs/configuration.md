@@ -3,10 +3,8 @@
 Workspace path:
 
 ```text
-%APPDATA%\OrbitDock\workspace.json
+%APPDATA%\Pandora\workspace.json
 ```
-
-If `%APPDATA%\OrbitDock\workspace.json` does not exist, Pandora imports `%APPDATA%\CustomFences\workspace.json` once and migrates it to the current schema.
 
 ## Data preservation and recovery
 
@@ -14,7 +12,7 @@ Existing malformed, unreadable, null-shaped, or future-schema workspaces are nev
 
 Writes use an exclusive lock and a content fingerprint attached to the loaded snapshot. A stale writer fails instead of overwriting another agent's or editor's changes—even if the file timestamp did not change. Reload and reapply the intended change after a conflict. Non-cooperating editors can still race a pathname-based check; use the CLI for coordinated writes.
 
-`pandoractl workspace validate` is read-only: it does not create a missing workspace, import legacy data, migrate on disk, create locks, or make backups. A missing/invalid/unsupported file produces a nonzero exit code. Relative explicit workspace paths resolve against the current directory, including their companion feed store.
+`pandoractl workspace validate` is read-only: it does not create a missing workspace, migrate on disk, create locks, or make backups. A missing/invalid/unsupported file produces a nonzero exit code. Relative explicit workspace paths resolve against the current directory, including their companion feed store.
 
 Folder drops never overwrite existing items and reject symbolic links/junctions or other reparse points in source trees and destination ancestors. Preflight is bounded to 20,000 entries and 128 levels. A failed copy may leave partial destination files, but it retains the source and its pin. These checks are not a race-proof filesystem sandbox.
 
@@ -43,8 +41,8 @@ Starter workspace shape:
       "enableSoundEffects": false,
       "soundEffectsVolume": 0.35,
       "enableMusicDock": false,
-      "musicRootPath": "%USERPROFILE%\\Music\\OrbitDock",
-      "soundEffectsPath": "%APPDATA%\\OrbitDock\\Audio\\Sfx"
+      "musicRootPath": "%USERPROFILE%\\Music\\Pandora",
+      "soundEffectsPath": "%APPDATA%\\Pandora\\Audio\\Sfx"
     }
   },
   "zones": [],
@@ -81,7 +79,7 @@ Appearance has separate structure and color choices:
 | Optional accent | `customAccentColor` | `#RRGGBB` or `null` |
 | Optional base surface | `customSurfaceColor` | `#RRGGBB` or `null` |
 
-The C# `AppSettings.Theme` property and JSON `theme` field intentionally retain their legacy **palette** meaning. `DockTheme` selects geometry independently. Classic keeps the existing dock structure. Halo separates a floating rounded header and body with pill controls and an airy grid. Meridian uses a crisp frame, accent rail, separate tab strip, and compact horizontal file tiles. Changing the palette does not switch structure.
+The C# `AppSettings.Theme` property and JSON `theme` field represent the **palette**. `DockTheme` selects geometry independently. Classic keeps the existing dock structure. Halo separates a floating rounded header and body with pill controls and an airy grid. Meridian uses a crisp frame, accent rail, separate tab strip, and compact horizontal file tiles. Changing the palette does not switch structure.
 
 Classic honors a dock's saved corner radius. Halo and Meridian use their structural profile's radius; the saved per-dock value is retained for switching back to Classic.
 
@@ -95,11 +93,9 @@ Use the color pickers or enter six-digit `#RRGGBB` values. Blank fields clear th
 
 `iconStyle` selects `Aperture`, `Selene`, or `Aster` for product surfaces. The shipped executable uses Aperture; desktop shortcuts can be refreshed with `install-test-shortcut.ps1 -IconStyle Selene`.
 
+Each dock also has **Header icon** in Settings → Docks: `Pandora` (default), `Custom`, or `None`. These are stored in its `appearance.headerIcon` and optional `appearance.headerIconPath`. Choose a local PNG, ICO, or JPEG for Custom; the file is read in place, not copied. Limits are 8 MiB and 2048 pixels per side (4 megapixels); ICO frames are limited to 256 pixels and 64 frames. Missing, invalid, linked, or network files fall back to Pandora with a status message. None removes the icon and its spacing. The global icon choice still controls the app, tray, and docks using Pandora.
+
 Aperture remains the selected default. Schema v6 introduced structure/custom-color settings; v7 adds Standard bar sizing for existing workspaces. Migration preserves existing palette, icon, layout and dock content choices; it does not reset a user's Selene or Aster choice.
-
-## Compatibility
-
-Pandora deliberately retains `%APPDATA%\OrbitDock`, the existing music root, managed VirtualTabs, and feed IDs. This is not an incomplete migration: it keeps existing tools and user data pointing to a single workspace. New script integrations should use `pandoractl.ps1`; `orbitdockctl.ps1` remains a forwarder.
 
 ## Zone Fields
 

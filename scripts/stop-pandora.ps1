@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-# Include the legacy binary during migration; never stop processes by a wildcard.
-$processes = @(Get-Process Pandora.App, OrbitDock.App -ErrorAction SilentlyContinue)
+# Match Pandora's exact process name; never stop processes by a wildcard.
+$processes = @(Get-Process Pandora.App -ErrorAction SilentlyContinue)
 & (Join-Path $PSScriptRoot "show-desktop-icons.ps1")
 if ($processes.Count -eq 0) {
     Write-Host "Pandora is not running."
@@ -15,4 +15,4 @@ foreach ($process in $processes) {
         $process.WaitForExit()
     }
 }
-Write-Host "Stopped Pandora (including any legacy OrbitDock instance)."
+Write-Host "Stopped Pandora."

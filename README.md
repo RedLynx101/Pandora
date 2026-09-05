@@ -1,166 +1,79 @@
 # Pandora
 
-<p align="center">
-  <img src="src/OrbitDock.App/Assets/Brand/Pandora-128.png" alt="Pandora aperture icon" width="96" height="96">
-</p>
+**Files, tools, and projects. On your desktop.**
 
-A native Windows desktop organizer for your files, tools, music, and long-running projects. Pandora pairs quiet celestial glass with local, readable data. No cloud account or agent-control server is required.
+Pandora is a Windows desktop organizer with customizable docks, folder tabs, saved layouts, local music, and an optional view of long-running Metis projects. No account or cloud service required.
 
-Pandora is the new name for OrbitDock. Existing workspaces, layouts, music folders, feed IDs, and automation entrypoints remain compatible; see [migration](#upgrading-from-orbitdock).
+[![Build and tests](https://github.com/RedLynx101/Pandora/actions/workflows/ci.yml/badge.svg)](https://github.com/RedLynx101/Pandora/actions/workflows/ci.yml) · [MIT](LICENSE) · Windows 10/11 · .NET 8 · **Alpha**
 
-## What it does
+![Pandora docks with sample files and a daily checklist](screenshots/pandora-overview.png)
 
-- Desktop docks for app shortcuts, virtual categories, and folder portals.
-- Named layouts with monitor-specific positions, roll-up state, tabs, ordering, and desktop pins.
-- Classic, Halo, and Meridian dock structures with independent color palettes, optional custom colors, adjustable glass opacity, and reduced motion.
-- Categorized settings, consistent menus, and three icon options.
-- A read-only **Projects** dock for multiple Metis plans: current phase, owners, verified progress, attention, and source freshness.
-- Local music and optional sounds, plus the Silk Current browser visualizer.
-- Agent feed docks for briefs and checklists, separate from project verification.
-- Local CLI, atomic workspace writes, tray controls, and recovery scripts.
+## What you can do
 
-## Appearance
+- **Organize without relocating files.** Group shortcuts into virtual docks, or browse real folders in tabs. Save layouts for different monitor setups.
+- **Make it fit your desktop.** Pick a structural theme, then a palette. Adjust bar size, colors, and glass opacity. Give each dock a custom icon, no icon, or the default Pandora mark.
+- **Keep useful things close.** Roll docks into their headers, search items, pin shortcuts, and play local music.
+- **Follow multiple projects.** See Metis phases, assigned agents, verified progress, and attention items in one read-only Projects dock.
+- **Connect local tools.** Publish briefs and checklists or manage layouts through the CLI.
 
-Choose a **dock theme** for structure, then a **palette** for color. Every palette works with every structure:
+Smart-dock organization is virtual. Folder drops copy by default; deleting a real file requires a separate confirmation. [Safety details →](docs/safety.md)
 
-| Dock theme | Structure |
-| --- | --- |
-| Classic | The familiar Pandora dock: an integrated frame and compact header |
-| Halo | Floating rounded header and body, pill controls, and an airy tile grid |
-| Meridian | Crisp frame with an accent rail, separate tab strip, and compact horizontal file tiles |
+## Try it
 
-**Classic + Lunar** is the default. Palettes are **Lunar** (stored as `LunarGlass`), **Midnight**, **Limestone**, **Aegean**, and Windows-following **System**. Optional accent and surface color pickers accept `#RRGGBB`; Pandora derives readable text, focus, border, and status colors around those choices. Intentional per-dock overrides remain intact. High contrast uses Windows colors and opaque surfaces.
+This is a **build-from-source alpha**, not a signed installer. You need Windows 10 or 11 and the .NET 8 SDK with Windows Desktop support.
 
-Choose **Compact**, **Standard**, or **Large** dock bars to scale names and controls together. Every theme has a single-line name bar, with multi-tab navigation below it only when expanded. **Dock surface opacity** includes the name/header background while keeping text and controls solid.
+```powershell
+git clone https://github.com/RedLynx101/Pandora.git
+cd Pandora
+dotnet build Pandora.sln
+.\scripts\start-pandora.ps1 -NoBuild -Settings
+```
 
-![Classic dock theme](screenshots/pandora-theme-classic.png)
-![Halo dock theme](screenshots/pandora-theme-halo.png)
-![Meridian dock theme](screenshots/pandora-theme-meridian.png)
+Use the tray icon to reopen Settings. Double-click a dock header to roll it up; press **Ctrl+Alt+Space** to send docks behind active windows. Starting with Windows is opt-in. Settings and layouts stay in `%APPDATA%\Pandora`.
+
+For a portable build, run `.\scripts\publish-portable.ps1`, then `.\scripts\start-pandora.ps1 -FromPublish`. Publishing does not install the app or enable startup. [Setup and recovery →](docs/getting-started.md)
+
+## Structure first. Color second.
+
+Every palette works with every dock theme. Choose Lunar, Midnight, Limestone, Aegean, or System, then optionally adjust the accent and surface colors.
+
+| Classic | Halo | Meridian |
+| --- | --- | --- |
+| Integrated frame and compact header | Floating rounded header and airy grid | Crisp frame, accent rail, horizontal tiles |
+| ![Classic dock](screenshots/pandora-theme-classic.png) | ![Halo dock](screenshots/pandora-theme-halo.png) | ![Meridian dock](screenshots/pandora-theme-meridian.png) |
+
+Header and body transparency leave text readable. Compact, Standard, and Large bars scale names and controls together. Aperture is the default product icon; Selene and Aster are also available.
+
+<details>
+<summary>Appearance settings</summary>
 
 ![Pandora appearance settings](screenshots/pandora-lunar-glass.png)
 
-These are offscreen renders of actual WPF controls, not desktop screenshots. See [testing](docs/testing.md) for live desktop/compositor checks. **Aperture** is the selected default icon; **Selene** and **Aster** remain available in settings.
+</details>
 
-Rolled-up docks retain their expanded size separately from the visible header. Moving or normalizing a closed dock keeps it closed; bottom-expanding docks keep their bottom anchor when reopened.
+## A home for Metis projects
 
-See [visual direction](docs/visual-direction.md) and [icon options](docs/pandora-icons.md).
+Register an existing local Metis dashboard from the Projects dock or CLI. Pandora reads its embedded JSON without running the HTML or changing the plan.
 
-See the [quality-pass record](docs/quality-pass.md) for persistence/recovery changes, safety regressions, and verification limits.
+<img src="screenshots/pandora-projects.png" alt="Projects dock showing two synthetic Metis plans" width="540">
 
-## Requirements and quick start
+Plans remain independent. The view distinguishes implemented work from verified acceptance, declared team budgets from live usage, and source freshness from agent liveness. Pandora displays progress; it does not direct agents or approve work. [Connect a project →](docs/metis-projects.md)
 
-Windows 10 or 11 and the .NET 8 SDK with Windows Desktop support:
+Images above are **actual WPF controls with sample content**, rendered offscreen—not captures of a live desktop. [Image provenance →](screenshots/README.md)
 
-```powershell
-dotnet restore Pandora.sln
-dotnet build Pandora.sln
-.\scripts\start-pandora.ps1 -NoBuild
-```
-
-Run core verification:
-
-```powershell
-dotnet run --project tests\OrbitDock.Tests
-```
-
-Run isolated WPF verification with an explicit absolute evidence directory:
-
-```powershell
-dotnet run --project tests\OrbitDock.App.Tests --configuration Release -- --output C:\absolute\task\work\pandora-ui-evidence
-```
-
-Choose a writable task directory for `--output`. The harness renders controls offscreen using fixture-local data; it does not start the desktop app or change your workspace. It cannot establish live compositor, monitor/DPI, or native popup behavior.
-
-Publish and launch a local build:
-
-```powershell
-.\scripts\publish-portable.ps1
-.\scripts\start-pandora.ps1 -FromPublish
-.\scripts\start-pandora.ps1 -Settings
-.\scripts\stop-pandora.ps1
-```
-
-Published executables are `artifacts\Pandora-win-x64\Pandora.App.exe` and `Pandora.Cli.exe`. Publishing does not install the app or enable startup.
-
-Create desktop shortcuts, or repair an existing startup registration:
-
-```powershell
-.\scripts\install-test-shortcut.ps1 -SettingsShortcut
-.\scripts\install-test-shortcut.ps1 -SettingsShortcut -StartupShortcut
-```
-
-The startup switch preserves the existing Windows enabled/disabled state; it does not opt you into startup. Enable that explicitly in Pandora settings. Recognized replaced shortcuts are backed up under `artifacts\shortcut-backups`; unrelated shortcut targets are left alone.
-
-## Metis projects
-
-Use **Add dashboard** in the Projects dock to register local Metis dashboard HTML files. Pandora extracts the embedded `codex-director-dashboard/v1` JSON document, without executing the HTML or modifying the source plan.
-
-![Pandora Projects with synthetic example plans](screenshots/pandora-projects.png)
-
-The project view separates implementation from verification and source freshness from agent liveness. Phase widths follow item counts. Named primary sessions and explicitly declared subagent budgets describe responsibility and planned capacity, not a count of live workers.
-
-Pandora is a display companion, not a director. Source plans remain authoritative. Local reading or acknowledgement never approves work, verifies a phase, grants permissions, or sends instructions to agents. Existing agent-feed checklists remain independent.
-
-See [Metis projects](docs/metis-projects.md) for the source format and integration boundaries.
-
-## Local agent control
+## Local automation
 
 ```powershell
 .\scripts\pandoractl.ps1 workspace validate
-.\scripts\pandoractl.ps1 workspace backup
 .\scripts\pandoractl.ps1 layout list
-.\scripts\pandoractl.ps1 dock set-bounds build 980 455 420 360
-.\scripts\pandoractl.ps1 audio music on
+.\scripts\pandoractl.ps1 project add "C:\Projects\Example\dashboard.html"
 .\scripts\pandoractl.ps1 agent-feed publish morning-brief --title "Morning Brief" --summary "Two items need attention." --status attention
 ```
 
-The running app watches workspace and feed changes. Agents should use the CLI for writes, not rewrite a live workspace without its locking and validation rules. See [agent control](docs/agent-control.md) and [agent feeds](docs/agent-feeds.md).
+The app watches local changes. Use the CLI for coordinated writes instead of overwriting a live workspace. [CLI guide](docs/agent-control.md) · [Agent feeds](docs/agent-feeds.md)
 
-## Upgrading from OrbitDock
+## Status and development
 
-The product and new executable names are Pandora. A deliberate compatibility layer avoids splitting your existing data:
+Pandora is alpha software. Explorer integration, real monitor transitions, mixed-DPI behavior, and compositor transparency still need broader hardware testing. Automated checks and offscreen renders do not establish that coverage.
 
-| Kept stable | Reason |
-| --- | --- |
-| `%APPDATA%\OrbitDock\workspace.json` | Existing settings and layouts |
-| `%APPDATA%\OrbitDock\AgentFeeds` and existing feed IDs | Existing automation and local read state |
-| `%APPDATA%\OrbitDock\VirtualTabs` | Managed shortcut locations |
-| `%USERPROFILE%\Music\OrbitDock` and configured audio paths | Existing playlists and files |
-| `OrbitDock.sln`, source project folders, namespaces | Existing developer tooling and serialized compatibility |
-| `start-orbitdock.ps1`, `stop-orbitdock.ps1`, `orbitdockctl.ps1` | Forwarders to the canonical Pandora scripts |
-
-Use `Pandora.sln`, `start-pandora.ps1`, `stop-pandora.ps1`, and `pandoractl.ps1` for new integrations. Schema v6 introduced independent structure/custom colors; v7 adds bar sizing with Standard as the migration default. The legacy `theme` key remains the palette; `dockTheme` selects structure and `dockBarSize` selects bar scale. Existing `Graphite` values resolve to Lunar, and intentional custom dock colors remain intact. Legacy CustomFences workspace import is retained.
-
-Do not rename or delete the compatibility folders manually. Back up your workspace before testing upgrades. The shortcut installer recognizes exact application paths from this checkout; if a shortcut points elsewhere, it refuses to replace it. No legacy artifact directory is recursively deleted.
-
-## Safety
-
-Smart-dock organization is virtual. Folder portals copy dropped files by default. Removing a dock or hiding an item does not delete its underlying files; moving a real file to the Recycle Bin is a separate confirmed action. Rule automation stays disabled.
-
-Clean desktop mode hides the Windows icon grid while Pandora runs and restores it on normal exit. If recovery is needed:
-
-```powershell
-.\scripts\show-desktop-icons.ps1
-```
-
-Missing folders, audio files, and shell integration should produce recoverable status, not destructive fallback behavior. See [safety](docs/safety.md).
-
-## Repository map
-
-```text
-src/OrbitDock.App/   WPF app, settings, tray, shell integration, audio, Projects
-src/OrbitDock.Core/  Models, migration, layouts, scanners, local storage
-src/OrbitDock.Cli/   Local CLI
-tests/OrbitDock.Tests/  Dependency-light console verification
-tests/OrbitDock.App.Tests/  Isolated WPF checks and offscreen evidence
-docs/               Architecture, configuration, safety, testing, integration
-scripts/            Publish, start/stop, shortcuts, recovery, CLI
-tools/              Optional Silk Current visualizer
-screenshots/        Product screenshots
-```
-
-Further reading: [architecture](docs/architecture.md), [configuration](docs/configuration.md), [desktop testing](docs/testing.md), [audio](docs/audio.md), [roadmap](docs/roadmap.md).
-
-Pandora is alpha software. Windows shell recovery, mixed-DPI behavior, and monitor changes require continued real-world testing. This project is independent and is not affiliated with Stardock or other similarly named products.
-
-Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Security: [SECURITY.md](SECURITY.md). License: [MIT](LICENSE).
+[Contribute](CONTRIBUTING.md) · [Run the tests](docs/testing.md) · [Architecture](docs/architecture.md) · [Configuration](docs/configuration.md) · [Roadmap](docs/roadmap.md) · [Report an issue](https://github.com/RedLynx101/Pandora/issues/new/choose) · [Security](SECURITY.md)

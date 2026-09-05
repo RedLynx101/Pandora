@@ -2,7 +2,7 @@
 
 ## Projects
 
-- `src/OrbitDock.Core`
+- `src/Pandora.Core`
   - Workspace models
   - JSON storage
   - Layout migration and profile manipulation
@@ -11,7 +11,7 @@
   - Path expansion/compression
   - Rule matching
   - Metis document reading and local project registry
-- `src/OrbitDock.App`
+- `src/Pandora.App`
   - WPF zone windows
   - Settings window
   - Tray icon
@@ -19,16 +19,16 @@
   - Desktop shell attachment
   - File/folder portal UI
   - Shared theme resources and read-only Projects UI
-- `src/OrbitDock.Cli`
+- `src/Pandora.Cli`
   - Local-agent command surface backed by the same workspace schema
-- `tests/OrbitDock.Tests`
+- `tests/Pandora.Tests`
   - Dependency-light console tests for the core library
 
 ## Runtime Flow
 
 1. `App` enforces single-instance startup.
-2. `WorkspaceStore.ForCurrentUser()` loads or creates `%APPDATA%\OrbitDock\workspace.json` and imports the legacy CustomFences path once if needed.
-3. `WorkspaceMigrator` upgrades earlier data to the current schema while retaining layout profiles and compatibility paths.
+2. `WorkspaceStore.ForCurrentUser()` loads or creates `%APPDATA%\Pandora\workspace.json`.
+3. `WorkspaceMigrator` upgrades earlier data to the current schema while retaining supported layout profiles and settings.
 4. `DesktopZoneManager` computes the current display signature, applies the matching layout variant, creates a `ZoneWindow` for each visible dock, and creates `DesktopPinWindow` overlays for active desktop pins.
 5. Each `ZoneWindow` owns a `ZoneViewModel` that enumerates the active folder or smart desktop tab, applies virtual item overrides, and watches underlying folders with `FileSystemWatcher`.
 6. If enabled, `DesktopHost.TryAttach` attempts to parent the zone to the Windows desktop shell surface.
@@ -39,11 +39,11 @@
 
 Workspace writes use a temporary file, a sibling `.lock` file, and `File.Replace` where possible, which prevents partial writes from corrupting an existing config. The WPF app watches the workspace and reloads after external CLI changes.
 
-The product name is Pandora; `OrbitDock` source folders, namespaces, storage roots, and single-instance signal names remain deliberate compatibility identifiers. Canonical binaries are `Pandora.App.exe` and `Pandora.Cli.exe`. `Pandora.sln` and the legacy solution reference the same projects.
+Canonical binaries are `Pandora.App.exe` and `Pandora.Cli.exe`. `Pandora.sln` contains the app, core, CLI, and isolated test projects.
 
 ## Appearance
 
-`ThemeService` supplies shared dynamic resources for app surfaces. It resolves Lunar Glass, Midnight, Limestone, and the Windows-following System preference, and handles high contrast and reduced motion. Theme selection does not rewrite deliberate per-dock color overrides. `BrandIdentity` resolves the selected product icon independently from the workspace storage identity.
+`ThemeService` supplies shared dynamic resources for app surfaces. It resolves Lunar, Midnight, Limestone, Aegean, and the Windows-following System preference, and handles high contrast and reduced motion. Theme selection does not rewrite deliberate per-dock color overrides. `BrandIdentity` resolves the selected product icon independently from dock layout.
 
 ## Project portfolio boundary
 

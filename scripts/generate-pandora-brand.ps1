@@ -15,7 +15,7 @@ Set-StrictMode -Version Latest
 Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Drawing
 
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$brandDirectory = Join-Path $repository 'src\OrbitDock.App\Assets\Brand'
+$brandDirectory = Join-Path $repository 'src\Pandora.App\Assets\Brand'
 $reviewDirectory = Join-Path $repository 'screenshots'
 $sizes = @(16, 24, 32, 48, 64, 128, 256)
 $choices = @(

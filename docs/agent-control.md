@@ -5,7 +5,7 @@ Pandora is designed to be local-agent friendly without exposing a network servic
 Default workspace:
 
 ```text
-%APPDATA%\OrbitDock\workspace.json
+%APPDATA%\Pandora\workspace.json
 ```
 
 Run from the repository root:
@@ -64,8 +64,18 @@ Desktop pins are Pandora overlay icons. They are useful when clean desktop mode 
 ```powershell
 .\scripts\pandoractl.ps1 audio sfx on
 .\scripts\pandoractl.ps1 audio music on
-.\scripts\pandoractl.ps1 audio set-music-folder "$env:USERPROFILE\Music\OrbitDock"
+.\scripts\pandoractl.ps1 audio set-music-folder "$env:USERPROFILE\Music\Pandora"
 ```
+
+## Metis project registrations
+
+```powershell
+.\scripts\pandoractl.ps1 project list
+.\scripts\pandoractl.ps1 project add "C:\Projects\Example\dashboard.html"
+.\scripts\pandoractl.ps1 project remove <registration-id>
+```
+
+These commands manage local registration only, never dashboard contents or agent instructions. List does not create missing data. Add validates the source first; remove requires an existing registration ID. The registry is `projects.json` beside the selected workspace. See [Metis projects](metis-projects.md).
 
 ## Validation and Backups
 
@@ -83,7 +93,7 @@ Agent feeds are for frequently changing briefs, checklists, and status cards. Th
 Default feed folder:
 
 ```text
-%APPDATA%\OrbitDock\AgentFeeds
+%APPDATA%\Pandora\AgentFeeds
 ```
 
 Publish a small update:

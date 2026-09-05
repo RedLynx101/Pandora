@@ -5,17 +5,17 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{65F47F2A-E5A9-44B4-BA64-036EB9F7578E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.App", "src\OrbitDock.App\OrbitDock.App.csproj", "{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.App", "src\Pandora.App\Pandora.App.csproj", "{F36B2C06-4E0C-4887-948D-D2E6886DB9AA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9042CBFC-FFEE-4434-9123-324184DC5EA8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Tests", "tests\OrbitDock.Tests\OrbitDock.Tests.csproj", "{EC2D16A6-4028-4B03-80A9-33DC96A87837}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Tests", "tests\Pandora.Tests\Pandora.Tests.csproj", "{EC2D16A6-4028-4B03-80A9-33DC96A87837}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Cli", "src\OrbitDock.Cli\OrbitDock.Cli.csproj", "{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Cli", "src\Pandora.Cli\Pandora.Cli.csproj", "{B130D6F3-14BF-4DD9-B351-D8C1CDD92F46}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Core", "src\OrbitDock.Core\OrbitDock.Core.csproj", "{93AF7698-ACBE-4711-846C-EEE8DAE69126}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.Core", "src\Pandora.Core\Pandora.Core.csproj", "{93AF7698-ACBE-4711-846C-EEE8DAE69126}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.App.Tests", "tests\OrbitDock.App.Tests\OrbitDock.App.Tests.csproj", "{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pandora.App.Tests", "tests\Pandora.App.Tests\Pandora.App.Tests.csproj", "{4419E09E-E863-4D8C-B7A4-CC23367C9FA1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

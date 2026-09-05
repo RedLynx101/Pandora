@@ -12,8 +12,8 @@ Workspace defaults:
     "enableSoundEffects": false,
     "soundEffectsVolume": 0.35,
     "enableMusicDock": false,
-    "musicRootPath": "%USERPROFILE%\\Music\\OrbitDock",
-    "soundEffectsPath": "%APPDATA%\\OrbitDock\\Audio\\Sfx"
+    "musicRootPath": "%USERPROFILE%\\Music\\Pandora",
+    "soundEffectsPath": "%APPDATA%\\Pandora\\Audio\\Sfx"
   }
 }
 ```
@@ -23,12 +23,12 @@ Use settings or the CLI:
 ```powershell
 .\scripts\pandoractl.ps1 audio sfx on
 .\scripts\pandoractl.ps1 audio music on
-.\scripts\pandoractl.ps1 audio set-music-folder "$env:USERPROFILE\Music\OrbitDock"
+.\scripts\pandoractl.ps1 audio set-music-folder "$env:USERPROFILE\Music\Pandora"
 ```
 
 ## Music Folder
 
-The music dock scans `%USERPROFILE%\Music\OrbitDock` by default.
+The music dock scans `%USERPROFILE%\Music\Pandora` by default.
 
 - Files directly in the root appear in `All Tracks`.
 - Subfolders appear as playlists.
@@ -59,7 +59,7 @@ Music refresh preserves remembered playlist/track selection without writing duri
 
 Silk Current is included with portable builds. The loopback server serves only its three static assets and accepts GET/HEAD, not project files or launcher scripts. Cancel/Stop and closing the page release acquired capture tracks, including an audio context still starting. Freeze preserves the frame until resumed. Audio remains browser-local; actual system-audio availability depends on the browser and sharing selection.
 
-Sound effects are looked up by name in `%APPDATA%\OrbitDock\Audio\Sfx`. Missing files are ignored.
+Sound effects are looked up by name in `%APPDATA%\Pandora\Audio\Sfx`. Missing files are ignored.
 
 Suggested filenames:
 

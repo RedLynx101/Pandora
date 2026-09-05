@@ -12,5 +12,5 @@ if (Test-Path -LiteralPath $publishedExe -PathType Leaf) {
     exit $LASTEXITCODE
 }
 
-& dotnet run --project (Join-Path $repoPath "src\OrbitDock.Cli\OrbitDock.Cli.csproj") -- @Arguments
+& dotnet run --project (Join-Path $repoPath "src\Pandora.Cli\Pandora.Cli.csproj") -- @Arguments
 exit $LASTEXITCODE

@@ -7,11 +7,10 @@ reference to Pandora, while the open geometry also suggests a place to collect
 and see your work. The midnight tile and blue-violet edges fit the translucent
 celestial interface without needing a starfield or elaborate mythology.
 
-Two alternatives are included for review:
+Two alternatives are included:
 
 - **Selene:** a sculpted crescent and star. The quieter, explicitly lunar option.
-- **Aster:** a guiding star inside two orbital arcs. The strongest connection to
-  the application's original orbital identity.
+- **Aster:** a guiding star inside two orbital arcs, for a more geometric mark.
 
 These are original geometric, code-native marks, not AI raster generations.
 Their Greek-inspired option labels are design directions, not additional product
@@ -19,7 +18,7 @@ names: the application remains **Pandora** whichever icon is selected.
 
 ## Files and selection
 
-All application assets are in `src/OrbitDock.App/Assets/Brand/`. `Pandora.svg`,
+All application assets are in `src/Pandora.App/Assets/Brand/`. `Pandora.svg`,
 `Pandora.png`, `Pandora.ico`, and `Pandora-<size>.png` are the default assets.
 The alternatives use the prefixes `Pandora-Selene` and `Pandora-Aster`.
 
@@ -45,8 +44,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/generate-pandora
 
 The generator reads the three SVG source files and produces matching PNGs, ICOs,
 and the contact sheet. It requires only Windows WPF and System.Drawing; no Node,
-Python, web browser, remote fonts, or network access. Segoe UI is used solely for
-the review sheet, not the icons. Generation does not touch legacy OrbitDock assets.
+Python, web browser, remote fonts, or network access. Segoe UI labels the contact sheet.
 
 The SVG renderer deliberately accepts only solid-painted paths, rounded
 rectangles, and circles. It rejects unsupported elements or attributes instead

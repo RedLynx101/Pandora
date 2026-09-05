@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
-$running = @(Get-Process Pandora.App, OrbitDock.App -ErrorAction SilentlyContinue)
+$running = @(Get-Process Pandora.App -ErrorAction SilentlyContinue)
 
 if ($running.Count -gt 0 -and $Restart) {
     & (Join-Path $PSScriptRoot "stop-pandora.ps1")
@@ -16,8 +16,8 @@ if ($running.Count -gt 0 -and $Restart) {
 
 if ($running.Count -gt 0) {
     if ($Settings) {
-        # Retain the cross-version named signal so existing copies can open settings.
-        $signal = [System.Threading.EventWaitHandle]::OpenExisting("OrbitDock.ShowSettings")
+        # Ask the running Pandora instance to open its settings.
+        $signal = [System.Threading.EventWaitHandle]::OpenExisting("Pandora.ShowSettings")
         try { [void]$signal.Set() } finally { $signal.Dispose() }
         Write-Host "Opened Pandora settings in the running instance."
     } else {
@@ -36,7 +36,7 @@ if ($FromPublish) {
         & dotnet build (Join-Path $repoPath "Pandora.sln")
         if ($LASTEXITCODE -ne 0) { throw "Pandora build failed with exit code $LASTEXITCODE." }
     }
-    $exe = Join-Path $repoPath "src\OrbitDock.App\bin\Debug\net8.0-windows\Pandora.App.exe"
+    $exe = Join-Path $repoPath "src\Pandora.App\bin\Debug\net8.0-windows\Pandora.App.exe"
 }
 
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {

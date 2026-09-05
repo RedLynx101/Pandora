@@ -1,29 +1,17 @@
 # Roadmap
 
-This separates current capabilities from future work. It is not a release-verification ledger; use the [testing checklist](testing.md) to record actual coverage.
+Pandora is an alpha. These are priorities, not delivery commitments.
 
-## Current direction
+## Stabilize the desktop experience
 
-- Native desktop docks, folder portals, virtual organization, and named monitor-aware layouts.
-- Pandora branding, selectable celestial themes, consistent settings and menus, and icon alternatives.
-- Local music, optional sounds, and the Silk Current visualizer.
-- Local agent feeds and a read-only Metis project portfolio.
-- Readable workspace storage, canonical Pandora scripts, and compatibility with existing OrbitDock data.
+- Broader Windows 10/11 testing: Explorer recovery, monitor changes, mixed DPI, keyboard navigation, and compositor transparency.
+- Clearer first-run setup and recovery guidance.
+- A signed distribution and repeatable release process when the app is ready.
 
-## Next release-quality work
+## Keep extending carefully
 
-- Broader Windows 10/11, mixed-DPI, multi-monitor, and Explorer-restart coverage.
-- Keyboard and high-contrast review against real desktop setups.
-- First-run onboarding and clearer recoverable-error guidance.
-- Reproducible portable release packaging and eventually signed builds.
-- Repository presentation, public examples with synthetic data, and contribution guidance. Review licensing/provenance before adding third-party assets.
+- Improve large folder and project-list usability with measured performance checks.
+- Expand local automation with explicit permissions and testable contracts.
+- Consider rule execution only with a dry-run preview, conflict handling, and user confirmation.
 
-## Potential extensions, separately designed
-
-- Dry-run rule planner and preview UI before enabling automatic filesystem mutations.
-- An undo/recovery log before broader file automation.
-- More import/export and workspace-diff tooling.
-- Explicitly scoped project acknowledgements or agent actions only after an authority and conflict model is approved. Read-only integration must remain useful without them.
-- Localization-ready resources and deeper per-dock appearance controls.
-
-Do not rename compatibility storage roots or add cloud dependencies solely for branding. No automated sorting, publishing, or agent dispatch is implied by this roadmap.
+Metis integration remains read-only. Agent dispatch, plan acceptance, remote control, and cloud sync are not current capabilities.

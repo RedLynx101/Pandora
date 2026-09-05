@@ -24,7 +24,7 @@ $startupPath = [Environment]::GetFolderPath("Startup")
 $backupPath = Join-Path $repoPath ("artifacts\shortcut-backups\" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
 $shell = New-Object -ComObject WScript.Shell
 $workingDirectory = Split-Path $exe
-$workspacePath = Join-Path $env:APPDATA "OrbitDock\workspace.json"
+$workspacePath = Join-Path $env:APPDATA "Pandora\workspace.json"
 if (-not $IconStyle -and (Test-Path -LiteralPath $workspacePath -PathType Leaf)) {
     try { $IconStyle = (Get-Content -LiteralPath $workspacePath -Raw | ConvertFrom-Json).settings.iconStyle }
     catch { Write-Warning "Could not read the saved icon choice; using Aperture." }
@@ -34,14 +34,9 @@ $iconPath = Join-Path $workingDirectory "Assets\Brand\$iconStem.ico"
 $iconLocation = if (Test-Path -LiteralPath $iconPath) { "$iconPath,0" } else { "$exe,0" }
 
 # Exact known paths only; a similarly named app elsewhere is not ours to replace.
-$knownTargets = @(
-    $exe,
-    (Join-Path $repoPath "artifacts\OrbitDock-win-x64\OrbitDock.App.exe")
-)
+$knownTargets = @($exe)
 foreach ($configuration in @("Debug", "Release")) {
-    foreach ($binary in @("Pandora.App.exe", "OrbitDock.App.exe")) {
-        $knownTargets += Join-Path $repoPath "src\OrbitDock.App\bin\$configuration\net8.0-windows\$binary"
-    }
+    $knownTargets += Join-Path $repoPath "src\Pandora.App\bin\$configuration\net8.0-windows\Pandora.App.exe"
 }
 $knownTargets = @($knownTargets | ForEach-Object { [IO.Path]::GetFullPath($_) })
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
@@ -100,34 +95,21 @@ function Set-PandoraShortcut {
     Write-Host "Created $Path"
 }
 
-function Retire-OwnedShortcut {
-    param([string]$Path)
-    # Re-read its exact target immediately before the single-file removal.
-    if (Get-OwnedShortcut $Path) {
-        Backup-Shortcut $Path
-        Remove-Item -LiteralPath $Path
-        Write-Host "Retired legacy shortcut (recoverable from backup): $Path"
-    }
-}
-
 try {
     $desktopShortcut = Join-Path $desktopPath "Pandora.lnk"
-    if ($PSCmdlet.ShouldProcess($desktopShortcut, "Create Pandora shortcut and back up recognized legacy shortcut")) {
+    if ($PSCmdlet.ShouldProcess($desktopShortcut, "Create Pandora shortcut and back up any recognized existing shortcut")) {
         Set-PandoraShortcut $desktopShortcut
-        Retire-OwnedShortcut (Join-Path $desktopPath "OrbitDock.lnk")
-        Retire-OwnedShortcut (Join-Path $desktopPath "OrbitDock Test.lnk")
     }
     if ($SettingsShortcut) {
         $settingsShortcutPath = Join-Path $desktopPath "Pandora Settings.lnk"
-        if ($PSCmdlet.ShouldProcess($settingsShortcutPath, "Create settings shortcut and back up recognized legacy shortcut")) {
+        if ($PSCmdlet.ShouldProcess($settingsShortcutPath, "Create settings shortcut and back up any recognized existing shortcut")) {
             Set-PandoraShortcut $settingsShortcutPath "--settings" "Open Pandora settings"
-            Retire-OwnedShortcut (Join-Path $desktopPath "OrbitDock Settings.lnk")
         }
     }
 
     if ($StartupShortcut) {
         $registrations = @()
-        foreach ($name in @("Pandora", "OrbitDock")) {
+        foreach ($name in @("Pandora")) {
             $linkPath = Join-Path $startupPath "$name.lnk"
             $link = Get-OwnedShortcut $linkPath
             if ($link -and $link.Arguments -eq "") {
@@ -170,12 +152,9 @@ try {
                     New-ItemProperty -Path $approvedFolderKey -Name "Pandora.lnk" -PropertyType Binary -Value $selected.Approval -Force | Out-Null
                 }
                 foreach ($registration in $registrations) {
-                    if ($registration.Kind -eq "Shortcut" -and $registration.Name -ne "Pandora.lnk") {
-                        Retire-OwnedShortcut $registration.Path
-                        # Preserve old approval metadata for recovery; it cannot launch an app.
-                    } elseif ($registration.Kind -eq "Run") {
+                    if ($registration.Kind -eq "Run") {
                         if ((Get-RegistryValue $runKey $registration.Name) -ne $registration.Command) {
-                            throw "Startup registration changed during migration; left it untouched."
+                            throw "Startup registration changed during repair; left it untouched."
                         }
                         Remove-ItemProperty -Path $runKey -Name $registration.Name
                     }

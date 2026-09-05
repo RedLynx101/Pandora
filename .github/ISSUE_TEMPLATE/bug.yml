@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible Pandora problem.
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Pandora commit and Windows version
+      placeholder: Commit hash, Windows version, display scaling
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include expected behavior, actual behavior, and whether it happens consistently.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Relevant error or screenshot
+      description: Redact personal filenames, desktop content, credentials, and private project data. Do not attach your entire workspace by default.

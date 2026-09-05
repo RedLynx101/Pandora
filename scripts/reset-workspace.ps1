@@ -3,16 +3,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$workspace = Join-Path $env:APPDATA "OrbitDock\workspace.json"
-$legacyWorkspace = Join-Path $env:APPDATA "CustomFences\workspace.json"
+$workspace = Join-Path $env:APPDATA "Pandora\workspace.json"
 
 & (Join-Path $PSScriptRoot "stop-pandora.ps1")
 
 if (-not (Test-Path $workspace)) {
     Write-Host "No workspace file exists yet."
-    if (Test-Path $legacyWorkspace) {
-        Write-Host "Legacy CustomFences workspace still exists at $legacyWorkspace"
-    }
     exit 0
 }
 

@@ -6,7 +6,7 @@ This is a test checklist, not a claim that every scenario has passed on every Wi
 
 ```powershell
 dotnet build Pandora.sln --configuration Release
-dotnet run --project tests\OrbitDock.Tests --configuration Release --no-build
+dotnet run --project tests\Pandora.Tests --configuration Release --no-build
 node --test tools/SilkCurrentVisualizer/tests/visualizer.test.cjs
 .\tools\SilkCurrentVisualizer\tests\server.test.ps1
 ```
@@ -18,10 +18,10 @@ Safety regressions cover workspace conflicts and byte preservation, read-only CL
 After the solution build, choose a writable **absolute** task directory for render evidence:
 
 ```powershell
-dotnet run --project tests\OrbitDock.App.Tests --configuration Release --no-build -- --output C:\absolute\task\work\pandora-ui-evidence
+dotnet run --project tests\Pandora.App.Tests --configuration Release --no-build -- --output C:\absolute\task\work\pandora-ui-evidence
 ```
 
-Each run creates a unique child directory containing fixture-local data, offscreen PNG renders, and a JSON report. The harness uses the actual WPF resources and controls without instantiating the product `App`, showing desktop windows, loading the user's workspace, or changing startup registration. See [harness boundaries](../tests/OrbitDock.App.Tests/README.md).
+Each run creates a unique child directory containing fixture-local data, offscreen PNG renders, and a JSON report. The harness uses the actual WPF resources and controls without instantiating the product `App`, showing desktop windows, loading the user's workspace, or changing startup registration. See [harness boundaries](../tests/Pandora.App.Tests/README.md).
 
 These checks do not establish GPU/compositor transparency, live tray/taskbar behavior, Explorer layering, mixed-DPI monitor movement, or keyboard focus across native popups. Review those on real Windows hardware separately. Offscreen renders are not desktop screenshots. Record actual suite results and CI state for the tested commit; this document does not claim a new pass count or successful run.
 
@@ -65,7 +65,7 @@ Restart a running copy:
 
 ## Reset Test Workspace
 
-This stops the app, backs up `%APPDATA%\OrbitDock\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
+This stops the app, backs up `%APPDATA%\Pandora\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
 
 ```powershell
 .\scripts\reset-workspace.ps1
@@ -115,8 +115,8 @@ Preview shortcut changes without writing:
 - Register two independent Metis sources; verify ownership, current phase, weighted buckets, verified counts, budgets, and timestamps against the JSON.
 - Test missing, unsupported, malformed, stale, and updated project sources. Ensure no source plan file is changed.
 - Keep a project in a long wait: old source activity must not be displayed as proof the agent stopped running.
-- Test a legacy workspace and both startup-enabled and startup-disabled registrations. Confirm no second workspace is created and disabled startup remains disabled.
-- Run both `pandoractl.ps1` and the `orbitdockctl.ps1` compatibility wrapper on the same read-only command.
+- Test a supported older-schema workspace and both startup-enabled and startup-disabled registrations. Confirm no second workspace is created and disabled startup remains disabled.
+- Run `project list`, `project add`, and `project remove` against an explicit fixture workspace; verify dashboard bytes remain unchanged.
 - Test real monitor disconnect/reconnect and Explorer recovery separately from static screenshot review.
 
 ## What to Test First
@@ -132,7 +132,7 @@ Preview shortcut changes without writing:
 - Right-click an item, remove it from the dock, and confirm the real file still exists.
 - Pin an item to the desktop overlay, move the pin, restart, and confirm its position persists.
 - Run `.\scripts\pandoractl.ps1 layout list`, `layout variants`, and `workspace validate` while the app is running.
-- Enable the music dock with `.\scripts\pandoractl.ps1 audio music on`, add a test `.mp3` or `.wav` under `%USERPROFILE%\Music\OrbitDock`, and confirm playlist scanning.
+- Enable the music dock with `.\scripts\pandoractl.ps1 audio music on`, add a test `.mp3` or `.wav` under `%USERPROFILE%\Music\Pandora`, and confirm playlist scanning.
 - Use the tray icon to open settings, reload, set docks behind windows, and exit.
 - Press `Ctrl+Alt+Space` to send docks back behind active windows.
 - Run `.\scripts\show-desktop-icons.ps1` if you ever need to restore the raw Windows desktop icon grid after a crash.

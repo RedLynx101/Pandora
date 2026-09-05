@@ -6,8 +6,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$project = Join-Path $root "src\OrbitDock.App\OrbitDock.App.csproj"
-$cliProject = Join-Path $root "src\OrbitDock.Cli\OrbitDock.Cli.csproj"
+$project = Join-Path $root "src\Pandora.App\Pandora.App.csproj"
+$cliProject = Join-Path $root "src\Pandora.Cli\Pandora.Cli.csproj"
 $output = Join-Path $root "artifacts\Pandora-$Runtime"
 $selfContainedValue = if ($SelfContained) { "true" } else { "false" }
 

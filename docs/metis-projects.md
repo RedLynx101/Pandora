@@ -4,11 +4,23 @@ Pandora's **Projects** dock is a local, read-only portfolio of Metis active plan
 
 ## Register a project
 
-1. Create a Projects dock from Pandora's dock menu.
+1. Open **Projects** from Pandora's tray menu, or use an existing Projects dock.
 2. Choose **Add dashboard…** and select the exact local Metis `.html` or `.htm` file.
 3. Expand the plan to inspect its current phase, next action, ownership, waits, evidence, and source health. **Open dashboard** explicitly opens that registered file in your default browser; only open files you trust.
 
 No paths are discovered automatically. Register each plan separately, including multiple independent plans within one project. **Remove** removes only the local registration, never the dashboard file. Registration and plan expansion preferences survive restarts in `projects.json` beside Pandora's workspace configuration. This registry is shared by Projects docks using that configuration folder.
+
+Agents can use the same local registry through the CLI:
+
+```powershell
+.\scripts\pandoractl.ps1 project list
+.\scripts\pandoractl.ps1 project add "C:\Projects\Example\dashboard.html"
+.\scripts\pandoractl.ps1 project remove <registration-id>
+```
+
+`list` is read-only and returns registration JSON. `add` validates the exact dashboard before registering it. `remove` requires a known registration ID and never removes source files. With an explicit workspace path, the registry stays beside that workspace; otherwise it is `%APPDATA%\Pandora\projects.json`.
+
+For a Metis director, check once at dashboard setup or an active-plan transition. Connect an existing source only when local project visibility is authorized. Do not install Pandora, create a dashboard solely for registration, duplicate another manager's registration, or silently repurpose a registered file for a different plan. The director remains the canonical dashboard writer.
 
 ## What the overview means
 
@@ -44,9 +56,9 @@ Write-back or agent control would require a separate, explicit authority and con
 
 ## Development
 
-- Reader and immutable projections: `src/OrbitDock.Core/MetisReader.cs`, `MetisModels.cs`.
+- Reader and immutable projections: `src/Pandora.Core/MetisReader.cs`, `MetisModels.cs`.
 - Registration and reconciliation: `ProjectRegistryStore.cs`, `ProjectPortfolioService.cs`.
-- Native view: `src/OrbitDock.App/ProjectsControl.xaml` and code-behind.
-- Synthetic boundary tests: `tests/OrbitDock.Tests/MetisTests.cs` (`MetisTests.Run`) and `ProjectSafetyTests.cs` (`ProjectSafetyTests.Run`). The latter exercises oversized checkpoints, registry byte preservation, and an isolated directory junction/link without following it during cleanup.
+- Native view: `src/Pandora.App/ProjectsControl.xaml` and code-behind.
+- Synthetic boundary tests: `tests/Pandora.Tests/MetisTests.cs` (`MetisTests.Run`) and `ProjectSafetyTests.cs` (`ProjectSafetyTests.Run`). The latter exercises oversized checkpoints, registry byte preservation, and an isolated directory junction/link without following it during cleanup.
 
-Legacy internal source directories and namespaces remain `OrbitDock` for compatibility; product UI and release branding are Pandora. Test data is synthetic and contains no registered personal projects.
+Test data is synthetic and contains no registered personal projects.

@@ -1003,7 +1003,7 @@ public partial class ZoneWindow : Window
         BodyChrome.CornerRadius = profile.SeparatedHeader ? new CornerRadius(profile.CornerRadius) : new CornerRadius(0);
         HeaderBorder.CornerRadius = collapsed || profile.SeparatedHeader ? new CornerRadius(radius) : bottom ? new CornerRadius(0, 0, radius, radius) : new CornerRadius(radius, radius, 0, 0);
         StatusBorder.CornerRadius = bottom ? new CornerRadius(radius, radius, 0, 0) : new CornerRadius(0, 0, radius, radius);
-        StatusBorder.Background = profile.SeparatedHeader ? Brushes.Transparent : ResourceBrush("Pandora.SurfaceBrush");
+        StatusBorder.Background = profile.SeparatedHeader ? Brushes.Transparent : _viewModel.HeaderBrush;
         NavigationHost.Margin = new Thickness(12, bottom ? 0 : profile.HeaderGap, 12, bottom ? profile.HeaderGap : 0);
         NavigationHost.Padding = new Thickness(0, 4, 0, 4);
         NavigationHost.BorderBrush = _viewModel.BorderBrush;

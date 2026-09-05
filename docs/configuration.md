@@ -75,7 +75,7 @@ System follows the Windows app theme. The legacy `Graphite` value resolves to Lu
 
 Use the color pickers or enter six-digit `#RRGGBB` values. Blank fields clear the optional override. The global accent and surface choices generate related text, muted text, focus, border, selection, and status roles for readability; they are not a collection of unrelated raw brush overrides. Invalid drafts are identified before applying. Intentional per-dock accent/background overrides remain intact when the global theme, palette, or custom colors change.
 
-`glassOpacity` is a 0.55–1.0 surface-opacity preference, not window/text opacity. `reduceMotion` suppresses optional motion. Windows high contrast overrides the palette and forces opaque surfaces; Windows reduced-animation preferences are respected.
+**Dock surface opacity** (`glassOpacity`, 0.55–1.0) affects the header/name background, body and footer across all structures, including rolled-up docks. Text, icons and controls remain solid; this is not window opacity. Intentional per-dock opacity overrides apply to these surfaces together. Menus and Settings retain opaque backgrounds. `reduceMotion` suppresses optional motion. Windows high contrast overrides the palette and forces opaque surfaces; Windows reduced-animation preferences are respected.
 
 `iconStyle` selects `Aperture`, `Selene`, or `Aster` for product surfaces. The shipped executable uses Aperture; desktop shortcuts can be refreshed with `install-test-shortcut.ps1 -IconStyle Selene`.
 

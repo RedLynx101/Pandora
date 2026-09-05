@@ -59,6 +59,7 @@ internal static partial class Program
         Run("Appearance save failure rolls back every new preference", StructuralSettingsSaveFailure);
         Run("All structural themes render differently at each palette", StructuralDockRenders);
         Run("Collapsed normalization preserves state, expanded geometry, and anchoring", CollapsedDockRegression);
+        Run("Header transparency follows surface opacity without fading foregrounds", DockChromeOpacity);
         Run("Projects: empty registry and explicit error states", ProjectStates);
         Run("Projects: read-only multi-project details and item-sized buckets", ProjectDetails);
         Run("Verification never displayed an application window", () =>
@@ -288,7 +289,7 @@ internal static partial class Program
         catch (TargetInvocationException ex) { throw ex.InnerException ?? ex; }
     }
 
-    private static void Capture(FrameworkElement content, string name, double width, double height, double dpi = 96)
+    private static void Capture(FrameworkElement content, string name, double width, double height, double dpi = 96, Brush? backdrop = null)
     {
         // Application invalidation normally reaches shown Window roots. Offscreen, detached
         // controls need an explicit resource boundary so a new palette invalidates their tree.
@@ -303,6 +304,12 @@ internal static partial class Program
         content.UpdateLayout();
         Drain();
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width * dpi / 96), (int)Math.Ceiling(height * dpi / 96), dpi, dpi, PixelFormats.Pbgra32);
+        if (backdrop is not null)
+        {
+            var scene = new DrawingVisual();
+            using (var context = scene.RenderOpen()) context.DrawRectangle(backdrop, null, new Rect(0, 0, width, height));
+            bitmap.Render(scene);
+        }
         if (Window.GetWindow(content) is { Background: { } background })
         {
             // The Window owns its background, not its Content. Include that actual brush in

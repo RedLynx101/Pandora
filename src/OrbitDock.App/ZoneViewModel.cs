@@ -62,7 +62,7 @@ public sealed class ZoneViewModel : INotifyPropertyChanged, IDisposable
         ? ThemeResource("Pandora.SurfaceBrush") : Brushes.Transparent;
     public Brush ItemBorderBrush => ThemeId == "Meridian" ? ThemeResource("Pandora.BorderBrush") : Brushes.Transparent;
     public System.Windows.Media.Brush AccentBrush => ThemeService.GetDockAccent(Zone.Appearance);
-    public System.Windows.Media.Brush HeaderBrush => ThemeResource("Pandora.SurfaceBrush");
+    public System.Windows.Media.Brush HeaderBrush => ThemeService.GetDockChrome(Zone.Appearance);
     public System.Windows.Media.Brush BackgroundBrush => ThemeService.GetDockBackground(Zone.Appearance);
     public System.Windows.Media.Brush BorderBrush => ThemeResource("Pandora.BorderBrush");
     public ImageSource? BrandImage => BrandIdentity.Image(_manager.Workspace.Settings.IconStyle, 32);

@@ -246,12 +246,25 @@ public static class ThemeService
         if (IsHighContrast) return new SolidColorBrush(SystemColors.WindowColor);
         var useTheme = IsFactoryBackground(appearance.BackgroundColor);
         var color = useTheme ? ResourceColor("Pandora.WindowBrush", "#151A29") : TryParse(appearance.BackgroundColor, "#151A29");
+        return new SolidColorBrush(color) { Opacity = GetDockSurfaceOpacity(appearance) };
+    }
+
+    /// <summary>Header/footer surfaces share dock opacity, without fading foregrounds or shared UI resources.</summary>
+    public static SolidColorBrush GetDockChrome(ZoneAppearance appearance) => new(
+        IsHighContrast ? SystemColors.ControlColor : ResourceColor("Pandora.SurfaceBrush", "#1C2333"))
+    {
+        Opacity = GetDockSurfaceOpacity(appearance)
+    };
+
+    private static double GetDockSurfaceOpacity(ZoneAppearance appearance)
+    {
+        if (IsHighContrast) return 1;
         // Known factory color/opacity pairs follow the global control; arbitrary custom values do not.
         var factoryOpacity = Math.Abs(appearance.Opacity - 0.88) < 0.0001 ||
             Math.Abs(appearance.Opacity - 0.82) < 0.0001 || Math.Abs(appearance.Opacity - 0.80) < 0.0001 ||
             Math.Abs(appearance.Opacity - 0.76) < 0.0001;
-        var opacity = useTheme && factoryOpacity ? DockOpacity : appearance.Opacity;
-        return new SolidColorBrush(color) { Opacity = double.IsFinite(opacity) ? Math.Clamp(opacity, 0.1, 1) : DockOpacity };
+        var opacity = IsFactoryBackground(appearance.BackgroundColor) && factoryOpacity ? DockOpacity : appearance.Opacity;
+        return double.IsFinite(opacity) ? Math.Clamp(opacity, 0.1, 1) : DockOpacity;
     }
 
     public static SolidColorBrush GetDockAccent(ZoneAppearance appearance)

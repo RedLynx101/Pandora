@@ -50,6 +50,7 @@ internal static partial class Program
         Run("Legacy dock defaults follow themes; deliberate overrides survive", DockThemeCompatibility);
         Run("Brand variants load actual image and icon assets", BrandAssets);
         Run("Startup approval bytes fail closed without registry writes", StartupApprovalBytes);
+        Run("Scheduled startup ownership rejects altered tasks without OS writes", ScheduledStartupOwnership);
         Run("Implicit controls consume current dynamic theme", ThemeControls);
         Run("Settings appearance preview, save, revert, and close persistence", SettingsBehavior);
         Run("Settings categories and all appearance themes render", SettingsRenders);
@@ -74,6 +75,7 @@ internal static partial class Program
         Run("Watcher callbacks stop after disposal", WatcherRefreshStopsAfterDispose);
         Run("Malformed feeds and stale actions fail safely", FeedRefreshAndActionRaces);
         Run("Music controls fit every narrow structural bar size", MusicHeaderFitsNarrowBars);
+        Run("Radio content stays transparent and controls fit narrow expanded docks", RadioContentLayout);
         Run("Dock icons decode bounded local images with safe fallback", DockIconLoading);
         Run("Per-dock icon drafts, persistence and settings reopen stay scoped", DockIconSettings);
         Run("Custom and no-icon headers fit expanded and rolled-up docks", DockIconHeaderLayout);
@@ -188,6 +190,30 @@ internal static partial class Program
         foreach (uint state in new uint[] { 2, 6 }) Assert(Enabled(BitConverter.GetBytes(state)), "Enabled approval state was rejected: " + state);
         foreach (uint state in new uint[] { 0, 3, 7, 255 }) Assert(!Enabled(BitConverter.GetBytes(state)), "Unknown/disabled approval state was accepted: " + state);
         Assert(!Enabled(new byte[] { 2, 0, 0 }) && !Enabled("2") && !Enabled(2), "Malformed approval data must fail closed.");
+    }
+
+    private static void ScheduledStartupOwnership()
+    {
+        const string executable = @"C:\Pandora\Pandora.App.exe";
+        const string sid = "S-1-5-21-123-456-789-1001";
+        var xml = $"""
+            <Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+            <RegistrationInfo><Description>{StartupScheduledTask.Description}</Description></RegistrationInfo>
+            <Principals><Principal id="Author"><UserId>{sid}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+            <Actions Context="Author"><Exec><Command>{executable}</Command><Arguments>--supervise</Arguments></Exec></Actions>
+            </Task>
+            """;
+        Assert(StartupScheduledTask.IsOwnedDefinition(xml, executable, sid), "Valid task rejected.");
+        Assert(StartupScheduledTask.IsOwnedDefinition(xml, executable.ToLowerInvariant(), sid), "Windows path casing rejected.");
+        Assert(StartupScheduledTask.IsOwnedDefinition(xml.Replace("<RunLevel>LeastPrivilege</RunLevel>", ""), executable, sid), "Scheduler's omitted default run level rejected.");
+        foreach (var altered in new[] {
+            xml.Replace(executable, @"C:\Other\Pandora.App.exe"),
+            xml.Replace(sid, "S-1-5-18"), xml.Replace("LeastPrivilege", "HighestAvailable"),
+            xml.Replace("InteractiveToken", "Password"), xml.Replace("--supervise", "--settings"),
+            xml.Replace(StartupScheduledTask.Description, "Unrelated app"),
+            xml.Replace("</Actions>", "<Exec><Command>cmd.exe</Command></Exec></Actions>"),
+            xml.Replace("<Command>" + executable + "</Command>", "<Command></Command>"), "invalid xml"
+        }) Assert(!StartupScheduledTask.IsOwnedDefinition(altered, executable, sid), "Altered task accepted.");
     }
 
     private static void ThemeControls()

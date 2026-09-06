@@ -27,7 +27,7 @@
 ## Runtime Flow
 
 1. `App` enforces single-instance startup.
-2. `WorkspaceStore.ForCurrentUser()` loads or creates `%APPDATA%\Pandora\workspace.json`.
+2. `WorkspaceStore.ForCurrentUser()` loads or creates `%USERPROFILE%\.pandora\workspace.json`.
 3. `WorkspaceMigrator` upgrades earlier data to the current schema while retaining supported layout profiles and settings.
 4. `DesktopZoneManager` computes the current display signature, applies the matching layout variant, creates a `ZoneWindow` for each visible dock, and creates `DesktopPinWindow` overlays for active desktop pins.
 5. Each `ZoneWindow` owns a `ZoneViewModel` that enumerates the active folder or smart desktop tab, applies virtual item overrides, and watches underlying folders with `FileSystemWatcher`.

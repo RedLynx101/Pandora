@@ -118,6 +118,7 @@ public partial class ProjectsControl : UserControl, IDisposable
             empty.Children.Add(Label(!_portfolio.HasRefreshed ? "Loading…" : _portfolio.RegistryError is not null ? "Could not read the project registry" : "A view, not a second manager", 16, bold: true));
             empty.Children.Add(Label("Follow multiple plans without merging their authority. Directors keep the plan and acceptance gates; Pandora shows the state they publish.", 12, muted: true));
             empty.Children.Add(Label("No approval buttons, automatic agents, or checklist writes. You choose every source.", 11, muted: true));
+            empty.Children.Add(Label("Registry: " + _portfolio.RegistryPath, 10, muted: true));
             ProjectsList.Children.Add(Card(empty));
             return;
         }

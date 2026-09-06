@@ -65,7 +65,7 @@ Restart a running copy:
 
 ## Reset Test Workspace
 
-This stops the app, backs up `%APPDATA%\Pandora\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
+This stops the app, backs up `%USERPROFILE%\.pandora\workspace.json`, and removes it. The app creates a fresh default workspace on next launch.
 
 ```powershell
 .\scripts\reset-workspace.ps1

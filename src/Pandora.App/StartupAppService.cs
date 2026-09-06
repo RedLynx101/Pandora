@@ -25,6 +25,8 @@ public static class StartupAppService
     {
         try
         {
+            using var scheduled = StartupScheduledTask.Open();
+            if (scheduled is not null) return true;
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
             foreach (var name in RegistrationNames)
             {
@@ -49,6 +51,8 @@ public static class StartupAppService
     {
         try
         {
+            using var scheduled = StartupScheduledTask.Open();
+            if (scheduled is not null) return scheduled.Enabled;
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
             foreach (var name in RegistrationNames)
             {
@@ -82,6 +86,8 @@ public static class StartupAppService
         // display name alone never authorizes deleting another app's shortcut.
         var launch = ResolveLaunchInfo(iconStyle);
         var registrations = ReadOwnedRegistrations(launch);
+        using var scheduled = StartupScheduledTask.Open();
+        if (scheduled is not null) scheduled.Enabled = enabled;
         foreach (var registration in registrations)
         {
             if (registration.HasRunEntry)
@@ -89,13 +95,13 @@ public static class StartupAppService
                 DeleteRegistryValue(RunKeyPath, registration.Name);
                 DeleteRegistryValue(StartupApprovedRunKeyPath, registration.Name);
             }
-            if (registration.HasShortcut && !enabled)
+            if (registration.HasShortcut && (!enabled || scheduled is not null))
             {
                 DeleteStartupShortcut(registration.Name);
                 DeleteRegistryValue(StartupApprovedFolderKeyPath, registration.Name + ".lnk");
             }
         }
-        if (enabled)
+        if (enabled && scheduled is null)
         {
             CreateStartupShortcut(launch);
             SetStartupApprovedEnabled();

@@ -1,5 +1,17 @@
 $ErrorActionPreference = "Stop"
 
+# A managed installation needs the scheduler's pending restart canceled as well.
+$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$scheduler = New-Object -ComObject Schedule.Service
+$scheduler.Connect()
+$task = $null
+try { $task = $scheduler.GetFolder('\').GetTask('Pandora-' + $sid) }
+catch { if ($_.Exception.GetBaseException().HResult -ne -2147024894) { throw } }
+if ($task) {
+    & (Join-Path $PSScriptRoot 'startup-pandora.ps1') -Mode Stop
+    return
+}
+
 # Match Pandora's exact process name; never stop processes by a wildcard.
 $processes = @(Get-Process Pandora.App -ErrorAction SilentlyContinue)
 & (Join-Path $PSScriptRoot "show-desktop-icons.ps1")

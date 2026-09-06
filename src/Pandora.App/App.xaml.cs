@@ -16,9 +16,11 @@ public partial class App : System.Windows.Application
 {
     private const string SingleInstanceMutexName = "Pandora.SingleInstance";
     private const string ShowSettingsSignalName = "Pandora.ShowSettings";
+    private const string ExitSignalName = "Pandora.Exit";
 
     private Mutex? _mutex;
     private EventWaitHandle? _showSettingsSignal;
+    private EventWaitHandle? _exitSignal;
     private Thread? _signalThread;
     private DesktopZoneManager? _manager;
     private Forms.NotifyIcon? _trayIcon;
@@ -30,10 +32,53 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        if (e.Args.Contains("--supervise", StringComparer.OrdinalIgnoreCase))
+        {
+            Shutdown(StartupSupervisor.Run());
+            return;
+        }
+
+        if (e.Args.Contains("--exit", StringComparer.OrdinalIgnoreCase))
+        {
+            if (EventWaitHandle.TryOpenExisting(ExitSignalName, out var signal))
+            {
+                using (signal) signal.Set();
+            }
+            Shutdown();
+            return;
+        }
+
+        // Route ordinary launches through the installed task so crash recovery
+        // remains active even after a deliberate exit and later manual restart.
+        if (!e.Args.Contains("--scheduled", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                using var scheduled = StartupScheduledTask.Open();
+                if (scheduled?.Enabled == true)
+                {
+                    scheduled.Run();
+                    if (e.Args.Contains("--settings", StringComparer.OrdinalIgnoreCase))
+                    {
+                        SpinWait.SpinUntil(() =>
+                        {
+                            if (!EventWaitHandle.TryOpenExisting(ShowSettingsSignalName, out var ready)) return false;
+                            ready.Dispose();
+                            return true;
+                        }, TimeSpan.FromSeconds(10));
+                    }
+                    SignalExistingInstance();
+                    Shutdown();
+                    return;
+                }
+            }
+            catch (Exception ex) { Debug.WriteLine("Scheduled launch unavailable: " + ex.Message); }
+        }
+
         _mutex = new Mutex(true, SingleInstanceMutexName, out var isFirstInstance);
         if (!isFirstInstance)
         {
-            SignalExistingInstance();
+            if (!e.Args.Contains("--scheduled", StringComparer.OrdinalIgnoreCase)) SignalExistingInstance();
             Shutdown();
             return;
         }
@@ -42,6 +87,7 @@ public partial class App : System.Windows.Application
         try
         {
             _showSettingsSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsSignalName);
+            _exitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ExitSignalName);
             StartSignalListener();
 
             var store = WorkspaceStore.ForCurrentUser();
@@ -62,6 +108,11 @@ public partial class App : System.Windows.Application
             _trayIcon = CreateTrayIcon(store);
             ThemeService.ThemeChanged += RefreshTrayIcon;
             _hotkeyWindow = new HotkeyWindow(() => Dispatcher.Invoke(() => _manager.TogglePeek()));
+
+            if (EventWaitHandle.TryOpenExisting("Pandora.StartupReady", out var ready))
+            {
+                using (ready) ready.Set();
+            }
 
             if (e.Args.Any(arg => string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase)))
             {
@@ -96,6 +147,7 @@ public partial class App : System.Windows.Application
         {
             RestoreDesktopIcons();
             _showSettingsSignal?.Dispose();
+            _exitSignal?.Dispose();
             _mutex?.Dispose();
             base.OnExit(e);
         }
@@ -132,6 +184,11 @@ public partial class App : System.Windows.Application
         {
             while (!_isExiting)
             {
+                if (_exitSignal?.WaitOne(0) == true)
+                {
+                    Dispatcher.BeginInvoke(() => Shutdown(0));
+                    return;
+                }
                 if (_showSettingsSignal.WaitOne(500) && !_isExiting)
                 {
                     Dispatcher.BeginInvoke(() => _manager?.ShowSettings());

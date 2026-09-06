@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$workspace = Join-Path $env:APPDATA "Pandora\workspace.json"
+$workspace = Join-Path $env:USERPROFILE ".pandora\workspace.json"
 
 & (Join-Path $PSScriptRoot "stop-pandora.ps1")
 

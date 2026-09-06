@@ -3,55 +3,49 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Silk Current Visualizer</title>
+  <meta name="theme-color" content="#06090e">
+  <link rel="icon" href="data:,">
+  <title>Silk Current · Pandora</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <main class="stage" id="stage" data-mode="silk">
-    <canvas id="visualizer" aria-label="Audio reactive visualizer"></canvas>
-    <div class="grain" aria-hidden="true"></div>
-
-    <header class="toolbar" aria-label="Silk Current controls">
-      <section class="identity" aria-live="polite">
-        <p class="eyebrow">Pandora Visualizer</p>
-        <h1>Silk Current</h1>
-        <p class="status" id="status">Waiting for system audio</p>
-      </section>
-
-      <section class="controls">
-        <button class="listen" id="listenButton" type="button">
-          <span class="listen-dot" aria-hidden="true"></span>
-          <span>Listen</span>
-        </button>
-
-        <button class="icon-button" id="freezeButton" type="button" aria-label="Freeze motion" aria-pressed="false" title="Freeze motion">
-          <span aria-hidden="true">II</span>
-        </button>
-
-        <button class="icon-button" id="fullscreenButton" type="button" aria-label="Full screen" title="Full screen">
-          <span aria-hidden="true">&#x26F6;</span>
-        </button>
-
-        <label class="gain-control">
-          <span>Gain</span>
-          <input id="sensitivity" type="range" min="0.55" max="2.4" value="1.08" step="0.01">
-        </label>
-
-        <div class="segmented" aria-label="Visualizer mode">
-          <button type="button" class="mode-button is-active" data-mode="silk" aria-pressed="true">Silk</button>
-          <button type="button" class="mode-button" data-mode="ember" aria-pressed="false">Ember</button>
-          <button type="button" class="mode-button" data-mode="rain" aria-pressed="false">Rain</button>
-        </div>
-      </section>
+    <canvas id="visualizer" aria-label="Audio-reactive three-dimensional light sculpture"></canvas>
+    <header class="topbar">
+      <div class="identity"><span class="brand-mark" aria-hidden="true">∿</span><div><p>PANDORA / AUDIO INSTRUMENT</p><h1>Silk Current</h1></div></div>
+      <div class="connection">
+        <p id="status" role="status">IDLE · no audio connected</p>
+        <button id="listenButton" class="connect" type="button"><span class="dot" aria-hidden="true"></span><span>Connect audio</span></button>
+      </div>
     </header>
-
-    <aside class="meter" aria-hidden="true">
-      <span class="meter-bar" id="bassMeter"></span>
-      <span class="meter-bar" id="midMeter"></span>
-      <span class="meter-bar" id="trebleMeter"></span>
-    </aside>
+    <div class="scene-caption" aria-hidden="true"><span id="sceneNumber">01</span><span id="sceneName">Orbital weave</span><i></i><span>LIGHT / FREQUENCY / MOTION</span></div>
+    <footer class="console">
+      <nav class="scenes" aria-label="Light sculpture">
+        <button type="button" class="mode-button" data-mode="silk" data-label="Orbital weave" aria-pressed="true"><span>01</span> Orbital</button>
+        <button type="button" class="mode-button" data-mode="ember" data-label="Tidal fold" aria-pressed="false"><span>02</span> Tidal</button>
+        <button type="button" class="mode-button" data-mode="rain" data-label="Prism lattice" aria-pressed="false"><span>03</span> Prism</button>
+      </nav>
+      <div class="signal" aria-hidden="true">
+        <div><span>LOW</span><i><b id="bassMeter"></b></i></div>
+        <div><span>MID</span><i><b id="midMeter"></b></i></div>
+        <div><span>HIGH</span><i><b id="trebleMeter"></b></i></div>
+      </div>
+      <div class="utilities">
+        <button id="freezeButton" type="button" aria-pressed="false" title="Space">Pause motion</button>
+        <button id="fullscreenButton" type="button" title="F">Full screen</button>
+        <details class="settings"><summary>Settings <span aria-hidden="true">＋</span></summary>
+          <div class="settings-panel">
+            <label for="sensitivity">Audio gain <output id="gainValue">1.08×</output></label>
+            <input id="sensitivity" type="range" min="0.5" max="2.5" value="1.08" step="0.01">
+            <button id="demoButton" type="button" aria-pressed="false">Demo signal</button>
+            <p>Connect a tab or screen and enable <strong>Share audio</strong>. Analysis stays in this browser. No recording or upload.</p>
+            <small>SPACE pause · F full screen · D demo</small>
+          </div>
+        </details>
+      </div>
+    </footer>
+    <p class="capture-hint">Select your music source and enable “Share audio”.</p>
   </main>
-
   <script type="module" src="./src/visualizer.js"></script>
 </body>
 </html>

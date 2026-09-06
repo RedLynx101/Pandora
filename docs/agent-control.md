@@ -5,7 +5,7 @@ Pandora is designed to be local-agent friendly without exposing a network servic
 Default workspace:
 
 ```text
-%APPDATA%\Pandora\workspace.json
+%USERPROFILE%\.pandora\workspace.json
 ```
 
 Run from the repository root:
@@ -93,7 +93,7 @@ Agent feeds are for frequently changing briefs, checklists, and status cards. Th
 Default feed folder:
 
 ```text
-%APPDATA%\Pandora\AgentFeeds
+%USERPROFILE%\.pandora\AgentFeeds
 ```
 
 Publish a small update:

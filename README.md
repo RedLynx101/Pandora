@@ -29,9 +29,14 @@ dotnet build Pandora.sln
 .\scripts\start-pandora.ps1 -NoBuild -Settings
 ```
 
-Use the tray icon to reopen Settings. Double-click a dock header to roll it up; press **Ctrl+Alt+Space** to send docks behind active windows. Starting with Windows is opt-in. Settings and layouts stay in `%APPDATA%\Pandora`.
+Use the tray icon to reopen Settings. Double-click a dock header to roll it up; press **Ctrl+Alt+Space** to send docks behind active windows. Starting with Windows is opt-in. Settings and layouts stay in `%USERPROFILE%\.pandora`.
+
+Upgrading from AppData storage? Follow [the backed-up data migration](docs/user-data-migration.md)
+before first launch. The app and CLI now share one path across packaged and scheduled launches.
 
 For a portable build, run `.\scripts\publish-portable.ps1`, then `.\scripts\start-pandora.ps1 -FromPublish`. Publishing does not install the app or enable startup. [Setup and recovery →](docs/getting-started.md)
+
+For opt-in sign-in startup with bounded crash recovery, use `scripts/startup-pandora.ps1 -Mode Install`. It integrates with the app's startup setting and respects deliberate Exit. [Startup and recovery commands →](docs/startup-recovery.md)
 
 ## Structure first. Color second.
 

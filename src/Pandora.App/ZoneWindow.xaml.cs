@@ -1061,9 +1061,32 @@ public partial class ZoneWindow : Window
     private void RenderMusicControls()
     {
         UpdateMusicHeaderOverflow();
+        UpdateRadioContentLayout();
         SearchButton.Visibility = _viewModel.IsAgentFeedDock || _viewModel.IsProjectsDock ? Visibility.Collapsed : Visibility.Visible;
         RepeatComboBox.ItemsSource = Enum.GetValues(typeof(MusicRepeatMode));
         RepeatComboBox.SelectedItem = _viewModel.MusicRepeat;
+    }
+
+    private void MusicPanel_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateRadioContentLayout();
+
+    private void UpdateRadioContentLayout()
+    {
+        if (_viewModel is null || MusicPanel is null || !_viewModel.IsMusicDock) return;
+        var width = MusicPanel.ActualWidth;
+        if (width <= 0) return;
+        // Keep the saved 300px-high radio useful; only stack at genuinely narrow widths.
+        var stacked = width < 230;
+        Grid.SetColumnSpan(MusicNowPlaying, stacked ? 2 : 1);
+        Grid.SetRow(MusicPlaylistPicker, stacked ? 1 : 0);
+        Grid.SetColumn(MusicPlaylistPicker, stacked ? 0 : 1);
+        Grid.SetColumnSpan(MusicPlaylistPicker, stacked ? 2 : 1);
+        MusicPlaylistPicker.Width = stacked ? double.NaN : 112;
+        MusicPlaylistPicker.Margin = stacked ? new Thickness(0, 8, 0, 0) : new Thickness(10, 0, 0, 0);
+        Grid.SetRow(MusicVolumeSlider, stacked ? 1 : 0);
+        Grid.SetColumn(MusicVolumeSlider, stacked ? 0 : 2);
+        Grid.SetColumnSpan(MusicVolumeSlider, stacked ? 3 : 1);
+        MusicVolumeSlider.Margin = stacked ? new Thickness(0, 6, 0, 0) : new Thickness(0);
+        Grid.SetRow(MusicUtilityRow, stacked ? 2 : 1);
     }
 
     private void HeaderBorder_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateMusicHeaderOverflow();

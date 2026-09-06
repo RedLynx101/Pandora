@@ -30,7 +30,7 @@ The shortcut installer's startup-repair option preserves an existing registratio
 
 ## Your data
 
-Pandora stores its workspace, feeds, virtual-tab contents, and project registry under `%APPDATA%\Pandora`. Configured folder docks refer to your existing files. The default local music directory is `%USERPROFILE%\Music\Pandora`.
+Pandora stores its workspace, feeds, virtual-tab contents, and project registry under `%USERPROFILE%\.pandora`. Configured folder docks refer to your existing files. The default local music directory is `%USERPROFILE%\Music\Pandora`.
 
 Back up the entire data folder before testing upgrades. For a workspace-only snapshot, use `.\scripts\pandoractl.ps1 workspace backup`. Back up configured music and folder contents separately. [Configuration details](configuration.md)
 
@@ -51,7 +51,7 @@ If docks seem to have reset, check **Layouts** for the selected monitor arrangem
 and **Docks** for hidden docks before restoring anything. A different display
 configuration can select a different saved arrangement without deleting docks.
 
-For a failure report, inspect `%APPDATA%\Pandora\Diagnostics\runtime.json` and
+For a failure report, inspect `%USERPROFILE%\.pandora\Diagnostics\runtime.json` and
 `errors.log` (plus its bounded `.previous` file). They record the build, selected
 layout, save status, and project-refresh counts/errors. They remain local and may
 contain paths or error details; review before sharing. A missing crash entry is

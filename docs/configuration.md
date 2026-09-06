@@ -3,7 +3,7 @@
 Workspace path:
 
 ```text
-%APPDATA%\Pandora\workspace.json
+%USERPROFILE%\.pandora\workspace.json
 ```
 
 ## Data preservation and recovery
@@ -42,7 +42,7 @@ Starter workspace shape:
       "soundEffectsVolume": 0.35,
       "enableMusicDock": false,
       "musicRootPath": "%USERPROFILE%\\Music\\Pandora",
-      "soundEffectsPath": "%APPDATA%\\Pandora\\Audio\\Sfx"
+      "soundEffectsPath": "%USERPROFILE%\\.pandora\\Audio\\Sfx"
     }
   },
   "zones": [],

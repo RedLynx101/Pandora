@@ -20,7 +20,7 @@ Agents can use the same local registry through the CLI:
 .\scripts\pandoractl.ps1 project remove <registration-id>
 ```
 
-`list` is read-only and returns registration JSON. `add` validates the exact dashboard before registering it. `remove` requires a known registration ID and never removes source files. With an explicit workspace path, the registry stays beside that workspace; otherwise it is `%APPDATA%\Pandora\projects.json`.
+`list` is read-only and returns registration JSON. `add` validates the exact dashboard before registering it. `remove` requires a known registration ID and never removes source files. With an explicit workspace path, the registry stays beside that workspace; otherwise it is `%USERPROFILE%\.pandora\projects.json`.
 
 For a Metis director, check once at dashboard setup or an active-plan transition. Connect an existing source only when local project visibility is authorized. Do not install Pandora, create a dashboard solely for registration, duplicate another manager's registration, or silently repurpose a registered file for a different plan. The director remains the canonical dashboard writer.
 
@@ -30,7 +30,7 @@ Startup reads do not depend on expanding the dock. **Loading**, **No dashboards
 registered**, and **Projects unavailable · refresh failed** are different states;
 source errors retain explicit unavailable/stale cards rather than claiming healthy
 projects. Hover over the status line for the registry path and last refresh time.
-Local diagnostics under `%APPDATA%\Pandora\Diagnostics` record refresh and rendered
+Local diagnostics under `%USERPROFILE%\.pandora\Diagnostics` record refresh and rendered
 summary counts. Review diagnostic paths/error details before sharing.
 
 - A project groups plans by stable `projectId`; each plan retains its own `plan.id`, `task.id`, dashboard ID, and director boundary. Display names do not supply identity.

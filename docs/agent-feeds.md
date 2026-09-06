@@ -7,19 +7,19 @@ Agent feed docks let local agents publish compact Pandora panels without giving 
 Default location:
 
 ```text
-%APPDATA%\Pandora\AgentFeeds
+%USERPROFILE%\.pandora\AgentFeeds
 ```
 
 Each feed is one JSON file:
 
 ```text
-%APPDATA%\Pandora\AgentFeeds\morning-brief.json
+%USERPROFILE%\.pandora\AgentFeeds\morning-brief.json
 ```
 
 Pandora keeps read state and local checklist completion in:
 
 ```text
-%APPDATA%\Pandora\AgentFeeds\state.json
+%USERPROFILE%\.pandora\AgentFeeds\state.json
 ```
 
 Agents should prefer the CLI. The store writes atomically with a lock file so concurrent local agents do not corrupt feed state.

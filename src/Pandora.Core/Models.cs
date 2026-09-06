@@ -37,7 +37,7 @@ public sealed class AudioSettings
     public double SoundEffectsVolume { get; set; } = 0.35;
     public bool EnableMusicDock { get; set; }
     public string MusicRootPath { get; set; } = "%USERPROFILE%\\Music\\Pandora";
-    public string SoundEffectsPath { get; set; } = "%APPDATA%\\Pandora\\Audio\\Sfx";
+    public string SoundEffectsPath { get; set; } = "%USERPROFILE%\\.pandora\\Audio\\Sfx";
 }
 
 public sealed class ZoneDefinition

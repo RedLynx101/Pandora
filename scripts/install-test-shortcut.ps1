@@ -24,7 +24,7 @@ $startupPath = [Environment]::GetFolderPath("Startup")
 $backupPath = Join-Path $repoPath ("artifacts\shortcut-backups\" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
 $shell = New-Object -ComObject WScript.Shell
 $workingDirectory = Split-Path $exe
-$workspacePath = Join-Path $env:APPDATA "Pandora\workspace.json"
+$workspacePath = Join-Path $env:USERPROFILE ".pandora\workspace.json"
 if (-not $IconStyle -and (Test-Path -LiteralPath $workspacePath -PathType Leaf)) {
     try { $IconStyle = (Get-Content -LiteralPath $workspacePath -Raw | ConvertFrom-Json).settings.iconStyle }
     catch { Write-Warning "Could not read the saved icon choice; using Aperture." }

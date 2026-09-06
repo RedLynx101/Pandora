@@ -294,9 +294,10 @@
             </ListBox>
 
             <Grid x:Name="MusicPanel"
-                  Background="{DynamicResource Pandora.SurfaceBrush}"
+                  Background="Transparent"
+                  SizeChanged="MusicPanel_SizeChanged"
                   Visibility="Collapsed"
-                  Margin="14,12,14,8">
+                  Margin="14,8,14,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -308,19 +309,22 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <StackPanel x:Name="MusicNowPlaying" Grid.ColumnSpan="2">
                         <TextBlock Text="{Binding NowPlayingText}"
                                    Foreground="{DynamicResource Pandora.TextBrush}"
                                    FontFamily="Segoe UI Semibold"
                                    FontSize="14"
                                    TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="Radio"
-                                   Foreground="{DynamicResource Pandora.TextBrush}"
+                        <TextBlock Text="LOCAL LIBRARY"
+                                   Foreground="{DynamicResource Pandora.MutedBrush}"
                                    FontSize="11"
                                    Margin="0,2,0,0" />
                     </StackPanel>
-                    <ComboBox Grid.Column="1"
-                              Width="160"
+                    <ComboBox Grid.Row="1" Grid.ColumnSpan="2"
+                              x:Name="MusicPlaylistPicker"
+                              HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                              ToolTip="Choose a playlist" AutomationProperties.Name="Playlist"
                               ItemsSource="{Binding MusicPlaylists}"
                               SelectedItem="{Binding SelectedMusicPlaylist, Mode=TwoWay}"
                               DisplayMemberPath="Name"
@@ -333,27 +337,41 @@
                          x:Name="MusicTracksList"
                          ItemsSource="{Binding MusicTracks}"
                          SelectedItem="{Binding SelectedMusicTrack, Mode=TwoWay}"
-                         Background="{DynamicResource Pandora.SurfaceBrush}"
+                         Background="Transparent"
                          BorderThickness="0"
                          Foreground="{DynamicResource Pandora.TextBrush}"
-                         Margin="0,12,0,10"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         HorizontalContentAlignment="Stretch"
+                         Margin="0,8,0,6"
                          MouseDoubleClick="MusicTracksList_MouseDoubleClick">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="6,2" />
+                            <Setter Property="Margin" Value="0,2" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type local:MusicTrackViewModel}">
-                            <TextBlock Text="{Binding Title}"
-                                       Padding="9,5"
-                                       Foreground="{DynamicResource Pandora.TextBrush}"
-                                       TextTrimming="CharacterEllipsis" />
+                            <Grid Margin="2,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" /><ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="♪" VerticalAlignment="Center" Foreground="{DynamicResource Pandora.MutedBrush}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" Padding="2,1"
+                                           Foreground="{DynamicResource Pandora.TextBrush}" TextTrimming="CharacterEllipsis" />
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
                 <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <CheckBox x:Name="ShuffleCheckBox"
                               Content="Shuffle"
@@ -363,20 +381,31 @@
                     <ComboBox Grid.Column="1"
                               x:Name="RepeatComboBox"
                               Width="88"
-                              Margin="12,0"
+                              ToolTip="Repeat mode" AutomationProperties.Name="Repeat mode"
+                              Margin="6,0"
                               SelectionChanged="RepeatComboBox_SelectionChanged" />
-                    <Slider Grid.Column="2"
+                    <Slider Grid.Row="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                            x:Name="MusicVolumeSlider" MinWidth="40"
+                            ToolTip="Volume" AutomationProperties.Name="Volume"
                             Minimum="0"
                             Maximum="1"
                             Value="{Binding MusicVolume, Mode=TwoWay}"
                             VerticalAlignment="Center" />
-                    <Button Grid.Column="3"
-                            Content="Open Music Folder"
-                            Padding="10,5"
-                            Background="{DynamicResource Pandora.SurfaceBrush}"
+                    <Grid x:Name="MusicUtilityRow" Grid.Row="2" Grid.ColumnSpan="3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Button HorizontalAlignment="Left"
+                            Content="Music folder" Margin="0,6,0,0"
+                            Padding="6,5" FontSize="11"
+                            Background="Transparent"
                             Foreground="{DynamicResource Pandora.TextBrush}"
                             BorderBrush="{DynamicResource Pandora.BorderBrush}"
                             Click="OpenMusicFolder_Click" />
+                    <Button Grid.Column="1" HorizontalAlignment="Right"
+                            x:Name="MusicVisualizerButton" Content="Visualizer ↗"
+                            ToolTip="Open Silk Current audio visualizer" Margin="0,6,0,0" Padding="6,5" FontSize="11"
+                            Background="Transparent" Foreground="{DynamicResource Pandora.AccentBrush}"
+                            Click="MusicVisualizer_Click" />
+                    </Grid>
                 </Grid>
             </Grid>
 

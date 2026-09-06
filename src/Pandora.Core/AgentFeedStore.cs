@@ -45,8 +45,7 @@ public sealed class AgentFeedStore
 
     public static AgentFeedStore ForCurrentUser()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return new AgentFeedStore(Path.Combine(appData, "Pandora", "AgentFeeds"));
+        return new AgentFeedStore(Path.Combine(UserDataPaths.Root, "AgentFeeds"));
     }
 
     public static AgentFeedStore ForWorkspace(string workspacePath)

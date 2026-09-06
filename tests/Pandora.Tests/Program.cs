@@ -28,6 +28,7 @@ var tests = new List<(string Name, Action Body)>
 };
 
 tests.Add(("Metis reader, registry, and read-only portfolio boundaries", MetisTests.Run));
+tests.Add(("Packaged and ordinary launches share data and fail closed before migration", UserDataPathTests.Run));
 tests.Add(("Structural themes migrate and round-trip independently from palettes", StructuralThemeTests.Run));
 tests.Add(("Per-dock header icons default safely and round-trip independently", DockIconTests.Run));
 tests.Add(("CLI validation, isolation and content-stable checklist identities", CliSafetyTests.Run));

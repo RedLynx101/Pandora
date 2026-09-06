@@ -1,134 +1,52 @@
-const canvas = document.querySelector("#visualizer");
+// Silk Current: a local audio instrument. Renderer and UI rebuilt around projected light sculptures.
+// Capture ownership remains generation-scoped: stale permission results never retain a stream.
+const $ = selector => document.querySelector(selector);
+const canvas = $("#visualizer");
 const ctx = canvas.getContext("2d", { alpha: false });
-const stage = document.querySelector("#stage");
-const statusEl = document.querySelector("#status");
-const listenButton = document.querySelector("#listenButton");
-const freezeButton = document.querySelector("#freezeButton");
-const fullscreenButton = document.querySelector("#fullscreenButton");
-const sensitivityInput = document.querySelector("#sensitivity");
+const stage = $("#stage");
+const statusEl = $("#status");
+const listenButton = $("#listenButton");
+const freezeButton = $("#freezeButton");
+const fullscreenButton = $("#fullscreenButton");
+const sensitivityInput = $("#sensitivity");
+const demoButton = $("#demoButton");
 const modeButtons = [...document.querySelectorAll(".mode-button")];
-const meters = {
-  bass: document.querySelector("#bassMeter"),
-  mid: document.querySelector("#midMeter"),
-  treble: document.querySelector("#trebleMeter")
-};
-
+const meters = { bass: $("#bassMeter"), mid: $("#midMeter"), treble: $("#trebleMeter") };
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const demoMode = new URLSearchParams(window.location.search).has("demo");
-const maxDpr = reducedMotion ? 1.25 : 1.75;
+let demoMode = new URLSearchParams(window.location.search).has("demo");
 const state = {
-  width: 1,
-  height: 1,
-  dpr: 1,
-  time: 0,
-  mode: "silk",
-  frozen: false,
-  live: false,
-  sensitivity: Number(sensitivityInput.value),
-  audioContext: null,
-  analyser: null,
-  stream: null,
-  capturing: false,
-  captureGeneration: 0,
-  captureResources: null,
-  lastFrame: null,
-  frequency: null,
-  waveform: null,
-  bands: {
-    level: 0,
-    bass: 0,
-    mid: 0,
-    treble: 0
-  },
-  targets: {
-    level: 0,
-    bass: 0,
-    mid: 0,
-    treble: 0
-  },
-  pointer: {
-    x: 0.5,
-    y: 0.5,
-    intensity: 0
-  },
-  particles: []
+  width: 1, height: 1, dpr: 1, time: 0, mode: "silk", scene: 0, sceneTarget: 0,
+  frozen: reducedMotion, live: false, sensitivity: Number(sensitivityInput.value),
+  audioContext: null, analyser: null, stream: null, capturing: false, captureGeneration: 0,
+  captureResources: null, lastFrame: null, frequency: null, waveform: null,
+  bands: { level: 0, bass: 0, mid: 0, treble: 0 },
+  targets: { level: 0, bass: 0, mid: 0, treble: 0 },
+  pointer: { x: 0.5, y: 0.5 }, particles: []
 };
-
-const palettes = {
-  silk: {
-    hueA: 164,
-    hueB: 42,
-    hueC: 344,
-    shadow: "rgba(3, 4, 4, 0.155)",
-    veil: "rgba(245, 243, 235, 0.07)"
-  },
-  ember: {
-    hueA: 36,
-    hueB: 344,
-    hueC: 166,
-    shadow: "rgba(7, 4, 3, 0.15)",
-    veil: "rgba(242, 206, 126, 0.065)"
-  },
-  rain: {
-    hueA: 252,
-    hueB: 166,
-    hueC: 42,
-    shadow: "rgba(3, 4, 5, 0.16)",
-    veil: "rgba(187, 169, 255, 0.06)"
-  }
-};
-
-function resize() {
-  // Leave the frozen bitmap untouched; CSS can scale it until animation resumes.
-  if (state.frozen) return;
-  const { innerWidth, innerHeight, devicePixelRatio } = window;
-  state.dpr = Math.min(devicePixelRatio || 1, maxDpr);
-  state.width = Math.max(1, innerWidth);
-  state.height = Math.max(1, innerHeight);
+const TAU = Math.PI * 2;
+const clamp = (value, low = 0, high = 1) => Math.min(high, Math.max(low, value));
+function setStatus(text) { statusEl.textContent = text; }
+function setLive(live) {
+  state.live = live;
+  stage.classList.toggle("is-live", live);
+  listenButton.querySelector("span:last-child").textContent = live ? "Disconnect" : "Connect audio";
+  demoButton.disabled = live || state.capturing;
+}
+function resize(force = false) {
+  if (state.frozen && force !== true) return;
+  state.width = Math.max(1, window.innerWidth);
+  state.height = Math.max(1, window.innerHeight);
+  state.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
   canvas.width = Math.floor(state.width * state.dpr);
   canvas.height = Math.floor(state.height * state.dpr);
-  canvas.style.width = `${state.width}px`;
-  canvas.style.height = `${state.height}px`;
+  canvas.style.width = "100%"; canvas.style.height = "100%";
   ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-  seedParticles();
-  clearCanvas();
+  // Stable field, not frame-dependent random noise.
+  state.particles = Array.from({ length: 150 }, (_, i) => ({
+    x: ((i * 0.61803398875) % 1), y: ((i * 0.41421356237) % 1), size: i % 4 === 0 ? 1 : 0.5
+  }));
+  render();
 }
-
-function clearCanvas() {
-  ctx.fillStyle = "#050605";
-  ctx.fillRect(0, 0, state.width, state.height);
-}
-
-function seedParticles() {
-  const area = state.width * state.height;
-  const target = reducedMotion ? 220 : Math.min(860, Math.max(320, Math.round(area / 2850)));
-  state.particles = Array.from({ length: target }, (_, index) => createParticle(index / target));
-}
-
-function createParticle(offset = Math.random()) {
-  const angle = offset * Math.PI * 2 + Math.random() * 0.25;
-  const maxRadius = Math.hypot(state.width, state.height) * 0.54;
-  return {
-    angle,
-    radius: Math.random() * maxRadius,
-    size: 0.55 + Math.random() * 1.8,
-    speed: 0.0015 + Math.random() * 0.0048,
-    drift: 0.8 + Math.random() * 1.8,
-    seed: Math.random() * 1000,
-    hueShift: Math.random()
-  };
-}
-
-function setStatus(text) {
-  statusEl.textContent = text;
-}
-
-function setLive(isLive) {
-  state.live = isLive;
-  stage.classList.toggle("is-live", isLive);
-  listenButton.querySelector("span:last-child").textContent = isLive ? "Stop" : "Listen";
-}
-
 async function startCapture() {
   if (state.capturing || state.live) return;
   if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -138,6 +56,7 @@ async function startCapture() {
 
   const generation = ++state.captureGeneration;
   state.capturing = true;
+  demoButton.disabled = true;
   listenButton.querySelector("span:last-child").textContent = "Cancel";
   let stream = null;
   let audioContext = null;
@@ -190,7 +109,7 @@ async function startCapture() {
     });
 
     setLive(true);
-    setStatus("Live system audio");
+    setStatus("LIVE · shared audio");
   } catch (error) {
     if (generation !== state.captureGeneration) return;
     if (error?.name === "NotAllowedError") {
@@ -236,288 +155,164 @@ function stopCapture() {
   stream?.getTracks().forEach(track => track.stop());
   audioContext?.close().catch(() => {});
   setLive(false);
-  setStatus(demoMode ? "Preview drift" : "Waiting for system audio");
+  setStatus(demoMode ? "DEMO · generated signal" : "IDLE · no audio connected");
 }
+
 
 function rangeAverage(data, sampleRate, minHz, maxHz) {
-  if (!data || !sampleRate) {
-    return 0;
-  }
-
-  const nyquist = sampleRate / 2;
-  const start = Math.max(0, Math.floor((minHz / nyquist) * data.length));
-  const end = Math.min(data.length - 1, Math.ceil((maxHz / nyquist) * data.length));
-  let total = 0;
-  let count = 0;
-  for (let index = start; index <= end; index += 1) {
-    total += data[index] / 255;
-    count += 1;
-  }
-
-  return count === 0 ? 0 : total / count;
+  const start = Math.max(0, Math.floor(minHz * 2 / sampleRate * data.length));
+  const end = Math.min(data.length - 1, Math.ceil(maxHz * 2 / sampleRate * data.length));
+  let sum = 0;
+  for (let i = start; i <= end; i++) sum += data[i] / 255;
+  return end < start ? 0 : sum / (end - start + 1);
 }
-
-function sampleAudio(seconds) {
-  if (state.analyser && state.frequency && state.waveform && state.audioContext) {
+function sampleAudio(seconds, elapsed = 1 / 60) {
+  if (state.analyser) {
     state.analyser.getByteFrequencyData(state.frequency);
     state.analyser.getByteTimeDomainData(state.waveform);
-    const sampleRate = state.audioContext.sampleRate;
-    state.targets.bass = rangeAverage(state.frequency, sampleRate, 28, 160);
-    state.targets.mid = rangeAverage(state.frequency, sampleRate, 180, 2200);
-    state.targets.treble = rangeAverage(state.frequency, sampleRate, 2400, 12000);
-    state.targets.level = Math.min(
-      1,
-      state.targets.bass * 0.48 + state.targets.mid * 0.34 + state.targets.treble * 0.22
-    );
+    state.targets.bass = rangeAverage(state.frequency, state.audioContext.sampleRate, 28, 160);
+    state.targets.mid = rangeAverage(state.frequency, state.audioContext.sampleRate, 180, 2200);
+    state.targets.treble = rangeAverage(state.frequency, state.audioContext.sampleRate, 2400, 12000);
   } else {
-    const pulse = Math.sin(seconds * 0.78) * 0.5 + 0.5;
-    const flicker = Math.sin(seconds * 2.3 + Math.cos(seconds * 0.3)) * 0.5 + 0.5;
-    const shimmer = Math.sin(seconds * 4.6 + 2.1) * 0.5 + 0.5;
-    state.targets.bass = 0.12 + pulse * 0.24;
-    state.targets.mid = 0.10 + flicker * 0.2;
-    state.targets.treble = 0.08 + shimmer * 0.18;
-    state.targets.level = 0.16 + pulse * 0.2 + shimmer * 0.05;
+    state.targets.bass = demoMode ? Math.pow(Math.max(0, Math.sin(seconds * 2.6)), 6) * 0.8 : 0;
+    state.targets.mid = demoMode ? 0.25 + Math.sin(seconds * 1.3) * 0.18 : 0;
+    state.targets.treble = demoMode ? 0.12 + Math.pow(Math.sin(seconds * 4.1), 8) * 0.4 : 0;
   }
-
-  const easing = state.live ? 0.11 : 0.045;
+  state.targets.level = state.targets.bass * 0.48 + state.targets.mid * 0.34 + state.targets.treble * 0.18;
   for (const key of Object.keys(state.bands)) {
-    const boosted = Math.min(1, state.targets[key] * state.sensitivity);
-    state.bands[key] += (boosted - state.bands[key]) * easing;
+    const target = clamp(state.targets[key] * state.sensitivity);
+    const smoothing = 1 - Math.exp(-elapsed * (target > state.bands[key] ? 13 : 4));
+    state.bands[key] += (target - state.bands[key]) * smoothing;
   }
-
-  state.pointer.intensity *= 0.94;
-  meters.bass.style.transform = `scaleY(${0.12 + state.bands.bass * 0.94})`;
-  meters.mid.style.transform = `scaleY(${0.12 + state.bands.mid * 0.94})`;
-  meters.treble.style.transform = `scaleY(${0.12 + state.bands.treble * 0.94})`;
+  for (const key of ["bass", "mid", "treble"]) meters[key].style.transform = `scaleX(${state.bands[key]})`;
 }
-
-function drawBackground(palette) {
+function point(scene, u, v, time) {
+  const bass = state.bands.bass, mid = state.bands.mid;
+  if (scene === 1) { // A folded ribbon with a travelling frequency wave.
+    const x = (u / TAU - 0.5) * 4.8;
+    const fold = Math.sin(u * 1.45 + time * 0.28 + v * 0.32);
+    return [x, fold * (0.55 + bass * 0.6) + Math.cos(v) * 0.28,
+      Math.sin(v) * 0.65 + Math.cos(u * 1.2 - time * 0.16) * 0.7];
+  }
+  if (scene === 2) { // A woven, precessing figure-eight.
+    const r = 1.25 + Math.cos(v) * (0.24 + bass * 0.3);
+    return [Math.sin(u) * r * 1.5, Math.sin(u * 2) * r * 0.62,
+      Math.cos(u) * 0.7 + Math.sin(v + u * 3 + time * 0.2) * (0.3 + mid * 0.35)];
+  }
+  // A breathing toroidal sculpture. Bass expands its core; mid folds its filaments.
+  const ripple = Math.sin(u * 5 + time * 0.5 + v) * mid * 0.16;
+  const r = 1.18 + (0.38 + bass * 0.22) * Math.cos(v) + ripple;
+  return [r * Math.cos(u), r * Math.sin(u), Math.sin(v) * (0.42 + mid * 0.2)];
+}
+function project(p, time) {
+  const yaw = Math.sin(time * 0.09) * 0.2 + (state.pointer.x - 0.5) * 0.25;
+  const tilt = 0.95 + Math.sin(time * 0.12) * 0.14 + (state.pointer.y - 0.5) * 0.12;
+  const x = p[0] * Math.cos(yaw) + p[2] * Math.sin(yaw);
+  const z = -p[0] * Math.sin(yaw) + p[2] * Math.cos(yaw);
+  const y = p[1] * Math.cos(tilt) - z * Math.sin(tilt);
+  const depth = p[1] * Math.sin(tilt) + z * Math.cos(tilt);
+  const scale = Math.min(state.width * 0.16, state.height * 0.245) * 4.8 / (4.8 + depth);
+  const angle = -0.23;
+  return [state.width * 0.5 + (x * Math.cos(angle) - y * Math.sin(angle)) * scale,
+    state.height * 0.49 + (x * Math.sin(angle) + y * Math.cos(angle)) * scale, depth];
+}
+function render() {
+  const { width: w, height: h, time: t } = state;
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = palette.shadow;
-  ctx.fillRect(0, 0, state.width, state.height);
-
-  const cx = state.width * (0.5 + (state.pointer.x - 0.5) * 0.05);
-  const cy = state.height * (0.5 + (state.pointer.y - 0.5) * 0.05);
-  const radius = Math.max(state.width, state.height) * (0.42 + state.bands.bass * 0.16);
-  const gradient = ctx.createRadialGradient(cx, cy, 20, cx, cy, radius);
-  gradient.addColorStop(0, `hsla(${palette.hueA}, 70%, 72%, ${0.06 + state.bands.level * 0.08})`);
-  gradient.addColorStop(0.42, `hsla(${palette.hueB}, 80%, 68%, ${0.035 + state.bands.mid * 0.06})`);
-  gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, state.width, state.height);
-}
-
-function drawStrands(palette, seconds) {
-  const count = reducedMotion ? 9 : 18;
-  const centerY = state.height * 0.54;
-  const spread = state.height * 0.42;
-  const step = Math.max(18, Math.floor(state.width / 96));
-  const amp = 18 + state.bands.bass * 112 + state.pointer.intensity * 26;
-
-  ctx.save();
+  ctx.fillStyle = "#06090e"; ctx.fillRect(0, 0, w, h);
+  const glow = ctx.createRadialGradient(w * 0.5, h * 0.49, 0, w * 0.5, h * 0.49, Math.min(w, h) * 0.65);
+  glow.addColorStop(0, `rgba(64, 41, 22, ${0.18 + state.bands.bass * 0.15})`);
+  glow.addColorStop(0.55, "rgba(20, 35, 49, 0.14)"); glow.addColorStop(1, "rgba(6,9,14,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(180,203,219,0.25)";
+  for (const star of state.particles) ctx.fillRect(star.x * w, star.y * h, star.size, star.size);
+  const low = Math.floor(state.scene), high = Math.min(2, low + 1), mix = state.scene - low;
+  const strands = reducedMotion ? 44 : 76, steps = reducedMotion ? 112 : 176;
   ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  for (let line = 0; line < count; line += 1) {
-    const lane = count === 1 ? 0 : line / (count - 1);
-    const yBase = centerY + (lane - 0.5) * spread;
-    const alpha = 0.035 + (1 - Math.abs(lane - 0.5) * 1.4) * 0.075 + state.bands.mid * 0.04;
-    const hue = line % 3 === 0 ? palette.hueA : line % 3 === 1 ? palette.hueB : palette.hueC;
-
+  ctx.lineWidth = 0.72;
+  for (let j = 0; j < strands; j++) {
+    const v = j / strands * TAU;
     ctx.beginPath();
-    for (let x = -80; x <= state.width + 80; x += step) {
-      const pointerPull = Math.exp(
-        -Math.abs(x / state.width - state.pointer.x) * 4.8 -
-        Math.abs(yBase / state.height - state.pointer.y) * 4.2
-      ) * state.pointer.intensity * 44;
-      const flow =
-        Math.sin(x * 0.006 + seconds * (0.42 + line * 0.008) + line * 0.75) * amp +
-        Math.sin(x * 0.014 - seconds * 0.68 + line * 1.25) * amp * 0.34 +
-        Math.sin(x * 0.027 + seconds * 0.17 + line) * amp * 0.12;
-      const y = yBase + flow + pointerPull;
-      if (x === -80) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps * TAU;
+      const a = point(low, u, v, t), b = point(high, u, v, t);
+      const p = project(a.map((value, k) => value + (b[k] - value) * mix), t);
+      if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
     }
-
-    ctx.strokeStyle = `hsla(${hue}, 82%, ${62 + state.bands.treble * 16}%, ${Math.max(0.018, alpha)})`;
-    ctx.lineWidth = 0.7 + state.bands.level * 2.2 + (line % 5 === 0 ? 0.8 : 0);
+    const light = (Math.sin(v + t * 0.12) + 1) * 0.5;
+    const hues = [28, 170, 220];
+    const hue = hues[low] + (hues[high] - hues[low]) * mix + light * 14;
+    ctx.strokeStyle = `hsla(${hue}, ${74 - state.scene * 8}%, ${48 + light * 29}%, ${0.13 + light * 0.47 + state.bands.treble * 0.12})`;
     ctx.stroke();
   }
-
-  ctx.restore();
-}
-
-function waveformValue(index, seconds) {
-  if (state.waveform) {
-    return (state.waveform[index % state.waveform.length] - 128) / 128;
-  }
-
-  return Math.sin(index * 0.33 + seconds * 1.6) * 0.42 + Math.sin(index * 0.07 - seconds * 0.42) * 0.28;
-}
-
-function drawWaveHalo(palette, seconds) {
-  const cx = state.width * 0.5;
-  const cy = state.height * 0.5;
-  const points = reducedMotion ? 160 : 260;
-  const baseRadius = Math.min(state.width, state.height) * (0.17 + state.bands.bass * 0.08);
-  const energy = 24 + state.bands.mid * 74 + state.bands.treble * 22;
-
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  // A bright thread travels through the weave; actual waveform perturbs its orbit.
   ctx.beginPath();
-  for (let point = 0; point <= points; point += 1) {
-    const turn = point / points;
-    const angle = turn * Math.PI * 2;
-    const sample = waveformValue(point * 7, seconds);
-    const ripple = Math.sin(angle * 5 - seconds * 0.7) * state.bands.bass * 20;
-    const radius = baseRadius + sample * energy + ripple;
-    const x = cx + Math.cos(angle) * radius * (1.35 + state.bands.treble * 0.18);
-    const y = cy + Math.sin(angle) * radius * (0.74 + state.bands.bass * 0.16);
-    if (point === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps * TAU;
+    const audio = state.waveform ? (state.waveform[Math.floor(i / steps * (state.waveform.length - 1))] - 128) / 128 : 0;
+    const v = t * 0.3 + audio * 0.35;
+    const a = point(low, u, v, t), b = point(high, u, v, t);
+    const p = project(a.map((value, k) => value + (b[k] - value) * mix), t);
+    i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]);
   }
-
-  ctx.closePath();
-  ctx.strokeStyle = `hsla(${palette.hueB}, 88%, 72%, ${0.18 + state.bands.level * 0.26})`;
-  ctx.lineWidth = 1.1 + state.bands.level * 3.2;
-  ctx.shadowBlur = 22 + state.bands.treble * 34;
-  ctx.shadowColor = `hsla(${palette.hueA}, 80%, 68%, 0.62)`;
-  ctx.stroke();
-
-  ctx.globalAlpha = 0.065 + state.bands.bass * 0.08;
-  ctx.fillStyle = `hsla(${palette.hueC}, 76%, 70%, 1)`;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawParticles(palette, seconds) {
-  const cx = state.width * 0.5;
-  const cy = state.height * 0.5;
-  const pullX = (state.pointer.x - 0.5) * state.width * 0.08 * state.pointer.intensity;
-  const pullY = (state.pointer.y - 0.5) * state.height * 0.08 * state.pointer.intensity;
-  const maxRadius = Math.hypot(state.width, state.height) * 0.58;
-
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-
-  for (const particle of state.particles) {
-    particle.angle += particle.speed * (0.55 + state.bands.mid * 5.8);
-    particle.radius += Math.sin(seconds * particle.drift + particle.seed) * 0.025 + (state.bands.bass - 0.18) * 0.12;
-    if (particle.radius > maxRadius || particle.radius < 10) {
-      Object.assign(particle, createParticle());
-      particle.radius = Math.random() * maxRadius * 0.28;
-    }
-
-    const wobble = Math.sin(seconds * 0.8 + particle.seed) * (12 + state.bands.treble * 28);
-    const x = cx + Math.cos(particle.angle) * (particle.radius + wobble) + pullX;
-    const y = cy + Math.sin(particle.angle * 0.92) * (particle.radius * 0.56 + wobble * 0.4) + pullY;
-    const hue = particle.hueShift < 0.5 ? palette.hueA : particle.hueShift < 0.82 ? palette.hueB : palette.hueC;
-    const size = particle.size * (0.82 + state.bands.treble * 3.8 + state.bands.level * 1.3);
-    ctx.beginPath();
-    ctx.fillStyle = `hsla(${hue}, 86%, ${66 + state.bands.treble * 12}%, ${0.1 + state.bands.treble * 0.22})`;
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-function drawVignette(palette) {
-  const gradient = ctx.createRadialGradient(
-    state.width * 0.5,
-    state.height * 0.5,
-    Math.min(state.width, state.height) * 0.18,
-    state.width * 0.5,
-    state.height * 0.5,
-    Math.max(state.width, state.height) * 0.76
-  );
-  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
-  gradient.addColorStop(0.72, palette.veil);
-  gradient.addColorStop(1, "rgba(0, 0, 0, 0.72)");
+  ctx.strokeStyle = "rgba(247,228,194,0.7)"; ctx.lineWidth = 1.15; ctx.stroke();
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, state.width, state.height);
 }
-
 function draw(now) {
   requestAnimationFrame(draw);
-  const elapsed = state.lastFrame === null ? 0 : Math.min(0.1, Math.max(0, (now - state.lastFrame) / 1000));
+  const elapsed = state.lastFrame === null ? 0 : clamp((now - state.lastFrame) / 1000, 0, 0.05);
   state.lastFrame = now;
-  if (state.frozen) return;
+  if (state.frozen || document.hidden) return;
   state.time += elapsed;
-  sampleAudio(state.time);
-
-  const palette = palettes[state.mode];
-  drawBackground(palette);
-  drawStrands(palette, state.time);
-  drawWaveHalo(palette, state.time);
-  drawParticles(palette, state.time);
-  drawVignette(palette);
+  state.scene += (state.sceneTarget - state.scene) * (1 - Math.exp(-elapsed * 3));
+  if (Math.abs(state.sceneTarget - state.scene) < 0.001) state.scene = state.sceneTarget;
+  sampleAudio(state.time, elapsed); render();
 }
-
-listenButton.addEventListener("click", () => {
-  if (state.live || state.capturing) {
-    stopCapture();
-  } else {
-    startCapture();
-  }
-});
-
-freezeButton.addEventListener("click", () => {
+function toggleFreeze() {
   state.frozen = !state.frozen;
   if (!state.frozen && (state.width !== window.innerWidth || state.height !== window.innerHeight)) resize();
-  freezeButton.classList.toggle("is-active", state.frozen);
   freezeButton.setAttribute("aria-pressed", String(state.frozen));
-});
-
-fullscreenButton.addEventListener("click", () => {
-  if (document.fullscreenElement) {
-    document.exitFullscreen().catch(() => {});
-  } else {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
-});
-
+  freezeButton.textContent = state.frozen ? "Resume motion" : "Pause motion";
+}
+function toggleDemo() {
+  if (state.live || state.capturing) return;
+  demoMode = !demoMode;
+  demoButton.setAttribute("aria-pressed", String(demoMode));
+  setStatus(demoMode ? "DEMO · generated signal" : "IDLE · no audio connected");
+}
+function fullscreen() {
+  const action = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  action.catch(() => setStatus("Full screen is unavailable in this browser."));
+}
+listenButton.addEventListener("click", () => state.live || state.capturing ? stopCapture() : startCapture());
+freezeButton.addEventListener("click", toggleFreeze);
+fullscreenButton.addEventListener("click", fullscreen);
+demoButton.addEventListener("click", toggleDemo);
 sensitivityInput.addEventListener("input", () => {
-  state.sensitivity = Number(sensitivityInput.value);
+  state.sensitivity = clamp(Number(sensitivityInput.value) || 1, 0.5, 2.5);
+  $("#gainValue").textContent = state.sensitivity.toFixed(2) + "×";
 });
-
-modeButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    state.mode = button.dataset.mode;
-    stage.dataset.mode = state.mode;
-    for (const modeButton of modeButtons) {
-      modeButton.classList.toggle("is-active", modeButton === button);
-      modeButton.setAttribute("aria-pressed", String(modeButton === button));
-    }
-  });
-});
-
+modeButtons.forEach((button, index) => button.addEventListener("click", () => {
+  state.mode = button.dataset.mode; state.sceneTarget = index; stage.dataset.mode = state.mode;
+  for (const item of modeButtons) item.setAttribute("aria-pressed", String(item === button));
+  $("#sceneNumber").textContent = "0" + (index + 1);
+  $("#sceneName").textContent = button.dataset.label;
+  if (state.frozen) { state.scene = index; render(); }
+}));
 window.addEventListener("pointermove", event => {
-  state.pointer.x = event.clientX / Math.max(1, state.width);
-  state.pointer.y = event.clientY / Math.max(1, state.height);
-  state.pointer.intensity = Math.min(1, state.pointer.intensity + 0.08);
+  state.pointer.x = clamp(event.clientX / state.width); state.pointer.y = clamp(event.clientY / state.height);
 });
-
-window.addEventListener("pointerdown", event => {
-  state.pointer.x = event.clientX / Math.max(1, state.width);
-  state.pointer.y = event.clientY / Math.max(1, state.height);
-  state.pointer.intensity = 1;
+window.addEventListener("keydown", event => {
+  if (["INPUT", "BUTTON", "SUMMARY", "SELECT", "TEXTAREA"].includes(event.target?.tagName)) return;
+  if (event.code === "Space") { event.preventDefault(); toggleFreeze(); }
+  if (event.key?.toLowerCase() === "f") fullscreen();
+  if (event.key?.toLowerCase() === "d") toggleDemo();
 });
-
 window.addEventListener("resize", resize);
 window.addEventListener("pagehide", stopCapture);
-
-resize();
-clearCanvas();
-if (demoMode) {
-  setStatus("Preview drift");
-}
+freezeButton.setAttribute("aria-pressed", String(state.frozen));
+freezeButton.textContent = state.frozen ? "Resume motion" : "Pause motion";
+demoButton.setAttribute("aria-pressed", String(demoMode));
+setStatus(demoMode ? "DEMO · generated signal" : "IDLE · no audio connected");
+resize(true);
 requestAnimationFrame(draw);

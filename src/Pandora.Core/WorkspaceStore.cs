@@ -34,6 +34,7 @@ public sealed class WorkspaceStore
 
     public string WorkspacePath { get; }
     public string RecoveryDirectory => WorkspacePath + ".recovery";
+    internal string? MigrationRequiredFrom { get; init; }
 
     // Deterministic failure injection for fixture tests; never set by product callers.
     internal Action? BeforeBackupForTests { get; set; }
@@ -55,8 +56,18 @@ public sealed class WorkspaceStore
         return bytes is not null && string.Equals(expected.Fingerprint, Fingerprint(bytes), StringComparison.Ordinal);
     }
 
+    private void EnsureUserDataMigration()
+    {
+        if (!File.Exists(WorkspacePath) && MigrationRequiredFrom is not null && File.Exists(MigrationRequiredFrom))
+            throw new WorkspaceValidationException(
+                $"Existing Pandora data needs migration from '{Path.GetDirectoryName(MigrationRequiredFrom)}' " +
+                $"to '{Path.GetDirectoryName(WorkspacePath)}'. Close Pandora and run scripts/migrate-user-data.ps1 " +
+                "from a normal, unpackaged PowerShell window. No existing data was changed.");
+    }
+
     public Workspace LoadOrCreate()
     {
+        EnsureUserDataMigration();
         using var guard = AcquireLock();
         var bytes = ReadBytesIfPresent(WorkspacePath);
         if (bytes is null)
@@ -173,8 +184,12 @@ public sealed class WorkspaceStore
     /// <summary>Resolve Pandora user storage only; creation requires LoadOrCreate.</summary>
     public static WorkspaceStore ForCurrentUser()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return new WorkspaceStore(Path.Combine(appData, "Pandora", "workspace.json"));
+        var store = UserDataPaths.WorkspaceFor(
+            UserDataPaths.Profile,
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        // Fail before callers initialize diagnostics or create an empty registry/feed.
+        store.EnsureUserDataMigration();
+        return store;
     }
 
     private Workspace PrepareSnapshot(byte[] bytes, bool attachStamp = true)

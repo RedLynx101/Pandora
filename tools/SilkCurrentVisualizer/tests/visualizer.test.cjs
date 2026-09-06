@@ -30,8 +30,8 @@ function fixture(options = {}) {
   }
   const context = vm.createContext({
     document: { querySelector: node, querySelectorAll: () => [] },
-    window: { innerWidth: 800, innerHeight: 500, devicePixelRatio: 1, location: { search: '?demo' },
-      matchMedia: () => ({ matches: false }), addEventListener: (name, callback) => { browserEvents[name] = callback; } },
+    window: { innerWidth: 800, innerHeight: 500, devicePixelRatio: 1, location: { search: options.idle ? '' : '?demo' },
+      matchMedia: () => ({ matches: !!options.reducedMotion }), addEventListener: (name, callback) => { browserEvents[name] = callback; } },
     navigator: { mediaDevices: { getDisplayMedia: () => { captureCalls++; return new Promise((resolve, reject) => pending.push({ resolve, reject })); } } },
     AudioContext, URLSearchParams, Uint8Array, requestAnimationFrame() {}
   });
@@ -101,4 +101,57 @@ test('Freeze stops canvas drawing and particle mutation, then resumes without a 
   assert.equal(f.paints, paints, 'Resize must preserve the frozen bitmap');
   f.node('#freezeButton').listeners.click(); f.read('draw(1800016)');
   assert(f.paints > paints); assert(f.read('state.time') - time < 0.02);
+});
+
+test('idle never invents an audio signal; demo is explicit and reversible', () => {
+  const f = fixture({ idle: true });
+  f.read('sampleAudio(12, 1)');
+  assert.equal(f.read('state.bands.level'), 0);
+  f.node('#demoButton').listeners.click();
+  f.read('sampleAudio(12, 1)');
+  assert(f.read('state.bands.level') > 0);
+  assert.match(f.node('#status').textContent, /DEMO/);
+  f.node('#demoButton').listeners.click();
+  f.read('sampleAudio(13, 10)');
+  assert(f.read('state.bands.level') < 0.0001);
+  assert.match(f.node('#status').textContent, /IDLE/);
+});
+
+test('reduced motion starts with a still composition and resumes only by choice', () => {
+  const f = fixture({ reducedMotion: true });
+  const paints = f.paints;
+  f.read('draw(1000); draw(1200)');
+  assert.equal(f.paints, paints);
+  assert.equal(f.read('state.frozen'), true);
+  f.node('#freezeButton').listeners.click(); f.read('draw(1216)');
+  assert(f.paints > paints);
+});
+
+test('all sculpture modes and interpolation produce finite projected geometry', () => {
+  const f = fixture();
+  assert.equal(f.read(`(() => {
+    for (const width of [320, 1440, 2560]) {
+      state.width = width; state.height = width < 500 ? 844 : 900;
+      for (let mode = 0; mode <= 2; mode++) {
+        state.bands.bass = 1; state.bands.mid = 1;
+        for (let i = 0; i < 100; i++) {
+          const p = project(point(mode, i / 100 * TAU, i * 0.1, 99), 99);
+          if (!p.every(Number.isFinite)) return false;
+        }
+        state.scene = mode; render();
+      }
+    }
+    return true;
+  })()`), true);
+});
+
+test('gain clamps invalid input and hidden pages do not animate', () => {
+  const f = fixture();
+  f.node('#sensitivity').value = 'NaN'; f.node('#sensitivity').listeners.input();
+  assert.equal(f.read('state.sensitivity'), 1);
+  f.node('#sensitivity').value = '100'; f.node('#sensitivity').listeners.input();
+  assert.equal(f.read('state.sensitivity'), 2.5);
+  f.context.document.hidden = true;
+  const paints = f.paints; f.read('draw(1000); draw(1016)');
+  assert.equal(f.paints, paints);
 });
